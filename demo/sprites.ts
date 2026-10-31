@@ -1,7 +1,7 @@
 // Sprite preview: every sprite and animation at 1× / 3× / 6× in both themes.
 // Run with `npx vite demo` and open /sprites.html.
 import * as S from "../src/sprites/index";
-import type { SpriteDef, WeaponAnchor, WeaponDef } from "../src/sprites/types";
+import type { Point, SpriteDef, WeaponAnchor, WeaponDef } from "../src/sprites/types";
 import { validateAnchors, validateSprite, validateWeapon } from "../src/sprites/validate";
 
 type Theme = { name: string; bg: string; fg: string; colours: Record<string, string> };
@@ -48,13 +48,20 @@ const isWeapon = (v: unknown): v is WeaponDef =>
 const exported = Object.values(S as Record<string, unknown>);
 // Module namespaces are sorted by export name; show hero animations in play order instead.
 const ORDER = ["hero-idle", "hero-slash", "hero-hurt", "hero-death"];
-const rank = (s: SpriteDef) => (ORDER.includes(s.name) ? ORDER.indexOf(s.name) : ORDER.length);
+const tierOf = (s: SpriteDef) =>
+  ((S as Record<string, unknown>).slashArcs as SpriteDef[] | undefined)?.indexOf(s) ?? -1;
+const rank = (s: SpriteDef) =>
+  ORDER.includes(s.name) ? ORDER.indexOf(s.name) : ORDER.length + Math.max(0, tierOf(s));
 const sprites = exported.filter(isSprite).sort((a, b) => rank(a) - rank(b));
 const weapons = exported.filter(isWeapon).sort((a, b) => a.tier - b.tier);
 const anchors = ((S as Record<string, unknown>).heroWeaponAnchors ?? {}) as Record<
   string,
   WeaponAnchor[]
 >;
+
+const arcs = ((S as Record<string, unknown>).slashArcs ?? []) as SpriteDef[];
+const arcOffset = ((S as Record<string, unknown>).slashArcOffset ?? { x: 0, y: 0 }) as Point;
+const arcFrames = ((S as Record<string, unknown>).slashArcFrames ?? []) as (number | null)[];
 
 // ---------- validation ----------
 
@@ -115,8 +122,9 @@ function spriteDrawable(s: SpriteDef): Drawable {
   };
 }
 
-/** Hero animation with the selected weapon overlaid at each frame's anchor. */
+/** Hero animation with the weapon overlaid at each frame's anchor (and the slash arc on hero-slash). */
 function heroDrawable(s: SpriteDef, weapon: WeaponDef | undefined): Drawable {
+  const arc = s.name === "hero-slash" && weapon ? arcs[weapon.tier] : undefined;
   const list = anchors[s.name.slice(5)] ?? [];
   // Bounding box of hero + weapon over all frames.
   let minX = 0;
@@ -134,8 +142,14 @@ function heroDrawable(s: SpriteDef, weapon: WeaponDef | undefined): Drawable {
     maxY = Math.max(maxY, y + p.sprite.height);
     return { x, y, frame: p.sprite.frames[0], behind: !!a.behind };
   });
+  if (arc) {
+    minX = Math.min(minX, arcOffset.x);
+    minY = Math.min(minY, arcOffset.y);
+    maxX = Math.max(maxX, arcOffset.x + arc.width);
+    maxY = Math.max(maxY, arcOffset.y + arc.height);
+  }
   return {
-    label: `${s.name} ${s.width}×${s.height}${weapon ? ` + ${weapon.name}` : ""}`,
+    label: `${s.name} ${s.width}×${s.height}${weapon ? ` + ${weapon.name}` : ""}${arc ? " + slash arc" : ""}`,
     width: maxX - minX,
     height: maxY - minY,
     frameCount: s.frames.length,
@@ -145,6 +159,9 @@ function heroDrawable(s: SpriteDef, weapon: WeaponDef | undefined): Drawable {
       if (w?.behind) drawFrame(ctx, w.frame, t, w.x - minX, w.y - minY, scale);
       drawFrame(ctx, s.frames[f], t, -minX, -minY, scale);
       if (w && !w.behind) drawFrame(ctx, w.frame, t, w.x - minX, w.y - minY, scale);
+      const af = arcFrames[f];
+      if (arc && af !== null && af !== undefined)
+        drawFrame(ctx, arc.frames[af], t, arcOffset.x - minX, arcOffset.y - minY, scale);
     },
   };
 }
@@ -172,6 +189,7 @@ function weaponDrawable(w: WeaponDef): Drawable {
 
 const animated: { ctx: CanvasRenderingContext2D; d: Drawable; t: Theme; scale: number }[] = [];
 const gridBox = document.getElementById("grid") as HTMLInputElement;
+const slowBox = document.getElementById("slow") as HTMLInputElement;
 
 function canvasFor(d: Drawable, scale: number) {
   const c = document.createElement("canvas");
@@ -228,10 +246,12 @@ const GROUPS: [string, (s: SpriteDef) => boolean][] = [
   ["Hero", (s) => s.name.startsWith("hero-")],
   ["Mobs", (s) => s.name.startsWith("mob-")],
   ["Boss", (s) => s.name.startsWith("boss-")],
-  ["Items", (s) => !/^(hero|mob|boss|weapon)-/.test(s.name)],
+  ["Slash by tier", (s) => s.name === "hero-slash"],
+  ["Effects", (s) => s.name.startsWith("effect-")],
+  ["Items", (s) => !/^(hero|mob|boss|weapon|effect)-/.test(s.name)],
 ];
 
-// URL params for screenshots: ?tier=2&grid&only=Hero&theme=dark&name=hero-death&strip=6
+// URL params for screenshots: ?tier=2&grid&slow&only=Hero&theme=dark&name=hero-death&strip=6
 const params = new URLSearchParams(location.search);
 const stripScale = Number(params.get("strip") ?? 3);
 const nameFilter = params.get("name");
@@ -239,6 +259,7 @@ const tierSelect = document.getElementById("tier") as HTMLSelectElement;
 for (const w of weapons) tierSelect.add(new Option(w.name, String(w.tier)));
 if (params.has("tier")) tierSelect.value = params.get("tier")!;
 if (params.has("grid")) gridBox.checked = true;
+if (params.has("slow")) slowBox.checked = true;
 const only = params.get("only")?.split(",");
 const themes = params.has("theme") ? THEMES.filter((t) => t.name === params.get("theme")) : THEMES;
 
@@ -263,6 +284,10 @@ function build() {
       const h3 = document.createElement("h2");
       h3.textContent = title;
       col.append(h3);
+      if (title === "Slash by tier") {
+        for (const s of list) for (const w of weapons) addDrawable(col, heroDrawable(s, w), t);
+        continue;
+      }
       for (const s of list)
         addDrawable(col, isHero ? heroDrawable(s, weapon) : spriteDrawable(s), t);
       if (isHero && !nameFilter) for (const w of weapons) addDrawable(col, weaponDrawable(w), t);
@@ -274,7 +299,8 @@ function build() {
 
 function render(now: number) {
   for (const { ctx, d, t, scale } of animated) {
-    const f = Math.floor((now / 1000) * d.fps) % d.frameCount;
+    const fps = slowBox.checked ? d.fps / 4 : d.fps;
+    const f = Math.floor((now / 1000) * fps) % d.frameCount;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     d.draw(ctx, f, t, scale);
     gridOverlay(ctx, d, t, scale);

@@ -16,6 +16,24 @@ export const stick: WeaponDef = {
         frames: [[".......GG..", "......#....", "###########", "...#......."]],
       },
     },
+    back: {
+      grip: { x: 9, y: 3 },
+      sprite: {
+        name: "weapon-stick-back",
+        width: 13,
+        height: 6,
+        frames: [
+          [
+            "...oo........",
+            "..oGGo.......",
+            ".oooo#oooooo.",
+            "o###########o",
+            ".ooooooo#ooo.",
+            "........o....",
+          ],
+        ],
+      },
+    },
     up: {
       grip: { x: 2, y: 8 },
       sprite: {
@@ -87,6 +105,23 @@ export const woodenSword: WeaponDef = {
         width: 12,
         height: 3,
         frames: [["...#OOOOOOO.", "####OOOOOOOO", "...#........"]],
+      },
+    },
+    back: {
+      grip: { x: 10, y: 2 },
+      sprite: {
+        name: "weapon-wooden-sword-back",
+        width: 14,
+        height: 5,
+        frames: [
+          [
+            "..oooooooo....",
+            ".oOOOOOOO#ooo.",
+            "oOOOOOOOO####o",
+            ".oooooooo#ooo.",
+            ".........o....",
+          ],
+        ],
       },
     },
     up: {
@@ -162,6 +197,23 @@ export const stoneSword: WeaponDef = {
         width: 13,
         height: 3,
         frames: [["...#########.", "####o##o###o#", "...###.##.#.."]],
+      },
+    },
+    back: {
+      grip: { x: 11, y: 2 },
+      sprite: {
+        name: "weapon-stone-sword-back",
+        width: 15,
+        height: 5,
+        frames: [
+          [
+            "..ooooooooo....",
+            ".o#########ooo.",
+            "o#o###o##o####o",
+            ".oo#o##o###ooo.",
+            "...o.oo.ooo....",
+          ],
+        ],
       },
     },
     up: {
@@ -259,6 +311,25 @@ export const ironSword: WeaponDef = {
             "##############",
             "...#..........",
             "...#..........",
+          ],
+        ],
+      },
+    },
+    back: {
+      grip: { x: 12, y: 3 },
+      sprite: {
+        name: "weapon-iron-sword-back",
+        width: 16,
+        height: 7,
+        frames: [
+          [
+            "...........o....",
+            "..ooooooooo#o...",
+            ".oBBBBBBBBB#ooo.",
+            "o##############o",
+            ".oooooooooo#ooo.",
+            "..........o#o...",
+            "...........o....",
           ],
         ],
       },
@@ -361,6 +432,25 @@ export const goldSword: WeaponDef = {
             "Y##ROOOOOOOOOOY",
             "...Y...........",
             "...Y...........",
+          ],
+        ],
+      },
+    },
+    back: {
+      grip: { x: 13, y: 3 },
+      sprite: {
+        name: "weapon-gold-sword-back",
+        width: 17,
+        height: 7,
+        frames: [
+          [
+            "............o....",
+            "..ooooooooooYo...",
+            ".oYYYYYYYYYYYooo.",
+            "oYOOOOOOOOOOR##Yo",
+            ".oooooooooooYooo.",
+            "...........oYo...",
+            "............o....",
           ],
         ],
       },

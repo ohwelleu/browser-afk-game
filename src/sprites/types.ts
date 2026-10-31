@@ -34,8 +34,10 @@ export type Point = { x: number; y: number };
  *   upFwd    blade up and forward (45°)
  *   fwd      blade straight forward (to the right)
  *   downFwd  blade down and forward (45°)
+ *   back     blade straight back (to the left), with a bg outline so it reads
+ *            when it crosses the coat
  */
-export type WeaponPose = "up" | "upFwd" | "fwd" | "downFwd";
+export type WeaponPose = "up" | "upFwd" | "fwd" | "downFwd" | "back";
 
 export type WeaponPoseDef = {
   /** Single-frame sprite of the weapon in this pose. */

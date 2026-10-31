@@ -32,6 +32,29 @@ describe("sprites", () => {
     }
   });
 
+  it("slash arcs: one per tier, same size, frame map matches heroSlash", () => {
+    expect(S.slashArcs).toHaveLength(S.weapons.length);
+    const [first] = S.slashArcs;
+    for (const arc of S.slashArcs) {
+      expect([arc.width, arc.height, arc.frames.length]).toEqual([
+        first.width,
+        first.height,
+        first.frames.length,
+      ]);
+    }
+    expect(S.slashArcFrames).toHaveLength(S.heroSlash.frames.length);
+    for (const f of S.slashArcFrames) {
+      if (f !== null)
+        (expect(f).toBeGreaterThanOrEqual(0), expect(f).toBeLessThan(first.frames.length));
+    }
+  });
+
+  it("hero holds the weapon in front on every frame", () => {
+    for (const list of Object.values(S.heroWeaponAnchors)) {
+      for (const a of list) expect(a?.behind ?? false).toBe(false);
+    }
+  });
+
   it("validator rejects broken sprites", () => {
     const bad: SpriteDef = { name: "bad", width: 3, height: 2, frames: [["##", "#x#", "###"]] };
     expect(validateSprite(bad)).toEqual([
