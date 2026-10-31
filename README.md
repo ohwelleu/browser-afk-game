@@ -27,19 +27,20 @@ On `ohwelleu.github.io` itself the path can be relative: `/browser-afk-game/afk-
 | Attribute  | Default      | Meaning                                     |
 | ---------- | ------------ | ------------------------------------------- |
 | `save-key` | `afk-game`   | `localStorage` key for the save             |
+| `theme`    | `auto`       | `dark`, `light` or `auto`                   |
 | `debug`    | _(off)_      | Show the debug panel (also `?afkdebug` URL) |
 
 ### Theming
 
-The game reads these CSS custom properties from the host page, falling back
-to its own defaults:
+Set `theme="dark" | "light" | "auto"` (default `auto`: follows the host's
+`html.dark` class, then `prefers-color-scheme`). Every colour can be
+overridden with CSS custom properties:
 
 ```css
 afk-game {
-  --afk-fg: #232323;
-  --afk-bg: #f1eee7;
-  --afk-accent: #ff6b00;
-  --afk-line: #d4cfc4;
+  --afk-bg: #1f1f1f;
+  --afk-fg: #ece9e2;
+  --afk-orange: #ff7a1a; /* also --afk-yellow, -red, -purple, -green, -blue, -pink */
 }
 ```
 

@@ -12,9 +12,11 @@ Not in v1. Rough order, open to change.
 
 ## Content
 
-- More mob types per world, with themed worlds.
+- More mob types per world, with themed worlds: bats, ghouls, werewolves,
+  vampires (fits the vampire hunter hero).
 - Real bosses with their own sprites and mechanics (instead of a big mushroom).
-- More weapon tiers, maybe weapon types (axe, spear) with different ranges.
+- More weapon tiers, maybe weapon types (crossbow, stakes, holy water, axe)
+  with different ranges.
 
 ## Interaction
 

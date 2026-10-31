@@ -93,3 +93,15 @@ idle game on a blog):
 Plan: in the audio milestone, prototype a short `synth` loop of **both** and
 pick by ear. The `Track` interface supports `synth` and `file`, so the choice
 can change later without code changes outside `audio/`.
+
+## 2026-10-31: Fixed 2-colour base + 7 item colours
+
+Base `#1f1f1f` / `#ece9e2` (swap with dark/light) for sprites, text and
+borders. Item/gadget colours: the site's orange/purple/green/blue plus
+yellow, red, pink, each with a light and a dark shade.
+
+## 2026-10-31: Vampire hunter hero, ~32×32 sprites
+
+A gothic hunter (hat, long coat, stakes) gives the game a theme and leaves
+room for bats/ghouls/vampires later. Resolution is a step up from the Chrome
+dino (~20×22): hero 32×32, mobs 24×24, boss 48×48.

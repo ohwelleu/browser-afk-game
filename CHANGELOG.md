@@ -12,7 +12,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Start/Continue button and chiptune music + SFX to the v1 plan.
 - Versioning rules (semver, tags, GitHub Releases) to the plan.
 - Tech stack: vanilla TypeScript + Canvas 2D, Vite, Vitest, ZzFX, Shadow DOM.
-- Art direction: 1-bit (site `--bg`/`--fg`) with colour accent pixels.
+- Art direction: 2-colour base (`#1f1f1f` / `#ece9e2`) with 7 item colours
+  (orange, purple, green, blue, yellow, red, pink).
+- Vampire hunter hero; sprite sizes 32×32 hero, 24×24 mobs, 48×48 boss.
+- `theme` attribute (`dark` / `light` / `auto`).
 - Pluggable music tracks (`synth` / `file`). Prototype medieval ambient and
   synthwave chill, pick one later.
 

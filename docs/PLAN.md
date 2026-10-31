@@ -119,25 +119,86 @@ Damage/speed levels are kept when you buy a new weapon.
 
 ## Pixel art
 
-- Sprites are defined in code as small character grids plus a palette
-  (e.g. 16×16), rendered once to offscreen canvases and cached. No image
-  files.
-- **Style: 1-bit + colour accents**, matching the personal site.
-  - Background: a single flat colour = host `--afk-bg` (site `--bg`).
-  - Hero, mobs, ground line, UI: the opposite colour = `--afk-fg`. They
-    swap automatically with the dark/light toggle.
-  - Small **colour pixels** for details: mushroom spots, sword glint, coins,
-    HP bars, hit flashes.
-- Sprite palette slots:
-  | Slot | Colour                                   |
-  | ---- | ---------------------------------------- |
-  | `.`  | transparent                              |
-  | `#`  | `--afk-fg`                               |
-  | `o`  | `--afk-bg` (eyes, cut-outs)              |
-  | `a`  | `--afk-accent` (follows the site picker) |
-  | `1…4`| fixed extras: orange, purple, green, blue (tunable) |
-- Sprites are cached per palette. A theme or accent change rebuilds the
-  cache (cheap, only a handful of sprites).
+### Colours
+
+**Base (2 colours):** everything structural uses only these two. They swap
+with the theme:
+
+| Use                                  | Dark theme | Light theme |
+| ------------------------------------ | ---------- | ----------- |
+| Background                           | `#1f1f1f`  | `#ece9e2`   |
+| Hero, mobs, ground, text, borders    | `#ece9e2`  | `#1f1f1f`   |
+
+**Item / gadget colours:** for weapons, coins, badges, HP bars, hit flashes
+and small sprite details. These are the personal site's button accents plus
+yellow, red and pink. Each has a light and a dark shade, like the site:
+
+| Name   | Light theme | Dark theme | Typical use (draft)           |
+| ------ | ----------- | ---------- | ----------------------------- |
+| orange | `#ff6b00`   | `#ff7a1a`  | coins, fire, site accent      |
+| purple | `#7c3aed`   | `#9b6bff`  | magic, rare items, bosses     |
+| green  | `#16a34a`   | `#22c55e`  | HP bar, poison, heal          |
+| blue   | `#2563eb`   | `#4f8bff`  | steel glint, speed upgrade    |
+| yellow | `#eab308`   | `#facc15`  | gold, crits, stage clear      |
+| red    | `#dc2626`   | `#ef4444`  | damage numbers, low HP, blood |
+| pink   | `#db2777`   | `#f472b6`  | flower mob, special badges    |
+
+Yellow/red/pink hex values are proposals (Tailwind 600/400-ish, to sit next
+to the site's colours). Tune them on the demo page.
+
+- The theme comes from the `theme` attribute: `dark`, `light` or `auto`
+  (default). `auto` follows the host page (`html.dark` class), then
+  `prefers-color-scheme`.
+- Every colour can be overridden with CSS vars (`--afk-bg`, `--afk-fg`,
+  `--afk-orange`, …).
+
+### Sprite palette slots
+
+| Slot | Colour                                                    |
+| ---- | --------------------------------------------------------- |
+| `.`  | transparent                                               |
+| `#`  | fg (`#ece9e2` / `#1f1f1f`)                                |
+| `o`  | bg (eyes, cut-outs, highlights inside a silhouette)       |
+| `O Y R P G B K` | orange, yellow, red, purple, green, blue, pink |
+
+Sprites are mostly `#` silhouettes with a few colour pixels. A theme change
+rebuilds the cached sprites (cheap).
+
+### Resolution & look
+
+- Reference: the Chrome "no internet" dino, but **a bit more detailed**.
+  The dino is about 20×22 art pixels. We go up to:
+  - hero: **32×32** art grid
+  - mobs: **24×24**
+  - boss: its own **48×48** sprite (or a 2× upscaled mob for v1)
+  - coins, icons, badges: **8×8 / 12×12**
+- Drawn at a whole-number scale (2×, 3×, …) depending on strip height, with
+  no smoothing, so edges stay crisp.
+- Flat colours, no gradients, no anti-aliasing, 1px outlines only where
+  needed.
+
+### Hero: vampire hunter
+
+A gothic monster-hunter archetype (our own design, not a copy of any film
+or game character):
+
+- wide-brim hat, face mostly shaded, maybe glinting eyes (colour pixel)
+- long coat flowing at the back, high collar or scarf
+- belt with stakes / vials (small colour pixels)
+- weapon in hand; the weapon sprite changes per tier (stick → swords → …)
+- animations: idle (breathing, coat sways), slash (3–4 frames), hurt
+  (flash), death
+
+Fits the mobs too: in later worlds the mushroom/flower/chicken can give way
+to bats, ghouls and vampires (see roadmap).
+
+### Storage
+
+Sprites are defined in code as character grids (one char = one pixel, slots
+above), rendered once to offscreen canvases and cached. No image files. If
+32×32 frames get too painful to hand-edit, switch to indexed-colour PNG
+sprite sheets (Piskel/Aseprite), using the same palette slots, so recolouring
+still works.
 
 ## Debug panel
 
