@@ -13,6 +13,7 @@ export const STYLES = `
   overflow: hidden;
   background: var(--_bg);
   color: var(--_fg);
+  border: 3px solid var(--_fg);
   font: 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 canvas {
@@ -26,7 +27,7 @@ button {
   font: inherit;
   color: var(--_fg);
   background: var(--_bg);
-  border: 1px solid var(--_fg);
+  border: 3px solid var(--_fg);
   border-radius: 0;
   cursor: pointer;
 }
@@ -49,7 +50,7 @@ img { image-rendering: pixelated; display: block; }
   z-index: 3;
 }
 .overlay[hidden] { display: none; }
-.start { font-size: 16px; padding: 8px 20px; border-width: 2px; }
+.start { font-size: 16px; padding: 8px 20px; }
 
 /* HUD */
 .hud {
@@ -66,20 +67,44 @@ img { image-rendering: pixelated; display: block; }
 }
 .hud-left { display: grid; gap: 4px; }
 .hp, .coins { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.hp-icon { color: var(--_red); }
-.bar { width: 120px; height: 10px; border: 1px solid var(--_fg); padding: 1px; }
+.bar { width: 132px; height: 16px; border: 3px solid var(--_fg); padding: 2px; }
 .bar-fill { height: 100%; background: var(--_green); }
 .bar-fill.low { background: var(--_red); }
 .hud-center { text-align: center; font-weight: bold; white-space: nowrap; }
 .boss { color: var(--_purple); }
 .hud-right { display: flex; justify-content: flex-end; gap: 4px; }
 .icon-btn {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   display: grid;
   place-items: center;
   line-height: 1;
+}
+
+/* Sound popover, under the top-right buttons */
+.popover {
+  position: absolute;
+  top: 58px;
+  right: 12px;
+  z-index: 2;
+  width: min(300px, calc(100% - 24px));
+}
+.popover[hidden] { display: none; }
+.popover .panel { width: 100%; }
+.slider { display: grid; gap: 4px; margin: 10px 0 2px; }
+input[type='range'] { width: 100%; accent-color: var(--_fg); }
+.toggle { min-width: 64px; padding: 4px 10px; font-weight: bold; }
+.toggle[aria-pressed='true'] { color: var(--_bg); background: var(--_fg); }
+
+/* Auto-advance toggle, always visible */
+.auto-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
+  min-width: 0;
+  padding: 6px 10px;
 }
 
 /* Modal */
@@ -100,13 +125,13 @@ img { image-rendering: pixelated; display: block; }
   max-height: 100%;
   overflow: auto;
   background: var(--_bg);
-  border: 1px solid var(--_fg);
+  border: 3px solid var(--_fg);
   padding: 14px 16px;
 }
 .panel h2 { margin: 0 40px 8px 0; font-size: 16px; }
-.panel h3 { margin: 14px 0 6px; font-size: 14px; border-bottom: 1px solid var(--_fg); }
+.panel h3 { margin: 14px 0 6px; font-size: 14px; border-bottom: 3px solid var(--_fg); }
 .panel p { margin: 4px 0; }
-.close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; padding: 0; }
+.close { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; padding: 0; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; }
 .row button { padding: 3px 10px; white-space: nowrap; }
 .inv { list-style: none; margin: 0; padding: 0; }

@@ -1,4 +1,4 @@
-import { createAudio, TRACK_IDS } from './audio';
+import { AUDIO_DEFAULTS, createAudio, TRACK_IDS } from './audio';
 import type { SfxName } from './audio/types';
 import { HERO_MAX_HP, isBoss, upgradeCost, weaponDamage, WEAPONS } from './game/balance';
 import { formatNumber } from './game/format';
@@ -50,7 +50,6 @@ const HTML = `
     <div class="hud">
       <div class="hud-left">
         <div class="hp" title="Hero HP">
-          <span class="hp-icon" aria-hidden="true">♥</span>
           <div class="bar"><div class="bar-fill"></div></div>
           <span class="hp-text"></span>
         </div>
@@ -60,7 +59,7 @@ const HTML = `
       <div class="hud-right">
         <button class="icon-btn" type="button" data-act="pause" aria-label="Pause">❚❚</button>
         <button class="icon-btn" type="button" data-act="music"><img width="24" height="24" alt="" /></button>
-        <button class="icon-btn" type="button" data-act="mute" aria-label="Mute all sound"><img width="24" height="24" alt="" /></button>
+        <button class="icon-btn" type="button" data-act="sound" aria-label="Sound settings" aria-haspopup="dialog"><img width="24" height="24" alt="" /></button>
         <button class="icon-btn" type="button" data-act="menu" aria-label="Menu" aria-haspopup="dialog">☰</button>
       </div>
     </div>
@@ -77,13 +76,21 @@ const HTML = `
           (_, i) =>
             `<li class="row"><span class="inv-info"></span><button type="button" data-act="equip" data-tier="${i}"></button></li>`,
         ).join('')}</ul>
-        <h3>Auto-advance</h3>
-        <label class="row" style="justify-content:flex-start"><input type="checkbox" data-act="auto" /> Go to the next stage after a win</label>
         <h3>Help &amp; credits</h3>
         <p>Your hunter duels one monster per stage and attacks on his own. Wins pay coins. Spend them on damage upgrades and new weapons. Every 6th stage is a boss. If the hunter falls, he steps back one stage and auto-advance turns off: upgrade, then turn it back on.</p>
         <p class="muted">browser-afk-game v${__VERSION__} · Sound effects: ZzFX by Frank Force (MIT)</p>
       </div>
     </div>
+    <div class="popover" role="dialog" aria-labelledby="afk-sound-title" hidden>
+      <div class="panel">
+        <h2 id="afk-sound-title">Sound</h2>
+        <button class="close" type="button" data-act="close" aria-label="Close sound settings">X</button>
+        <div class="row"><span>All sound</span><button type="button" class="toggle" data-act="mute"></button></div>
+        <label class="slider">Music volume <input type="range" min="0" max="100" step="1" data-vol="music" /></label>
+        <label class="slider">Effects volume <input type="range" min="0" max="100" step="1" data-vol="sfx" /></label>
+      </div>
+    </div>
+    <button class="auto-btn toggle" type="button" data-act="auto" title="Auto-advance: go to the next stage after a win"></button>
     <div class="overlay"><button class="start" type="button">Start</button></div>
     <div class="debug" hidden></div>
   </div>`;
@@ -101,10 +108,15 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   const startButton = $<HTMLButtonElement>('.start');
   const debugEl = $('.debug');
   const modal = $('.modal');
+  const popover = $('.popover');
   const menuButton = $<HTMLButtonElement>('[data-act="menu"]');
+  const soundButton = $<HTMLButtonElement>('[data-act="sound"]');
+  const autoButton = $<HTMLButtonElement>('[data-act="auto"]');
   const pauseButton = $<HTMLButtonElement>('[data-act="pause"]');
   const musicButton = $<HTMLButtonElement>('[data-act="music"]');
-  const muteButton = $<HTMLButtonElement>('[data-act="mute"]');
+  const muteToggle = $<HTMLButtonElement>('[data-act="mute"]');
+  const musicSlider = $<HTMLInputElement>('[data-vol="music"]');
+  const sfxSlider = $<HTMLInputElement>('[data-vol="sfx"]');
   const ctx = canvas.getContext('2d')!;
 
   const storage = safeLocalStorage();
@@ -128,12 +140,18 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   let fps = 0;
 
   const audioSettings: AudioSettings = {
-    muted: saved?.audio.muted ?? false,
+    muted: saved?.audio.muted ?? AUDIO_DEFAULTS.muted,
     track: TRACK_CYCLE.includes(saved?.audio.track ?? '-') ? saved!.audio.track! : TRACK_CYCLE[0],
+    musicVolume: saved?.audio.musicVolume ?? AUDIO_DEFAULTS.musicVolume,
+    sfxVolume: saved?.audio.sfxVolume ?? AUDIO_DEFAULTS.sfxVolume,
   };
   const audio = createAudio();
   audio.setMuted(audioSettings.muted);
   audio.setTrack(audioSettings.track);
+  audio.setMusicVolume(audioSettings.musicVolume);
+  audio.setSfxVolume(audioSettings.sfxVolume);
+  musicSlider.value = String(Math.round(audioSettings.musicVolume * 100));
+  sfxSlider.value = String(Math.round(audioSettings.sfxVolume * 100));
   const mixer = new SfxMixer();
   let pendingSfx: SfxName[] = [];
 
@@ -189,8 +207,14 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   }
 
   function resize(): void {
-    const rect = box.getBoundingClientRect();
-    view = computeView(rect.width, rect.height, window.devicePixelRatio || 1, content, HUD_HEIGHT);
+    // Inside the border: the canvas fills the padding box.
+    view = computeView(
+      box.clientWidth,
+      box.clientHeight,
+      window.devicePixelRatio || 1,
+      content,
+      HUD_HEIGHT,
+    );
     if (canvas.width !== view.pxWidth) canvas.width = view.pxWidth;
     if (canvas.height !== view.pxHeight) canvas.height = view.pxHeight;
     // Resizing clears the canvas, so repaint even when paused.
@@ -230,6 +254,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     const stage = $('.stage');
     show(stage, `${isBoss(state.stage) ? 'BOSS' : 'STAGE'} ${state.world}.${state.stage}`);
     stage.classList.toggle('boss', isBoss(state.stage));
+    show(autoButton, state.autoAdvance ? 'AUTO ON' : 'AUTO OFF');
+    autoButton.setAttribute('aria-pressed', String(state.autoAdvance));
   }
 
   function refreshMenu(): void {
@@ -272,8 +298,6 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       show(btn, i === state.equipped ? 'Equipped' : 'Equip');
       btn.disabled = i === state.equipped;
     });
-
-    $<HTMLInputElement>('[data-act="auto"]').checked = state.autoAdvance;
   }
 
   function refreshUi(): void {
@@ -282,16 +306,18 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   }
 
   function refreshAudioButtons(): void {
-    const name = trackName(audioSettings.track);
-    const label = `Music: ${name} (switch track)`;
+    const label = `Music: ${trackName(audioSettings.track)} (click to switch)`;
     musicButton.setAttribute('aria-label', label);
     show(musicButton, label, 'title');
     musicButton.querySelector('img')!.src = iconUrl(
       audioSettings.track ? icons.music : icons.musicOff,
     );
-    muteButton.setAttribute('aria-pressed', String(audioSettings.muted));
-    show(muteButton, audioSettings.muted ? 'Sound off (unmute)' : 'Sound on (mute)', 'title');
-    muteButton.querySelector('img')!.src = iconUrl(audioSettings.muted ? icons.sfxOff : icons.sfx);
+    const soundLabel = `Sound settings (${audioSettings.muted ? 'muted' : 'on'})`;
+    soundButton.setAttribute('aria-label', soundLabel);
+    show(soundButton, soundLabel, 'title');
+    soundButton.querySelector('img')!.src = iconUrl(audioSettings.muted ? icons.sfxOff : icons.sfx);
+    muteToggle.setAttribute('aria-pressed', String(!audioSettings.muted));
+    show(muteToggle, audioSettings.muted ? 'OFF' : 'ON');
   }
 
   function drawDebug(): void {
@@ -325,42 +351,50 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     }
   }
 
-  // ── Menu modal ───────────────────────────────────────────────────────────
+  // ── Dialogs (menu modal, sound popover): one open at a time ──────────────
 
-  function openMenu(): void {
-    modal.hidden = false;
-    refreshMenu();
-    $<HTMLButtonElement>('.close').focus();
+  let openDialog: { el: HTMLElement; opener: HTMLButtonElement } | null = null;
+
+  function open(el: HTMLElement, opener: HTMLButtonElement): void {
+    close(false);
+    el.hidden = false;
+    openDialog = { el, opener };
+    if (el === modal) refreshMenu();
+    el.querySelector<HTMLButtonElement>('.close')!.focus();
   }
 
-  function closeMenu(): void {
-    if (modal.hidden) return;
-    modal.hidden = true;
-    menuButton.focus();
+  function close(restoreFocus = true): void {
+    if (!openDialog) return;
+    const { el, opener } = openDialog;
+    el.hidden = true;
+    openDialog = null;
+    if (restoreFocus) opener.focus();
   }
 
-  function focusables(): HTMLElement[] {
-    return [...modal.querySelectorAll<HTMLElement>('button, input')].filter(
-      (el) => !(el as HTMLButtonElement).disabled && !el.hidden && !el.closest('[hidden]'),
-    );
+  function toggle(el: HTMLElement, opener: HTMLButtonElement): void {
+    if (openDialog?.el === el) close();
+    else open(el, opener);
   }
 
   box.addEventListener('keydown', (e) => {
-    if (modal.hidden) return;
+    if (!openDialog) return;
+    const dialog = openDialog.el;
     if (e.key === 'Escape') {
       e.preventDefault();
-      closeMenu();
+      close();
     } else if (e.key === 'Tab') {
-      // Keep focus inside the modal.
-      const list = focusables();
+      // Keep focus inside the dialog.
+      const list = [...dialog.querySelectorAll<HTMLElement>('button, input')].filter(
+        (el) => !(el as HTMLButtonElement).disabled && !el.closest('[hidden]'),
+      );
       if (!list.length) return;
       const first = list[0];
       const last = list[list.length - 1];
       const active = root.activeElement;
-      if (e.shiftKey && (active === first || !modal.contains(active))) {
+      if (e.shiftKey && (active === first || !dialog.contains(active))) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && (active === last || !modal.contains(active))) {
+      } else if (!e.shiftKey && (active === last || !dialog.contains(active))) {
         e.preventDefault();
         first.focus();
       }
@@ -370,11 +404,17 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   // ── Controls ─────────────────────────────────────────────────────────────
 
   box.addEventListener('click', (e) => {
-    const target = (e.target as Element).closest<HTMLElement>('[data-act]');
-    if (!target) {
-      if (e.target === modal) closeMenu(); // click on the backdrop
-      return;
+    const el = e.target as Element;
+    const target = el.closest<HTMLElement>('[data-act]');
+    // A click outside the open dialog's panel (and not on its opener) closes it.
+    if (
+      openDialog &&
+      !openDialog.el.querySelector('.panel')!.contains(el) &&
+      target !== openDialog.opener
+    ) {
+      close(false);
     }
+    if (!target) return;
     switch (target.dataset.act) {
       case 'pause':
         paused = !paused;
@@ -390,6 +430,9 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         saveNow();
         return;
       }
+      case 'sound':
+        toggle(popover, soundButton);
+        return;
       case 'mute':
         audioSettings.muted = !audioSettings.muted;
         audio.setMuted(audioSettings.muted);
@@ -397,11 +440,13 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         saveNow();
         return;
       case 'menu':
-        if (modal.hidden) openMenu();
-        else closeMenu();
+        toggle(modal, menuButton);
         return;
       case 'close':
-        closeMenu();
+        close();
+        return;
+      case 'auto':
+        act((s) => setAutoAdvance(s, !s.autoAdvance));
         return;
       case 'upgrade':
         act(buyUpgrade);
@@ -415,9 +460,17 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     }
   });
 
-  $<HTMLInputElement>('[data-act="auto"]').addEventListener('change', (e) => {
-    act((s) => setAutoAdvance(s, (e.target as HTMLInputElement).checked));
-  });
+  for (const [slider, key] of [
+    [musicSlider, 'musicVolume'],
+    [sfxSlider, 'sfxVolume'],
+  ] as const) {
+    slider.addEventListener('input', () => {
+      audioSettings[key] = Math.min(1, Math.max(0, Number(slider.value) / 100 || 0));
+      if (key === 'musicVolume') audio.setMusicVolume(audioSettings.musicVolume);
+      else audio.setSfxVolume(audioSettings.sfxVolume);
+    });
+    slider.addEventListener('change', saveNow);
+  }
 
   startButton.addEventListener('click', () => {
     if (started) return;

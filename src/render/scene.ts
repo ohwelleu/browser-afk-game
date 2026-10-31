@@ -1,7 +1,7 @@
 import { weaponAttack, windup } from '../game/attacks';
-import { isBoss, MOB_KINDS, type MobKind } from '../game/balance';
+import { DUEL, isBoss, MOB_KINDS, type MobKind } from '../game/balance';
 import { formatNumber } from '../game/format';
-import type { GameEvent, GameState } from '../game/state';
+import { secToTicks, type GameEvent, type GameState } from '../game/state';
 import { TICK_RATE } from '../loop';
 import {
   bossMushroomWalk,
@@ -254,17 +254,13 @@ function drawMob(
   ctx.fillRect(l.mobX + 1, barY + 1, Math.ceil((barW - 2) * ratio), 2);
 }
 
+/** Stage banner, only on full intros (a new stage, or the first duel after Start). */
 function drawIntro(ctx: CanvasRenderingContext2D, s: GameState, v: View, p: Palette): void {
   const d = s.duel;
-  if (d.phase !== 'intro') return;
-  const t = seconds(d.tick);
-  const label =
-    t < 1.3
-      ? `${isBoss(s.stage) ? 'BOSS' : 'STAGE'} ${s.world}.${s.stage}`
-      : t < 2.0 - windup(weaponAttack(s.equipped))
-        ? 'FIGHT!'
-        : '';
-  if (!label) return;
+  if (d.phase !== 'intro' || d.introTicks < secToTicks(DUEL.intro)) return;
+  // Gone just before the first swing starts.
+  if (seconds(d.tick) >= seconds(d.introTicks) - windup(weaponAttack(s.equipped)) - 0.2) return;
+  const label = `${isBoss(s.stage) ? 'BOSS' : 'STAGE'} ${s.world}.${s.stage}`;
   const size = Math.max(14, Math.round(v.scale * 7));
   const y = v.offsetY + (v.height - GROUND) * v.scale * 0.45;
   text(ctx, label, v.pxWidth / 2, y, size, isBoss(s.stage) ? p.purple : p.fg, p.bg);

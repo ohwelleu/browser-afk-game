@@ -17,6 +17,7 @@ import {
   mobHp,
   mobKind,
   safeInt,
+  stageLevel,
   STAGES_PER_WORLD,
   upgradeCost,
   weaponDamage,
@@ -33,6 +34,8 @@ export type Duel = {
   phase: Phase;
   tick: number;
   phaseTick: number;
+  /** Length of this duel's intro: full on new stages, a short beat otherwise. */
+  introTicks: number;
   outcome: 'win' | 'loss' | null;
   heroHp: number;
   mob: Mob;
@@ -58,6 +61,8 @@ export type GameState = {
   ticks: number;
   world: number;
   stage: number;
+  /** Highest stage reached, as `stageLevel` (1.1 → 1). Entering a higher one plays the full intro. */
+  best: number;
   autoAdvance: boolean;
   coins: number;
   /** Level per weapon tier; 0 = not owned. The stick is always owned. */
@@ -71,7 +76,15 @@ export type GameState = {
 
 export type Progress = Pick<
   GameState,
-  'world' | 'stage' | 'autoAdvance' | 'coins' | 'weaponLevels' | 'equipped' | 'kills' | 'deaths'
+  | 'world'
+  | 'stage'
+  | 'best'
+  | 'autoAdvance'
+  | 'coins'
+  | 'weaponLevels'
+  | 'equipped'
+  | 'kills'
+  | 'deaths'
 >;
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
@@ -80,6 +93,7 @@ export function newProgress(): Progress {
   return {
     world: 1,
     stage: 1,
+    best: 1,
     autoAdvance: true,
     coins: 0,
     weaponLevels: WEAPONS.map((_, i) => (i === 0 ? 1 : 0)),
@@ -93,18 +107,22 @@ export function createState(progress: Progress = newProgress()): GameState {
   return {
     ticks: 0,
     ...progress,
+    best: Math.max(progress.best, stageLevel(progress.world, progress.stage)),
     weaponLevels: [...progress.weaponLevels],
-    duel: newDuel(progress.world, progress.stage),
+    // The first duel after Start/Continue always gets the full intro.
+    duel: newDuel(progress.world, progress.stage, true),
     events: [],
   };
 }
 
-export function newDuel(world: number, stage: number): Duel {
+export function newDuel(world: number, stage: number, fullIntro: boolean): Duel {
   const hp = mobHp(world, stage);
+  const introTicks = secToTicks(fullIntro ? DUEL.intro : DUEL.shortIntro);
   return {
     phase: 'intro',
     tick: 0,
     phaseTick: 0,
+    introTicks,
     outcome: null,
     heroHp: HERO_MAX_HP,
     mob: {
@@ -114,9 +132,9 @@ export function newDuel(world: number, stage: number): Duel {
       damage: mobDamage(world, stage),
       coins: mobCoins(world, stage),
     },
-    heroNextHit: secToTicks(DUEL.heroFirstHit),
+    heroNextHit: introTicks,
     heroSwung: false,
-    mobNextHit: secToTicks(DUEL.mobFirstHit),
+    mobNextHit: introTicks + secToTicks(DUEL.mobOffset),
     mobLunged: false,
     heroAttackTick: null,
     heroHurtTick: null,
@@ -158,7 +176,7 @@ function step(s: GameState): void {
 
   switch (d.phase) {
     case 'intro':
-      if (t >= secToTicks(DUEL.intro)) setPhase(d, 'fighting');
+      if (t >= d.introTicks) setPhase(d, 'fighting');
       combat(s);
       return;
     case 'fighting':
@@ -184,7 +202,10 @@ function step(s: GameState): void {
       return;
     case 'transition':
       if (inPhase >= secToTicks(DUEL.transition)) {
-        s.duel = newDuel(s.world, s.stage);
+        const level = stageLevel(s.world, s.stage);
+        const isNew = level > s.best;
+        s.best = Math.max(s.best, level);
+        s.duel = newDuel(s.world, s.stage, isNew);
         if (isBoss(s.stage)) s.events.push({ type: 'sfx', name: 'bossAppear' });
       }
       return;

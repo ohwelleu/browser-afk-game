@@ -64,6 +64,35 @@ describe('duel timing', () => {
   });
 });
 
+describe('intro length', () => {
+  const nextIntro = (s: GameState) =>
+    runUntil(s, (x) => x.duel.phase === 'intro' && x.duel.tick === 0 && x.kills + x.deaths > 0).duel
+      .introTicks;
+
+  it('full intro on a new stage, short beat when farming', () => {
+    expect(nextIntro(strong())).toBe(secToTicks(DUEL.intro));
+    expect(nextIntro(strong({ autoAdvance: false }))).toBe(secToTicks(DUEL.shortIntro));
+  });
+
+  it('short beat when re-entering a stage already reached', () => {
+    expect(nextIntro(strong({ stage: 2, best: 5 }))).toBe(secToTicks(DUEL.shortIntro));
+    expect(nextIntro(strong({ stage: 4, best: 5 }))).toBe(secToTicks(DUEL.shortIntro));
+    expect(nextIntro(strong({ stage: 5, best: 5 }))).toBe(secToTicks(DUEL.intro));
+  });
+
+  it('short beat after a rollback, and the next hits come right after it', () => {
+    let s = weak({ world: 3, stage: 1 });
+    s = runUntil(s, (x) => x.deaths === 1 && x.duel.phase === 'intro');
+    expect(s.duel.introTicks).toBe(secToTicks(DUEL.shortIntro));
+    expect(s.duel.heroNextHit).toBe(secToTicks(DUEL.shortIntro));
+    expect(s.duel.mobNextHit).toBe(secToTicks(DUEL.shortIntro + DUEL.mobOffset));
+  });
+
+  it('the first duel after Start/Continue always has the full intro', () => {
+    expect(weak({ stage: 2, best: 9 }).duel.introTicks).toBe(secToTicks(DUEL.intro));
+  });
+});
+
 describe('mob death', () => {
   it('pays coins once and advances with auto-advance on', () => {
     let s = strong();
@@ -135,8 +164,8 @@ describe('hero death', () => {
 });
 
 describe('world 1 tutorial', () => {
-  it('halves mob HP and damage in world 1 only', () => {
-    expect(mobHp(1, 1)).toBe(5);
+  it('cuts mob HP in world 1 only', () => {
+    expect(mobHp(1, 1)).toBe(2);
     expect(mobHp(2, 1)).toBe(Math.ceil(10 * 1.28 ** 6));
   });
 });

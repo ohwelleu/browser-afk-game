@@ -30,8 +30,8 @@ describe('balance', () => {
     expect(mobKind(6)).toBe('boss');
   });
 
-  it('world 1 halves HP and damage but not coins', () => {
-    expect(mobHp(1, 1)).toBe(5);
+  it('world 1 is a tutorial: a fresh stick needs 2-3 hits, damage halved, coins normal', () => {
+    expect([1, 2, 3, 4, 5].map((stage) => mobHp(1, stage))).toEqual([2, 2, 2, 3, 3]);
     expect(mobDamage(1, 1)).toBe(2);
     expect(mobCoins(1, 1)).toBe(4);
   });

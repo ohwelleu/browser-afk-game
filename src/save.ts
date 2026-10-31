@@ -1,10 +1,15 @@
-import { STAGES_PER_WORLD, WEAPONS } from './game/balance';
+import { STAGES_PER_WORLD, stageLevel, WEAPONS } from './game/balance';
 import { newProgress, type GameState, type Progress } from './game/state';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
 export const SAVE_VERSION = 1;
 
-export type AudioSettings = { muted: boolean; track: string };
+export type AudioSettings = {
+  muted: boolean;
+  track: string;
+  musicVolume: number;
+  sfxVolume: number;
+};
 
 /**
  * Demo save: plain JSON in localStorage. The checksummed save string, backup
@@ -22,6 +27,8 @@ type StorageLike = Pick<Storage, 'getItem'>;
 
 const isInt = (v: unknown, min: number): v is number =>
   typeof v === 'number' && Number.isSafeInteger(v) && v >= min;
+const isVolume = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 
 /**
  * Reads and validates a save. Anything missing or out of range falls back
@@ -45,10 +52,13 @@ export function loadSave(storage: StorageLike | undefined, key: string): Loaded 
     string,
     unknown
   >;
+  const world = stageOk ? (data.world as number) : fresh.world;
+  const stage = stageOk ? (data.stage as number) : fresh.stage;
   return {
     progress: {
-      world: stageOk ? (data.world as number) : fresh.world,
-      stage: stageOk ? (data.stage as number) : fresh.stage,
+      world,
+      stage,
+      best: Math.max(isInt(data.best, 1) ? data.best : 1, stageLevel(world, stage)),
       autoAdvance: typeof data.autoAdvance === 'boolean' ? data.autoAdvance : fresh.autoAdvance,
       coins: isInt(data.coins, 0) ? data.coins : fresh.coins,
       weaponLevels,
@@ -59,6 +69,8 @@ export function loadSave(storage: StorageLike | undefined, key: string): Loaded 
     audio: {
       ...(typeof audio.muted === 'boolean' ? { muted: audio.muted } : {}),
       ...(typeof audio.track === 'string' ? { track: audio.track } : {}),
+      ...(isVolume(audio.musicVolume) ? { musicVolume: audio.musicVolume } : {}),
+      ...(isVolume(audio.sfxVolume) ? { sfxVolume: audio.sfxVolume } : {}),
     },
   };
 }
@@ -69,6 +81,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     gameVersion,
     world: s.world,
     stage: s.stage,
+    best: s.best,
     autoAdvance: s.autoAdvance,
     coins: s.coins,
     weaponLevels: [...s.weaponLevels],

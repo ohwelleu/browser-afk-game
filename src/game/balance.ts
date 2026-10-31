@@ -7,16 +7,22 @@ export const STAGES_PER_WORLD = 6;
 export const BOSS_STAGE = 6;
 export const HERO_MAX_HP = 100;
 
-/** Duel timeline in seconds (duel time starts at 0 when the mob appears). */
+/**
+ * Duel timeline in seconds (duel time starts at 0 when the mob appears).
+ * The hero's first hit lands when the intro ends, the mob's `mobOffset` later
+ * (so both never land on the same tick at the start).
+ */
 export const DUEL = {
+  /** Full intro: first time a stage is reached, and the first duel after Start. */
   intro: 2.0,
-  heroFirstHit: 2.0,
-  mobFirstHit: 2.5,
+  /** Short beat before every other duel (farming, after a rollback, revisits). */
+  shortIntro: 0.4,
+  mobOffset: 0.5,
   /** How long the death animations play before the next duel. */
-  mobDying: 1.2,
+  mobDying: 0.9,
   heroDying: 1.8,
   /** Empty beat between a death and the next intro. */
-  transition: 0.4,
+  transition: 0.3,
 };
 
 export type MobKind = 'mushroom' | 'flower' | 'chicken' | 'boss';
@@ -54,8 +60,12 @@ export const UPGRADE_GROWTH = 1.15;
 const MOB_HP = { base: 10, growth: 1.28, boss: 5 };
 const MOB_DMG = { base: 4, growth: 1.05, boss: 2 };
 const MOB_COINS = { base: 4, growth: 1.3, boss: 5 };
-/** World 1 is a tutorial: mob HP and damage × this. */
-const WORLD_1_MULT = 0.5;
+/**
+ * World 1 is a tutorial: mob HP and damage × these. HP is cut hard so a fresh
+ * stick (1 dmg) kills a normal mob in 2–3 hits (1.1–1.5: 2, 2, 2, 3, 3 HP).
+ */
+const WORLD_1_HP_MULT = 0.11;
+const WORLD_1_DMG_MULT = 0.5;
 
 /**
  * Integer guard for HP, damage and coins: NaN → 0, ±Infinity and anything
@@ -83,18 +93,20 @@ function scaled(
   p: { base: number; growth: number; boss: number },
   world: number,
   stage: number,
-  tutorial: boolean,
+  world1Mult: number,
 ): number {
   const L = stageLevel(world, stage);
   let v = p.base * p.growth ** (L - 1);
   if (isBoss(stage)) v *= p.boss;
-  if (tutorial && world === 1) v *= WORLD_1_MULT;
+  if (world === 1) v *= world1Mult;
   return Math.max(1, safeInt(Math.ceil(v)));
 }
 
-export const mobHp = (world: number, stage: number) => scaled(MOB_HP, world, stage, true);
-export const mobDamage = (world: number, stage: number) => scaled(MOB_DMG, world, stage, true);
-export const mobCoins = (world: number, stage: number) => scaled(MOB_COINS, world, stage, false);
+export const mobHp = (world: number, stage: number) =>
+  scaled(MOB_HP, world, stage, WORLD_1_HP_MULT);
+export const mobDamage = (world: number, stage: number) =>
+  scaled(MOB_DMG, world, stage, WORLD_1_DMG_MULT);
+export const mobCoins = (world: number, stage: number) => scaled(MOB_COINS, world, stage, 1);
 
 /** `damage = baseDmg × level` (level 0 = not owned = no damage). */
 export function weaponDamage(tier: number, level: number): number {
