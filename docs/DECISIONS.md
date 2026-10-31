@@ -58,3 +58,36 @@ tweak.
 `package.json` is the source of truth for the version. Each release has a
 `CHANGELOG.md` entry, a `vX.Y.Z` tag and a GitHub Release. `0.x` while it
 is a concept, `1.0.0` when it goes on the blog.
+
+## 2026-10-31: Vanilla TypeScript + Canvas 2D, no engine
+
+About 10 entities in a short strip. Engines (Phaser ~1 MB, PixiJS ~200 KB)
+add size and their own way of doing things for features we don't use.
+Revisit if we need heavy particles/effects (PixiJS) or physics.
+
+## 2026-10-31: 1-bit art with colour accents
+
+Matches the personal site: a flat `--bg` background, sprites in `--fg`
+(inverting with dark/light), and small colour pixels (site accent + a few
+fixed extras) for details.
+
+## 2026-10-31: ZzFX for sound effects
+
+~1 KB, MIT, sounds defined as number arrays. Fits "no asset files" and
+retro style.
+
+## Open: music style
+
+Candidates: **medieval ambient**, **retro synthwave chill**, **drum and
+bass**. Placeholder for now: synthwave chill, because it can be generated
+in code at no file cost.
+
+- Medieval ambient needs real-instrument recordings (`file` track, ~1–3 MB,
+  CC0 or commissioned). Fits the sword/fantasy theme, calm.
+- Synthwave chill can be fully synthesized (`synth` track). Fits the
+  pixel/dark-site look, calm.
+- Drum and bass needs good drum samples. High energy, can get tiring on
+  loop in an idle game.
+
+The `Track` interface supports both kinds, so this choice can be made later
+without code changes outside `audio/`.

@@ -97,11 +97,19 @@ Damage/speed levels are kept when you buy a new weapon.
 
 ## Audio
 
-- **Music:** a looping chiptune background track, generated with the Web
-  Audio API (oscillators + a tiny sequencer, notes defined in code). No audio
-  files, same idea as the sprites.
-- **SFX:** sword swing, hit, mob death, coin pickup, purchase, hero death,
-  boss appears, stage clear.
+- **Music engine:** a `Track` interface with two kinds of source:
+  - `synth`: generated with the Web Audio API (oscillators, noise drums, a tiny
+    step sequencer, notes defined in code). No files.
+  - `file`: a looping audio file (OGG/MP3), for styles that need real
+    instruments.
+  Swapping or adding tracks (per world, boss theme) never touches game code.
+- **v1 track (placeholder):** one *retro synthwave chill* loop (`synth`),
+  slow tempo, soft pads + arpeggio + light beat.
+- **Final music style is undecided** (medieval ambient / synthwave chill /
+  drum and bass). See [DECISIONS.md](DECISIONS.md#open-music-style).
+- **SFX:** made with [ZzFX](https://github.com/KilledByAPixel/ZzFX) (~1 KB,
+  MIT, each sound is a list of numbers). Sword swing, hit, mob death, coin
+  pickup, purchase, hero death, boss appears, stage clear.
 - Starts only after the Start button. Pauses with the game (off-screen or tab
   hidden).
 - Menu: mute toggle and separate music and SFX volume sliders, saved.
@@ -112,8 +120,22 @@ Damage/speed levels are kept when you buy a new weapon.
 - Sprites are defined in code as small character grids plus a palette
   (e.g. 16×16), rendered once to offscreen canvases and cached. No image
   files.
-- Hero/UI use the host theme colours (`--afk-fg`, `--afk-accent`, …). Mobs
-  keep their own colours.
+- **Style: 1-bit + colour accents**, matching the personal site.
+  - Background: a single flat colour = host `--afk-bg` (site `--bg`).
+  - Hero, mobs, ground line, UI: the opposite colour = `--afk-fg`. They
+    swap automatically with the dark/light toggle.
+  - Small **colour pixels** for details: mushroom spots, sword glint, coins,
+    HP bars, hit flashes.
+- Sprite palette slots:
+  | Slot | Colour                                   |
+  | ---- | ---------------------------------------- |
+  | `.`  | transparent                              |
+  | `#`  | `--afk-fg`                               |
+  | `o`  | `--afk-bg` (eyes, cut-outs)              |
+  | `a`  | `--afk-accent` (follows the site picker) |
+  | `1…4`| fixed extras: orange, purple, green, blue (tunable) |
+- Sprites are cached per palette. A theme or accent change rebuilds the
+  cache (cheap, only a handful of sprites).
 
 ## Debug panel
 
@@ -126,7 +148,15 @@ Enabled with the `debug` attribute or the `?afkdebug` URL param:
 
 ## Tech
 
-- TypeScript, Vite library mode, zero runtime dependencies.
+- **Vanilla TypeScript + Canvas 2D**, no game engine (the scene is tiny;
+  Phaser/PixiJS would be 10–50× the size for nothing we need).
+- **Vite** library mode for the build, **Vitest** for logic tests,
+  **Prettier** for formatting.
+- Only runtime dependency: **ZzFX** (SFX), ~1 KB.
+- Game logic as pure functions (`update(state, dt)`) kept apart from
+  rendering, audio and DOM. That makes it testable and debuggable, and leaves
+  room for seeded RNG / save hashing later.
+- `<afk-game>` uses **Shadow DOM** so host CSS and game CSS never clash.
 - Output: `dist/afk-game.js` (registers `<afk-game>`, also exports `mount`).
 
 ## Versioning
