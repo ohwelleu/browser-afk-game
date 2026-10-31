@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>browser-afk-game demo</title>
+    <script>
+      // Apply the saved demo theme before first paint.
+      document.documentElement.classList.toggle(
+        "dark",
+        (localStorage.getItem("afk-demo-theme") ??
+          (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark",
+      );
+    </script>
+    <script src="./afk-game.js" defer></script>
+    <style>
+      :root {
+        --page-bg: #ece9e2;
+        --page-fg: #1f1f1f;
+        color-scheme: light;
+      }
+      :root.dark {
+        --page-bg: #1f1f1f;
+        --page-fg: #ece9e2;
+        color-scheme: dark;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 960px;
+        padding: 24px;
+        background: var(--page-bg);
+        color: var(--page-fg);
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin: 16px 0;
+      }
+      button,
+      select {
+        font: inherit;
+      }
+      afk-game {
+        border: 1px solid currentColor;
+      }
+      .resizable {
+        resize: both;
+        overflow: hidden;
+        width: 100%;
+        height: 160px;
+        min-width: 120px;
+        min-height: 60px;
+        border: 1px dashed currentColor;
+      }
+      .resizable afk-game {
+        height: 100%;
+        border: 0;
+      }
+      code {
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>browser-afk-game</h1>
+    <p>Dev page. Version: <code id="version">?</code></p>
+
+    <div class="controls">
+      <button id="toggle-page-theme" type="button">Toggle page theme (html.dark)</button>
+      <label>
+        <code>theme</code> attribute:
+        <select id="theme-attr">
+          <option value="auto">auto</option>
+          <option value="dark">dark</option>
+          <option value="light">light</option>
+        </select>
+      </label>
+      <label><input id="debug" type="checkbox" /> <code>debug</code></label>
+      <button id="clear-save" type="button">Clear save</button>
+    </div>
+
+    <h2>Default</h2>
+    <afk-game id="game"></afk-game>
+
+    <h2>Resizable (drag the corner)</h2>
+    <div class="resizable"><afk-game save-key="afk-game-demo-resizable"></afk-game></div>
+
+    <h2>Custom colours (CSS vars)</h2>
+    <afk-game
+      save-key="afk-game-demo-vars"
+      theme="dark"
+      style="--afk-bg: #0b1d2a; --afk-fg: #f6d6a8; --afk-yellow: #9be15d; height: 120px"
+    ></afk-game>
+
+    <script>
+      const root = document.documentElement;
+      const game = document.getElementById("game");
+
+      document.getElementById("toggle-page-theme").addEventListener("click", () => {
+        const dark = root.classList.toggle("dark");
+        localStorage.setItem("afk-demo-theme", dark ? "dark" : "light");
+      });
+      document.getElementById("theme-attr").addEventListener("change", (e) => {
+        game.setAttribute("theme", e.target.value);
+      });
+      const debug = document.getElementById("debug");
+      debug.checked = new URLSearchParams(location.search).has("afkdebug");
+      debug.addEventListener("change", () => game.toggleAttribute("debug", debug.checked));
+      document.getElementById("clear-save").addEventListener("click", () => {
+        localStorage.removeItem("afk-game");
+        location.reload();
+      });
+
+      // `AfkGame` is the global from the built bundle; the dev server loads the TS source instead.
+      // Deferred scripts have run by DOMContentLoaded.
+      addEventListener("DOMContentLoaded", () => {
+        document.getElementById("version").textContent = window.AfkGame?.version ?? "dev";
+      });
+    </script>
+  </body>
+</html>

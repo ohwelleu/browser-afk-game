@@ -1,0 +1,5 @@
+dist/
+node_modules/
+package-lock.json
+# Markdown is owned by the planning thread; don't reformat it from code PRs.
+*.md
