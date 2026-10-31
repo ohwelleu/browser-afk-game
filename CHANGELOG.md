@@ -13,7 +13,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Versioning rules (semver, tags, GitHub Releases) to the plan.
 - Tech stack: vanilla TypeScript + Canvas 2D, Vite, Vitest, ZzFX, Shadow DOM.
 - Art direction: 1-bit (site `--bg`/`--fg`) with colour accent pixels.
-- Pluggable music tracks (`synth` / `file`), synthwave chill placeholder.
+- Pluggable music tracks (`synth` / `file`). Prototype medieval ambient and
+  synthwave chill, pick one later.
+
+### Changed
+
+- Repo renamed to `browser-afk-game`. The element stays `<afk-game>` and the
+  bundle stays `afk-game.js`.
 
 ## [0.1.0] - 2026-10-31
 
@@ -22,5 +28,5 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Project docs: README with embed instructions, v1 plan, roadmap, decision
   log, and this changelog.
 
-[Unreleased]: https://github.com/ohwelleu/afk-game/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/ohwelleu/afk-game/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ohwelleu/browser-afk-game/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ohwelleu/browser-afk-game/releases/tag/v0.1.0

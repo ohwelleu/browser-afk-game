@@ -103,10 +103,12 @@ Damage/speed levels are kept when you buy a new weapon.
   - `file`: a looping audio file (OGG/MP3), for styles that need real
     instruments.
   Swapping or adding tracks (per world, boss theme) never touches game code.
-- **v1 track (placeholder):** one *retro synthwave chill* loop (`synth`),
-  slow tempo, soft pads + arpeggio + light beat.
-- **Final music style is undecided** (medieval ambient / synthwave chill /
-  drum and bass). See [DECISIONS.md](DECISIONS.md#open-music-style).
+- **v1 tracks:** prototype two short `synth` loops and pick by ear:
+  - *medieval ambient*: plucked lute/harp (Karplus-Strong), recorder,
+    drone, modal scale
+  - *retro synthwave chill*: soft pads, arpeggio, light beat
+- **Final music style is undecided.** See
+  [DECISIONS.md](DECISIONS.md#open-music-style).
 - **SFX:** made with [ZzFX](https://github.com/KilledByAPixel/ZzFX) (~1 KB,
   MIT, each sound is a list of numbers). Sword swing, hit, mob death, coin
   pickup, purchase, hero death, boss appears, stage clear.
@@ -176,7 +178,7 @@ Enabled with the `debug` attribute or the `?afkdebug` URL param:
   blog.
 - `demo/index.html` for development.
 - GitHub Action deploys the build + demo to Pages at
-  `ohwelleu.github.io/afk-game/`.
+  `ohwelleu.github.io/browser-afk-game/`.
 
 ## Milestones
 

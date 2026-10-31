@@ -30,7 +30,7 @@ Not in v1. Rough order, open to change.
 
 ## Distribution
 
-- Versioned builds on Pages (`/afk-game/v0.2.0/afk-game.js`).
+- Versioned builds on Pages (`/browser-afk-game/v0.2.0/afk-game.js`).
 - Publish to npm if other sites want it.
 
 ## Polish

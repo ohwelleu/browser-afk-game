@@ -10,7 +10,7 @@ game gets its own demo and its own release cycle.
 
 ## 2026-10-31: Host on GitHub Pages, not npm (for now)
 
-`ohwelleu/afk-game` Pages is served at `ohwelleu.github.io/afk-game/`, the
+`ohwelleu/browser-afk-game` Pages is served at `ohwelleu.github.io/browser-afk-game/`, the
 same origin as the blog. That gives a short relative path, a shared
 `localStorage` and no CORS. An Action deploys on push. No npm account or
 publish step needed. jsDelivr was rejected for now because it needs `dist/`
@@ -78,16 +78,18 @@ retro style.
 
 ## Open: music style
 
-Candidates: **medieval ambient**, **retro synthwave chill**, **drum and
-bass**. Placeholder for now: synthwave chill, because it can be generated
-in code at no file cost.
+Two candidates (drum and bass dropped on 2026-10-31: too high energy for an
+idle game on a blog):
 
-- Medieval ambient needs real-instrument recordings (`file` track, ~1–3 MB,
-  CC0 or commissioned). Fits the sword/fantasy theme, calm.
-- Synthwave chill can be fully synthesized (`synth` track). Fits the
-  pixel/dark-site look, calm.
-- Drum and bass needs good drum samples. High energy, can get tiring on
-  loop in an idle game.
+- **Medieval ambient**: fits the sword/fantasy theme, calm. It can probably
+  be **synthesized** too, not only recorded. Karplus-Strong plucked strings
+  sound like a lute or harp, a sine/triangle wave with vibrato gives a
+  recorder or flute, held fifths give a bagpipe or hurdy-gurdy drone, and
+  modal scales (Dorian, Mixolydian) give the "old" sound. Fallback: CC0 or
+  commissioned recordings (`file` track, ~1–3 MB).
+- **Retro synthwave chill**: fits the pixel art and the dark site, calm,
+  easy to synthesize (pads, arpeggio, soft beat).
 
-The `Track` interface supports both kinds, so this choice can be made later
-without code changes outside `audio/`.
+Plan: in the audio milestone, prototype a short `synth` loop of **both** and
+pick by ear. The `Track` interface supports `synth` and `file`, so the choice
+can change later without code changes outside `audio/`.

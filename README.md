@@ -1,4 +1,4 @@
-# afk-game
+# browser-afk-game
 
 A tiny idle (AFK) pixel-art game you can drop into any web page with one
 script tag and one HTML element.
@@ -14,13 +14,13 @@ auto-advances through stages and bosses on his own.
 
 ```html
 <!-- in <head> -->
-<script src="https://ohwelleu.github.io/afk-game/afk-game.js" defer></script>
+<script src="https://ohwelleu.github.io/browser-afk-game/afk-game.js" defer></script>
 
 <!-- anywhere in the page -->
 <afk-game></afk-game>
 ```
 
-On `ohwelleu.github.io` itself the path can be relative: `/afk-game/afk-game.js`.
+On `ohwelleu.github.io` itself the path can be relative: `/browser-afk-game/afk-game.js`.
 
 ### Attributes
 
