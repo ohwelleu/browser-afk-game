@@ -16,6 +16,12 @@ describe('computeView', () => {
     expect(computeView(2000, 546, 1, content, 100).scale).toBe(5);
   });
 
+  it('keeps a bottom band free and sits the scene on it', () => {
+    const v = computeView(2000, 546, 1, content, 0, 66);
+    expect(v.scale).toBe(6);
+    expect(v.offsetY + v.height * v.scale).toBe(546 - 66);
+  });
+
   it('drops the scale on narrow screens', () => {
     expect(computeView(360, 546, 1, content).scale).toBe(3);
   });
