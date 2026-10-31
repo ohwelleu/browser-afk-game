@@ -25,6 +25,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - 8 retro sound effects made with ZzFX (vendored, MIT).
 - `demo/audio.html` to listen to the tracks and SFX.
 
+- Roadmap: weapon types (crossbow, large sword) and upgradable attack skills;
+  plan models attacks as data (`AttackDef`).
+
 ### Changed
 
 - Repo renamed to `browser-afk-game`. The element stays `<afk-game>` and the

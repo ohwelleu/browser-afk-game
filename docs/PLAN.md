@@ -25,6 +25,28 @@ debug panel.
 - Mobs touching the hero deal contact damage per second.
 - The hero heals to full when a stage starts.
 
+### Attacks are data (future-proofing)
+
+v1 has a single weapon type (sword) and a single attack (horizontal slash).
+Code must still model an attack as **data**, not a hardcoded slash, so
+weapon types (crossbow, large sword) and upgradable skills can be added
+later without a rewrite:
+
+```ts
+type AttackDef = {
+  id: string;            // "slash"
+  heroAnim: string;      // hero animation to play
+  effect?: string;       // effect sprite (slash arc, projectile, …)
+  hitFrame: number;      // animation frame where damage lands
+  range: number;         // px from hero; large for ranged
+  targets: "nearest" | "allInRange" | "projectile";
+  damageMult: number;
+};
+```
+
+Weapons point to a weapon type, and a type lists the attacks it can use.
+See [ROADMAP.md](ROADMAP.md#weapon-types).
+
 ### Death & auto-advance
 
 - **Auto-advance** toggle in the menu (default ON).
