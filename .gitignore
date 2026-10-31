@@ -14,3 +14,6 @@ site/
 
 # Vite cache when running `npx vite demo`
 demo/.vite/
+
+# Third-party reference images, kept local only
+references/**/_private/
