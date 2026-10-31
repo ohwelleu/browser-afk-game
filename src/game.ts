@@ -1,16 +1,10 @@
 import { AUDIO_DEFAULTS, createAudio, TRACK_IDS } from './audio';
 import type { SfxName } from './audio/types';
-import { HERO_MAX_HP, isBoss, upgradeCost, weaponDamage, WEAPONS } from './game/balance';
+import { HERO_MAX_HP, isBoss } from './game/balance';
 import { formatNumber } from './game/format';
 import {
-  buyUpgrade,
-  buyWeapon,
-  canBuyWeapon,
-  canUpgrade,
   createState,
-  equip,
   heroDamage,
-  nextWeapon,
   setAutoAdvance,
   update,
   type GameEvent,
@@ -32,6 +26,10 @@ import { SfxMixer } from './sfx-mixer';
 import { coinSpin, icons, type SpriteDef } from './sprites';
 import { STYLES } from './styles';
 import { buildPalette, resolveTheme, type Palette, type ThemeMode } from './theme';
+import { createShow } from './ui/dom';
+import { createMenu, MENU_STYLES } from './ui/menu';
+import { Dialogs, MODAL_STYLES } from './ui/modal';
+import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
 
 export type GameOptions = {
@@ -77,33 +75,6 @@ const HTML = `
         <button class="icon-btn" type="button" data-act="menu" aria-label="Menu" aria-haspopup="dialog">☰</button>
       </div>
     </div>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="afk-menu-title" hidden>
-      <div class="panel">
-        <h2 id="afk-menu-title">Menu</h2>
-        <button class="close" type="button" data-act="close" aria-label="Close menu">X</button>
-        <h3>Upgrades</h3>
-        <div class="row"><span class="up-info"></span><button type="button" data-act="upgrade"></button></div>
-        <h3>Weapons</h3>
-        <div class="row"><span class="shop-info"></span><button type="button" data-act="buy"></button></div>
-        <h3>Inventory</h3>
-        <ul class="inv">${WEAPONS.map(
-          (_, i) =>
-            `<li class="row"><span class="inv-info"></span><button type="button" data-act="equip" data-tier="${i}"></button></li>`,
-        ).join('')}</ul>
-        <h3>Help &amp; credits</h3>
-        <p>Your hunter duels one monster per stage and attacks on his own. Wins pay coins. Spend them on damage upgrades and new weapons. Every 6th stage is a boss. If the hunter falls, he steps back one stage and auto-advance turns off: upgrade, then turn it back on.</p>
-        <p class="muted">browser-afk-game v${__VERSION__} · Sound effects: ZzFX by Frank Force (MIT)</p>
-      </div>
-    </div>
-    <div class="popover" role="dialog" aria-labelledby="afk-sound-title" hidden>
-      <div class="panel">
-        <h2 id="afk-sound-title">Sound</h2>
-        <button class="close" type="button" data-act="close" aria-label="Close sound settings">X</button>
-        <div class="row"><span>All sound</span><button type="button" class="toggle" data-act="mute"></button></div>
-        <label class="slider">Music volume <input type="range" min="0" max="100" step="1" data-vol="music" /></label>
-        <label class="slider">Effects volume <input type="range" min="0" max="100" step="1" data-vol="sfx" /></label>
-      </div>
-    </div>
     <button class="auto-btn toggle" type="button" data-act="auto" title="Auto-advance: go to the next stage after a win"></button>
     <div class="overlay"><button class="start" type="button">Start</button></div>
   </div>`;
@@ -113,22 +84,17 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
   const overlay = $('.overlay');
   const startButton = $<HTMLButtonElement>('.start');
-  const modal = $('.modal');
-  const popover = $('.popover');
   const menuButton = $<HTMLButtonElement>('[data-act="menu"]');
   const soundButton = $<HTMLButtonElement>('[data-act="sound"]');
   const autoButton = $<HTMLButtonElement>('[data-act="auto"]');
   const pauseButton = $<HTMLButtonElement>('[data-act="pause"]');
   const musicButton = $<HTMLButtonElement>('[data-act="music"]');
-  const muteToggle = $<HTMLButtonElement>('[data-act="mute"]');
-  const musicSlider = $<HTMLInputElement>('[data-vol="music"]');
-  const sfxSlider = $<HTMLInputElement>('[data-vol="sfx"]');
   const ctx = canvas.getContext('2d')!;
 
   const storage = safeLocalStorage();
@@ -162,10 +128,31 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   audio.setTrack(audioSettings.track);
   audio.setMusicVolume(audioSettings.musicVolume);
   audio.setSfxVolume(audioSettings.sfxVolume);
-  musicSlider.value = String(Math.round(audioSettings.musicVolume * 100));
-  sfxSlider.value = String(Math.round(audioSettings.sfxVolume * 100));
   const mixer = new SfxMixer();
   let pendingSfx: SfxName[] = [];
+
+  // ── Dialogs (menu modal, sound popover): one open at a time ──────────────
+
+  const dialogs = new Dialogs(root, box);
+  const menu = createMenu({ act, iconUrl });
+  const sound = createSoundPanel(
+    {
+      toggleMute() {
+        audioSettings.muted = !audioSettings.muted;
+        audio.setMuted(audioSettings.muted);
+        refreshAudioButtons();
+        saveNow();
+      },
+      setVolume(key, value) {
+        audioSettings[key] = value;
+        if (key === 'musicVolume') audio.setMusicVolume(value);
+        else audio.setSfxVolume(value);
+      },
+      commit: saveNow,
+    },
+    audioSettings,
+  );
+  autoButton.before(menu.el, sound.el);
 
   const loop = new Loop((dt) => {
     state = update(state, dt);
@@ -210,6 +197,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     sprites.setPalette(palette);
     for (const [k, v] of Object.entries(palette)) box.style.setProperty(`--_${k}`, v);
     $<HTMLImageElement>('.coin-icon').src = iconUrl(coinSpin);
+    menu.refreshIcons();
     refreshAudioButtons();
     if (!loop.running) draw();
   }
@@ -244,18 +232,11 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     }
     scene.draw(ctx, state, view, palette, sprites);
     refreshHud();
-    if (!modal.hidden) refreshMenu();
+    if (dialogs.isOpen(menu.el)) menu.refresh(state);
     if (opts.debug) drawDebug();
   }
 
-  const shown = new Map<Element, string>();
-  /** Sets a property only when it changed, so per-frame refreshes stay cheap. */
-  function show(el: Element, value: string, prop: 'textContent' | 'title' = 'textContent'): void {
-    const key = `${prop}:${value}`;
-    if (shown.get(el) === key) return;
-    shown.set(el, key);
-    (el as HTMLElement)[prop] = value;
-  }
+  const show = createShow();
 
   function refreshHud(): void {
     const hp = state.duel.heroHp;
@@ -272,51 +253,9 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     autoButton.setAttribute('aria-pressed', String(state.autoAdvance));
   }
 
-  function refreshMenu(): void {
-    const tier = state.equipped;
-    const level = state.weaponLevels[tier];
-    const w = WEAPONS[tier];
-    show(
-      $('.up-info'),
-      `${w.name} Lv ${level}: ${formatNumber(weaponDamage(tier, level))} → ${formatNumber(weaponDamage(tier, level + 1))} dmg`,
-    );
-    const up = $<HTMLButtonElement>('[data-act="upgrade"]');
-    show(up, `Upgrade · ● ${formatNumber(upgradeCost(tier, level))}`);
-    up.disabled = !canUpgrade(state);
-
-    const nextTier = nextWeapon(state);
-    const buy = $<HTMLButtonElement>('[data-act="buy"]');
-    if (nextTier === null) {
-      show($('.shop-info'), 'You own every weapon.');
-      buy.hidden = true;
-    } else {
-      const nw = WEAPONS[nextTier];
-      show($('.shop-info'), `${nw.name}: ${formatNumber(nw.baseDmg)} dmg at Lv 1`);
-      show(buy, `Buy · ● ${formatNumber(nw.price)}`);
-      buy.hidden = false;
-      buy.disabled = !canBuyWeapon(state);
-    }
-
-    root.querySelectorAll<HTMLLIElement>('.inv li').forEach((li, i) => {
-      const lvl = state.weaponLevels[i];
-      const owned = lvl >= 1;
-      li.classList.toggle('muted', !owned);
-      show(
-        li.querySelector('.inv-info')!,
-        owned
-          ? `${WEAPONS[i].name} · Lv ${lvl} · ${formatNumber(weaponDamage(i, lvl))} dmg`
-          : `${WEAPONS[i].name} · not owned`,
-      );
-      const btn = li.querySelector('button')!;
-      btn.hidden = !owned;
-      show(btn, i === state.equipped ? 'Equipped' : 'Equip');
-      btn.disabled = i === state.equipped;
-    });
-  }
-
   function refreshUi(): void {
     refreshHud();
-    if (!modal.hidden) refreshMenu();
+    if (dialogs.isOpen(menu.el)) menu.refresh(state);
   }
 
   function refreshAudioButtons(): void {
@@ -330,8 +269,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     soundButton.setAttribute('aria-label', soundLabel);
     show(soundButton, soundLabel, 'title');
     soundButton.querySelector('img')!.src = iconUrl(audioSettings.muted ? icons.sfxOff : icons.sfx);
-    muteToggle.setAttribute('aria-pressed', String(!audioSettings.muted));
-    show(muteToggle, audioSettings.muted ? 'OFF' : 'ON');
+    sound.refresh(audioSettings);
   }
 
   function drawDebug(): void {
@@ -361,8 +299,6 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     audio.setTrack(audioSettings.track);
     audio.setMusicVolume(audioSettings.musicVolume);
     audio.setSfxVolume(audioSettings.sfxVolume);
-    musicSlider.value = String(Math.round(audioSettings.musicVolume * 100));
-    sfxSlider.value = String(Math.round(audioSettings.sfxVolume * 100));
     refreshAudioButtons();
     writeSave(storage, opts.saveKey, toSaveData(state, audioSettings, __VERSION__));
     if (!started) startButton.textContent = `Continue · ${state.world}.${state.stage}`;
@@ -400,71 +336,11 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     }
   }
 
-  // ── Dialogs (menu modal, sound popover): one open at a time ──────────────
-
-  let openDialog: { el: HTMLElement; opener: HTMLButtonElement } | null = null;
-
-  function open(el: HTMLElement, opener: HTMLButtonElement): void {
-    close(false);
-    el.hidden = false;
-    openDialog = { el, opener };
-    if (el === modal) refreshMenu();
-    el.querySelector<HTMLButtonElement>('.close')!.focus();
-  }
-
-  function close(restoreFocus = true): void {
-    if (!openDialog) return;
-    const { el, opener } = openDialog;
-    el.hidden = true;
-    openDialog = null;
-    if (restoreFocus) opener.focus();
-  }
-
-  function toggle(el: HTMLElement, opener: HTMLButtonElement): void {
-    if (openDialog?.el === el) close();
-    else open(el, opener);
-  }
-
-  box.addEventListener('keydown', (e) => {
-    if (!openDialog) return;
-    const dialog = openDialog.el;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      close();
-    } else if (e.key === 'Tab') {
-      // Keep focus inside the dialog.
-      const list = [...dialog.querySelectorAll<HTMLElement>('button, input')].filter(
-        (el) => !(el as HTMLButtonElement).disabled && !el.closest('[hidden]'),
-      );
-      if (!list.length) return;
-      const first = list[0];
-      const last = list[list.length - 1];
-      const active = root.activeElement;
-      if (e.shiftKey && (active === first || !dialog.contains(active))) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && (active === last || !dialog.contains(active))) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  });
-
   // ── Controls ─────────────────────────────────────────────────────────────
 
   box.addEventListener('click', (e) => {
-    const el = e.target as Element;
-    const target = el.closest<HTMLElement>('[data-act]');
-    // A click outside the open dialog's panel (and not on its opener) closes it.
-    if (
-      openDialog &&
-      !openDialog.el.querySelector('.panel')!.contains(el) &&
-      target !== openDialog.opener
-    ) {
-      close(false);
-    }
-    if (!target) return;
-    switch (target.dataset.act) {
+    const target = (e.target as Element).closest<HTMLElement>('[data-act]');
+    switch (target?.dataset.act) {
       case 'pause':
         paused = !paused;
         pauseButton.textContent = paused ? '▶' : '❚❚';
@@ -480,46 +356,21 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         return;
       }
       case 'sound':
-        toggle(popover, soundButton);
-        return;
-      case 'mute':
-        audioSettings.muted = !audioSettings.muted;
-        audio.setMuted(audioSettings.muted);
-        refreshAudioButtons();
-        saveNow();
+        dialogs.toggle(sound.el, soundButton);
         return;
       case 'menu':
-        toggle(modal, menuButton);
-        return;
-      case 'close':
-        close();
+        if (dialogs.isOpen(menu.el)) {
+          dialogs.close();
+        } else {
+          menu.refresh(state);
+          dialogs.open(menu.el, menuButton, menu.focusTarget);
+        }
         return;
       case 'auto':
         act((s) => setAutoAdvance(s, !s.autoAdvance));
         return;
-      case 'upgrade':
-        act(buyUpgrade);
-        return;
-      case 'buy':
-        act(buyWeapon);
-        return;
-      case 'equip':
-        act((s) => equip(s, Number(target.dataset.tier)));
-        return;
     }
   });
-
-  for (const [slider, key] of [
-    [musicSlider, 'musicVolume'],
-    [sfxSlider, 'sfxVolume'],
-  ] as const) {
-    slider.addEventListener('input', () => {
-      audioSettings[key] = Math.min(1, Math.max(0, Number(slider.value) / 100 || 0));
-      if (key === 'musicVolume') audio.setMusicVolume(audioSettings.musicVolume);
-      else audio.setSfxVolume(audioSettings.sfxVolume);
-    });
-    slider.addEventListener('change', saveNow);
-  }
 
   startButton.addEventListener('click', () => {
     if (started) return;
@@ -577,6 +428,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     },
     destroy() {
       saveNow();
+      dialogs.destroy();
       debugPanel?.destroy();
       loop.stop();
       audio.pause();
