@@ -41,7 +41,7 @@ The game is a series of **1-on-1 duels**. Nobody walks. Each stage is one fight.
 **boss**. After the boss comes `(world+1).1`. It goes on forever, with no
 resets in v1 (prestige later).
 
-**Hero HP:** full heal at the start of every duel (assumption, confirm).
+**Hero HP:** full heal at the start of every duel.
 
 **World 1 is a tutorial:** mobs have half HP and half damage until `2.1`,
 so a new player can't really lose there.

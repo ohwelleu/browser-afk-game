@@ -58,4 +58,5 @@ game.destroy();
 - [docs/PLAN.md](docs/PLAN.md): v1 scope, mechanics, numbers, milestones
 - [docs/ROADMAP.md](docs/ROADMAP.md): features planned for later
 - [docs/DECISIONS.md](docs/DECISIONS.md): why things are the way they are
+- [docs/BACKLOG.md](docs/BACKLOG.md): agreed to-dos for later
 - [CHANGELOG.md](CHANGELOG.md): what changed in each version
