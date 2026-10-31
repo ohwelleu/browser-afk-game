@@ -215,7 +215,8 @@ Enabled with the `debug` attribute or the `?afkdebug` URL param:
   Phaser/PixiJS would be 10–50× the size for nothing we need).
 - **Vite** library mode for the build, **Vitest** for logic tests,
   **Prettier** for formatting.
-- Only runtime dependency: **ZzFX** (SFX), ~1 KB.
+- **No runtime dependencies.** ZzFX's sound generator is vendored in
+  `src/audio/vendor/zzfx.ts` (MIT header kept).
 - Game logic as pure functions (`update(state, dt)`) kept apart from
   rendering, audio and DOM. That makes it testable and debuggable, and leaves
   room for seeded RNG / save hashing later.
