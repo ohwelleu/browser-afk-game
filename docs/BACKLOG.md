@@ -40,3 +40,6 @@ when they're done, and move bigger ideas to [ROADMAP.md](ROADMAP.md).
 
 - [ ] Add the changelog lines from PRs #1 and #2 to `CHANGELOG.md`.
 - [ ] Tag `v0.2.0` once the playable demo is merged.
+- [ ] Delete screenshot helper branches (`pr-assets/*`, e.g. `pr-assets/ui-menus`)
+      once nobody needs the images in old PR descriptions. Future PRs: use one
+      shared `pr-assets` branch.
