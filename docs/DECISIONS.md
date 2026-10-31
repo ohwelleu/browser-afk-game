@@ -118,3 +118,32 @@ Planned: crossbow and large sword weapon types, and upgradable attack skills
 (slash → double slash → spin, etc.). v1 ships only the sword slash, but the
 attack is an `AttackDef` (animation, effect, hit frame, range, targeting,
 damage multiplier), so new weapons and skills are content, not rewrites.
+
+## 2026-10-31: Duel combat instead of walking mobs
+
+Each stage is one 1-on-1 fight. The hero is on the left and the mob on the
+right, both large and far apart in a ~546 px box. Nobody walks. Attacks run on
+timers (hero 1.0 s, mob 1.0 s, mob offset by 0.5 s). This replaces the
+earlier "mobs spawn and walk in, 10 kills per stage" design.
+
+## 2026-10-31: Upgrades per weapon, damage = base × level
+
+Each weapon has its own level, so an upgraded old weapon can beat a new
+one. Costs grow 1.15× per level. Weapons step ×6 in damage and ×30 in price.
+
+## 2026-10-31: Mob damage grows slowly while hero HP is fixed
+
+No HP upgrades in v1, so mob damage grows only 1.05× per stage. Faster
+growth made a wall that damage upgrades couldn't fix (seen in simulation).
+
+## 2026-10-31: Save as a checksummed string with backup and export
+
+`AFK1.<base64url(JSON)>.<checksum>` in `localStorage`, plus a `.bak` slot.
+The same string is used for export/import between browsers. The checksum
+catches corruption and casual edits but is not anti-cheat.
+
+## 2026-10-31: Animation and sound priority
+
+`death > attack > hurt > idle`. Getting hit while attacking shows a flash
+overlay instead of interrupting. Sounds follow the same priority, with
+per-sound cooldowns and a voice limit.

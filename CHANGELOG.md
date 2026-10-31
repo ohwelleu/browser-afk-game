@@ -30,6 +30,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
+- **Core mechanics redesigned as 1-on-1 duels**: one mob per stage, no
+  walking, timed attacks, 2 s intro. New layout (~546 px box, HUD top bar),
+  menus (upgrades, weapons shop, inventory, help/credits) and modals with [X].
+- Per-weapon upgrades; new balance formulas; safeguards (duel state
+  machine, animation/sound priority, purchase guards, one-tab guard).
+- Save becomes a checksummed string with backup slot and `.txt`
+  export/import.
+- Debug panel gains a balance simulator (also `npm run sim`).
+- Pixel-art font planned.
+
 - Repo renamed to `browser-afk-game`. The element stays `<afk-game>` and the
   bundle stays `afk-game.js`.
 

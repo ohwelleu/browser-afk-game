@@ -4,28 +4,49 @@ Goal: a playable concept of the core loop. Kill mobs → earn coins → buy
 upgrades → push stages. Numbers below are **placeholders** to tune with the
 debug panel.
 
-## Core flow
+## Core flow (duel)
 
-1. The page loads with a still scene and a **Start** button over it, every
-   time. Nothing runs or plays until it is pressed. The button also unlocks
-   audio (browsers block sound before a user click). If a save exists, the
-   button reads "Continue" and shows the saved stage.
-2. Mobs spawn on the right and walk left until they reach the hero.
-3. The hero attacks the nearest mob in range on his own (sword slash animation).
-4. Each kill drops coins, which fly to the coin counter.
-5. After `KILLS_PER_STAGE` kills the stage is cleared → next stage.
-6. Stages are numbered `world.stage`: `1.1 … 1.5` are normal and `1.6` is the
-   **boss**. Killing the boss → `2.1`, and so on, forever.
-7. No resets. The hero keeps all weapons and upgrades as he goes.
+The game is a series of **1-on-1 duels**. Nobody walks. Each stage is one fight.
 
-## Hero
+1. The page shows a still scene with a **Start** button (or "Continue · W.S"
+   when a save exists). Nothing runs or plays before the click, which also
+   unlocks audio.
+2. The **hero** appears on the left and the **mob** on the right, far apart.
+   Both are large (see [Layout](#layout)).
+3. After a **2 s intro** the duel starts. Neither side moves. Each side plays
+   its attack animation on its own timer:
+   - hero: every `heroInterval` (1.0 s, upgradable later), first hit at 2.0 s
+   - mob: every `mobInterval` (1.0 s, per mob type), first hit at **2.5 s**.
+     The half-interval offset stops both from landing on the same tick at
+     the start.
+   - Each landed hit: a damage number pops up, the target's HP bar drops,
+     and the hit effect (slash arc) plays.
+4. The duel ends when one side reaches 0 HP.
 
-- Stands on the left; idle bob animation plus a 3–4 frame slash.
-- Stats: `damage`, `attackInterval`, `maxHp`.
-- Mobs touching the hero deal contact damage per second.
-- The hero heals to full when a stage starts.
+**Mob dies:**
+- The mob plays its death animation and drops coins (they fly to the counter).
+- Auto-advance **on**: go to the next stage. The next mob just appears (no
+  walk-in).
+- Auto-advance **off**: stay on the same stage and a new mob of that stage
+  appears (farming).
 
-### Attacks are data (future-proofing)
+**Hero dies:**
+- The hero plays his death animation.
+- Go back one stage (`2.1 → 1.6`, `1.1` stays `1.1`) and turn
+  auto-advance **off**.
+- Turning auto-advance back on moves to the next stage right after the
+  current fight.
+
+**Stages:** `world.stage`. `x.1 … x.5` are normal mobs, `x.6` is the
+**boss**. After the boss comes `(world+1).1`. It goes on forever, with no
+resets in v1 (prestige later).
+
+**Hero HP:** full heal at the start of every duel (assumption, confirm).
+
+**World 1 is a tutorial:** mobs have half HP and half damage until `2.1`,
+so a new player can't really lose there.
+
+## Attacks are data (future-proofing)
 
 v1 has a single weapon type (sword) and a single attack (horizontal slash).
 Code must still model an attack as **data**, not a hardcoded slash, so
@@ -38,8 +59,8 @@ type AttackDef = {
   heroAnim: string;      // hero animation to play
   effect?: string;       // effect sprite (slash arc, projectile, …)
   hitFrame: number;      // animation frame where damage lands
-  range: number;         // px from hero; large for ranged
-  targets: "nearest" | "allInRange" | "projectile";
+  interval: number;      // seconds between attacks (1.0 in v1)
+  targets: "single" | "all" | "projectile"; // v1: single (the duel mob)
   damageMult: number;
 };
 ```
@@ -47,75 +68,200 @@ type AttackDef = {
 Weapons point to a weapon type, and a type lists the attacks it can use.
 See [ROADMAP.md](ROADMAP.md#weapon-types).
 
-### Death & auto-advance
+## Layout
 
-- **Auto-advance** toggle in the menu (default ON).
-- ON: clearing a stage moves to the next stage.
-- When the hero **dies**: roll back one stage (`2.1 → 1.6`, `1.1` stays
-  `1.1`), turn **auto-advance OFF** and farm that stage in a loop.
-- The player buys upgrades and turns auto-advance back ON → the hero moves to
-  the next stage right away.
+The game box is about **546 px tall** (full container width). Large
+characters, far apart.
 
-## Mobs
+```
+┌────────────────────────────────────────────────────────────────┐
+│ ♥ ████████░░ 82/100      STAGE 1.3        [⏸] [♪] [🔇] [☰]    │
+│ ● 1,240                                                         │
+│                                                                 │
+│      HERO (32×64 art px,                       MOB              │
+│      drawn at 4× ≈ 256 px)                  (HP bar above)      │
+│                                                                 │
+│ ─────────────────────────── ground ──────────────────────────── │
+└────────────────────────────────────────────────────────────────┘
+```
 
-All mobs have a walk cycle (2–4 frames) and an HP bar above them.
+- **Top-left:** hero HP bar (with numbers) and coins. Later: mana bar and
+  auras.
+- **Top-centre:** the stage (`1.3`, with a boss marker on `x.6`).
+- **Top-right:** pause, music switch (Medieval → Synthwave → Off), mute,
+  menu (☰).
+- **Mob HP bar** sits above the mob.
+- Art scale is a whole number (4× on desktop). On narrow or mobile
+  screens it drops to 3× or 2× and the box gets shorter. It never scales by
+  fractions.
+- **Pixel-art font** for all text (see [Font](#font)).
 
-| Mob      | HP mult | Speed | Damage mult | Appears from |
-| -------- | ------- | ----- | ----------- | ------------ |
-| Mushroom | 1.0     | slow  | 1.0         | x.1          |
-| Flower   | 1.5     | mid   | 1.2         | x.2          |
-| Chicken  | 0.6     | fast  | 0.8         | x.3          |
-| Boss     | 10×     | slow  | 3×          | x.6 only     |
+## Menus & modals
 
-- Boss in v1 = a bigger mushroom (2–3× sprite scale). The boss stage is a
-  single boss and is cleared by killing it.
+All popups are modals inside the game box. Each one has a **square [X]
+close button** in the top-right corner. `Esc` also closes them, focus is
+trapped inside while one is open, and only one modal is open at a time.
+The game keeps running behind a modal (it's an AFK game). Only the pause
+button stops it.
 
-## Scaling (placeholder formulas)
+- **☰ Menu**
+  - **Upgrades**: upgrade the **equipped weapon's** damage. Shows current
+    → next damage and the cost. v1: buy ×1. Later: ×10, ×100, MAX buttons
+    (bulk cost formula below).
+  - **Weapons (shop)**: buy the next weapon. A new weapon starts at level 1,
+    so a well-upgraded old weapon can still be better than a new one.
+  - **Inventory**: owned weapons with their level and damage. **Equip**
+    switches instantly (damage changes immediately, even mid-duel). Later:
+    misc items.
+  - **Auto-advance** toggle.
+  - **Save**: copy/paste the save string, download/upload `.txt` (see
+    [Save](#save)).
+  - **Help & credits**: how to play, version, credits (ZzFX MIT, font
+    licence, music).
+- Damage upgrades and equipping apply **instantly**: the next hit uses the
+  new damage.
 
-`L = (world - 1) * 6 + stage` (1.1 → 1, 1.6 → 6, 2.1 → 7)
+## Weapons & upgrades
 
-| Value       | Formula                             |
-| ----------- | ----------------------------------- |
-| Mob HP      | `5 × hpMult × 1.25^(L-1)`           |
-| Mob damage  | `2 × dmgMult × 1.18^(L-1)` per sec  |
-| Coin drop   | `1 × 1.20^(L-1)` (boss ×10)         |
-| Kills/stage | `10`                                |
+Upgrades are **per weapon**: each owned weapon has its own level.
 
-## Economy & upgrades
+| Weapon       | Base dmg | Buy price | Upgrade base cost |
+| ------------ | -------- | --------- | ----------------- |
+| Stick        | 1        | –         | 5                 |
+| Wooden sword | 6        | 100       | 60                |
+| Stone sword  | 36       | 3,000     | 1,800             |
+| Iron sword   | 216      | 90,000    | 54,000            |
+| Gold sword   | 1,296    | 2,700,000 | 1,600,000         |
 
-Menu is a DOM overlay inside the game box (crisp text, keyboard accessible).
+- `damage = baseDmg × level`
+- `upgradeCost(level) = upgradeBase × 1.15^(level-1)`
+- Bulk buy (for ×10 / ×100 / MAX later), using the standard geometric sum
+  from idle-game design:
+  - cost of `n` levels from level `k`:
+    `upgradeBase × 1.15^(k-1) × (1.15^n − 1) / 0.15`
+  - max affordable `n` with `c` coins:
+    `floor( log( c × 0.15 / (upgradeBase × 1.15^(k-1)) + 1 ) / log 1.15 )`
+- A stick at level 6+ already beats a fresh wooden sword (6 dmg), as wanted.
 
-| Upgrade       | Effect                                  | Cost                    |
-| ------------- | --------------------------------------- | ----------------------- |
-| Buy weapon    | next tier, sets base damage, new sprite | fixed per tier          |
-| Damage +      | `damage = base × (1 + 0.10 × level)`    | `10 × 1.15^level`       |
-| Speed +       | `interval = 1.0s × 0.95^level`, ≥ 0.25s | `15 × 1.20^level`       |
+## Balance (v1 placeholders)
 
-| Weapon       | Base damage | Cost |
-| ------------ | ----------- | ---- |
-| Stick        | 1           | –    |
-| Wooden sword | 3           | 50   |
-| Stone sword  | 8           | 300  |
-| Iron sword   | 20          | 1500 |
-| Gold sword   | 50          | 8000 |
+`L = (world − 1) × 6 + stage` (`1.1 → 1`, `1.6 → 6`, `2.1 → 7`)
 
-Damage/speed levels are kept when you buy a new weapon.
+| Value              | Formula                          | Boss (`x.6`) |
+| ------------------ | -------------------------------- | ------------ |
+| Mob HP             | `ceil(10 × 1.28^(L−1))`          | ×5           |
+| Mob damage per hit | `ceil(4 × 1.05^(L−1))`           | ×2           |
+| Coins per kill     | `ceil(4 × 1.30^(L−1))`           | ×5           |
+| World 1            | HP and damage ×0.5               |              |
+| Hero HP            | 100 (no HP upgrades in v1)       |              |
+
+This follows the usual idle-game pattern: enemy HP and upgrade costs grow
+**exponentially**, and the player's damage grows with **levels × weapon
+multipliers**. Progress keeps slowing down, and new weapons are the big
+jumps. Reference: Kongregate's "The Math of Idle Games" series.
+
+**Mob damage grows slowly (1.05) on purpose.** Hero HP is fixed in v1, so
+fast-growing mob damage would hit a wall that damage upgrades can't fix.
+Revisit when HP upgrades arrive.
+
+Quick simulation (greedy buyer, 1 s attacks, 2 s intro): world 2 at about
+1 min, world 3 at about 9 min, world 4 at about 45 min, then slowing.
+Tune with the in-game simulator.
+
+All numbers live in one `src/game/balance.ts` so they can be tuned
+without touching logic.
+
+## Safeguards
+
+### Combat & animation
+
+- **One state machine per duel**: `intro → fighting → (mobDying |
+  heroDying) → transition → intro`. Each transition happens **once**, so
+  there's no double coin drop, double stage advance or double rollback.
+- **Fixed timestep** (60 ticks/s). Attacks are scheduled by time and
+  resolved in time order inside a tick. Long frames are capped (0.25 s) and
+  never "caught up" in a burst.
+- **Damage lands on the attack's hit frame**, not at animation start.
+- **Dead can't hit.** Once HP ≤ 0, that side's pending attacks are
+  cancelled.
+- **Same-tick double KO:** the hero wins (player-favouring rule).
+- **Animation priority** (standard approach: an animation state machine
+  with priorities, plus a separate "hit flash" overlay):
+  `death > attack > hurt > idle`.
+  - Getting hit **never interrupts** an attack animation. Hurt is shown as
+    an **overlay**: a 1–2 frame flash (sprite drawn in a flash colour) plus a
+    1–2 px knockback offset and the damage number. The full hurt animation
+    only plays when the character is idle.
+  - Death overrides everything.
+- **Sound priority:** the same rules for audio. The hero's hit sound beats
+  the "get hit" sound when both land in the same ~50 ms. Each SFX has a
+  per-sound cooldown (no stacking the same sound within 50 ms) and a max
+  of about 6 voices at once. Low-priority sounds (coin) drop first.
+
+### Economy & numbers
+
+- Purchases are pure state transitions that check `coins ≥ cost` inside the
+  same step. Buttons disable until the state updates (no double-click
+  double-buy). Coins can never go negative.
+- Integers only for HP, damage and coins (`Math.floor`/`ceil`). Guard every
+  number against `NaN` and `Infinity`. Display large numbers with suffixes
+  (`1.2K`, `3.4M`, then `1.2e15`).
+
+### Runtime
+
+- Pause button, plus an auto-pause when off-screen or the tab is hidden.
+  **No offline progress.**
+- **One tab at a time:** if the game is open in two tabs, only one runs
+  (`BroadcastChannel`). The other shows "Running in another tab" with a
+  take-over button. This stops two tabs overwriting each other's save.
+
+### Save
+
+See [Save](#save): checksum, backup slot, validation, migrations.
 
 ## Save
 
-- `localStorage`, plain JSON with a `version` field (for migrations).
-- Autosaves every 5 s and on `visibilitychange` / `pagehide`.
-- Saved: coins, weapon tier, upgrade levels, current stage, auto-advance,
-  audio settings (music/SFX volume, mute), game version that wrote the save.
+- Stored in `localStorage` as one **save string**:
+  `AFK1.<base64url(JSON)>.<checksum>`
+  - `AFK1` = format version (for migrations)
+  - checksum = a fast hash (e.g. FNV-1a/CRC32) of the payload. It catches
+    corruption and casual edits. **Not real anti-cheat** (the key is in the
+    JS); see the roadmap.
+- Saved: game version, stage, auto-advance, coins, owned weapons + levels,
+  equipped weapon, audio settings (track, mute, volumes), stats (kills,
+  deaths, play time).
+- **Autosave** every 5 s, after every purchase and stage change, and on
+  `visibilitychange` / `pagehide`.
+- **Backup slot**: the previous good save is kept under `<save-key>.bak`.
+  - On load: check the format, checksum and schema (types, ranges, no
+    NaN). If it fails, try the backup. If that fails too, start a new game
+    and show a notice. Never crash.
+- **Export / import** (Menu → Save, for players too):
+  - copy the string, or download it as `afk-save-<date>.txt`
+  - paste a string, or upload a `.txt`. It is validated, shows a preview
+    ("Stage 3.4, 12,400 coins"), and asks for confirmation before it
+    overwrites.
 
 ## Runtime behaviour
 
-- Fixed-timestep simulation (e.g. 60 ticks/s), rendering on
+- Fixed-timestep simulation (60 ticks/s), rendering on
   `requestAnimationFrame`.
-- Pauses when the element is off-screen (`IntersectionObserver`) or the tab
-  is hidden. **No offline progress.** Time only counts while it is running.
+- Pauses when the element is off-screen (`IntersectionObserver`), the tab
+  is hidden, or the player presses pause. **No offline progress.**
 - Canvas scales by whole numbers with `imageSmoothingEnabled = false` and
   respects `devicePixelRatio`.
+
+## Font
+
+A pixel-art font for all UI text. It is embedded in the bundle as a subset
+WOFF2 (about 10–20 KB) so the one-file embed still works.
+
+- Candidates (all SIL OFL, free to embed): **Pixelify Sans**, **Silkscreen**,
+  **Press Start 2P**. Pick the one that is readable at small sizes and has
+  the Lithuanian letters (ą č ę ė į š ų ū ž) for i18n later.
+- `@font-face` doesn't apply from inside Shadow DOM in every browser, so it
+  is registered once on the host `document` under a unique family name
+  (`afk-pixel`).
 
 ## Audio
 
@@ -190,12 +336,14 @@ rebuilds the cached sprites (cheap).
 
 - Reference: the Chrome "no internet" dino, but **a bit more detailed**.
   The dino is about 20×22 art pixels. We go up to:
-  - hero: **32×32** art grid
-  - mobs: **24×24**
-  - boss: its own **48×48** sprite (or a 2× upscaled mob for v1)
+  - hero: **32×64** art grid (tall and slim; redesign in progress, see
+    `references/hero/`)
+  - mobs: **24×24** for now. The art thread will propose bigger sizes
+    (e.g. 32–48) to suit the duel layout.
+  - boss: **48×48** for now (64–96 proposed)
   - coins, icons, badges: **8×8 / 12×12**
-- Drawn at a whole-number scale (2×, 3×, …) depending on strip height, with
-  no smoothing, so edges stay crisp.
+- Drawn at a whole-number scale (4× in the ~546 px box, smaller on
+  mobile), with no smoothing, so edges stay crisp.
 - Flat colours, no gradients, no anti-aliasing, 1px outlines only where
   needed.
 
@@ -222,14 +370,22 @@ above), rendered once to offscreen canvases and cached. No image files. If
 sprite sheets (Piskel/Aseprite), using the same palette slots, so recolouring
 still works.
 
-## Debug panel
+## Debug panel & simulator
 
 Enabled with the `debug` attribute or the `?afkdebug` URL param:
 
-- +coins (×10 / ×1000), set stage, kill all mobs, god mode
+- +coins (×10 / ×1000), set stage, kill mob, god mode
 - game speed ×1 / ×5 / ×20
-- show stats (DPS, incoming DPS, mob HP at current stage)
-- reset save
+- live stats: hero DPS vs mob DPS, time-to-kill vs time-to-die, mob HP and
+  damage for the current stage
+- **save as `.txt` / load from `.txt`**, reset save
+- **Simulator**: enter weapon, weapon levels and start stage. It outputs
+  the stage where the hero will die next, coins earned on the way, and the
+  time it takes. Option: "keep buying upgrades greedily" on/off.
+  - It runs the **same pure combat and balance code** as the game,
+    headless and fast, so it can't drift from the real game.
+  - Also available as a CLI for balancing:
+    `npm run sim -- --weapon 1 --levels 12,3 --stage 2.1`
 
 ## Tech
 
@@ -266,16 +422,22 @@ Enabled with the `debug` attribute or the `?afkdebug` URL param:
 
 ## Milestones
 
-1. **Scaffold**: Vite lib build, demo page, `<afk-game>` + `mount/destroy`,
-   resizable canvas, fixed-timestep loop, Pages deploy.
-2. **Sprites**: hero idle + slash, mushroom/flower/chicken walk, boss, coin.
-3. **Combat**: spawn, walk, range, HP bars, damage numbers, death, coins,
-   hero HP.
-4. **Stages**: `world.stage` progression, boss at x.6, scaling, rollback on
-   death, auto-advance toggle.
-5. **Shop**: weapons, damage, speed. Save/load.
-6. **Start screen & audio**: Start/Continue button, chiptune music loop,
-   SFX, volume/mute in menu.
-7. **Debug panel**.
-8. **Release `1.0.0`** + **blog integration**: script tag + `<afk-game>` in the home hero of
-   ohwelleu.github.io (en + lt), theme vars mapped to the site palette.
+Done: 1 scaffold, 2 sprites v1, audio module (music + SFX).
+
+3. **Duel core (pure logic)**: duel state machine, timers, damage on hit
+   frame, death/advance/rollback, auto-advance, world-1 tutorial rule,
+   `balance.ts`, weapons/upgrades/inventory state, all safeguards from
+   [Safeguards](#safeguards). Vitest tests plus the `npm run sim` CLI.
+4. **Scene & HUD**: 546 px layout, real sprites, animation priority + hit
+   flash, damage numbers, coin fly, top bar (HP, coins, stage), pause /
+   music switch / mute buttons, pixel font.
+5. **Menus**: ☰ menu, Upgrades, Weapons shop, Inventory, Auto-advance,
+   Help & credits. Modals with a square [X], Esc and focus trap.
+6. **Save v2**: save string with checksum, backup slot, validation,
+   export/import (text + `.txt`), one-tab guard.
+7. **Debug panel + simulator UI**.
+8. **Art & music final**: hero v2 (32×64) from `references/`, mob/boss
+   resize, music style pick.
+9. **Release `1.0.0`** + **blog integration**: script tag + `<afk-game>`
+   in the home hero of ohwelleu.github.io (en + lt), theme vars mapped to
+   the site palette.
