@@ -1,6 +1,8 @@
 # References
 
-Images the art thread works from. **Owned by the user.** Implementation
+Images the art thread works from. Drawing your own sprites? See
+[docs/SPRITES.md](../docs/SPRITES.md); your own art goes in `art/`.
+ **Owned by the user.** Implementation
 threads read these but never edit them.
 
 ## Folders

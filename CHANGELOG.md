@@ -23,12 +23,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Pluggable music tracks: `synth` (step sequencer) and `file` (looping OGG/MP3).
 - Two prototype loops: medieval ambient (D Dorian) and synthwave chill (A minor).
 - 8 retro sound effects made with ZzFX (vendored, MIT).
+- Sprite guide `docs/SPRITES.md` and palette file `art/afk-palette.gpl` for
+  drawing your own sprites and animations.
 - `demo/audio.html` to listen to the tracks and SFX.
 
 - Roadmap: weapon types (crossbow, large sword) and upgradable attack skills;
   plan models attacks as data (`AttackDef`).
 
 ### Changed
+
+- **Hero v2**: the owner's own 32×64 assassin sprite (red eye, white hand),
+  copied pixel for pixel. Its attack is now a slap with the white hand.
 
 - **Core mechanics redesigned as 1-on-1 duels**: one mob per stage, no
   walking, timed attacks, 2 s intro. New layout (~546 px box, HUD top bar),

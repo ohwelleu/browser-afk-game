@@ -423,7 +423,7 @@ export const slashArcs: SpriteDef[] = [
 ];
 
 /** Top-left of the arc sprite relative to the hero frame's top-left. */
-export const slashArcOffset: Point = { x: 3, y: 4 };
+export const slashArcOffset: Point = { x: 10, y: 18 };
 
 /** Arc frame to show on each heroSlash frame: none on the wind-up, then appear, full, fade. */
 export const slashArcFrames: (number | null)[] = [null, 0, 1, 2];

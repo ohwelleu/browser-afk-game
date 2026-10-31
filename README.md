@@ -59,4 +59,6 @@ game.destroy();
 - [docs/ROADMAP.md](docs/ROADMAP.md): features planned for later
 - [docs/DECISIONS.md](docs/DECISIONS.md): why things are the way they are
 - [docs/BACKLOG.md](docs/BACKLOG.md): agreed to-dos for later
+- [docs/SPRITES.md](docs/SPRITES.md): how to draw sprites and animations
+  for the game (palette: `art/afk-palette.gpl`)
 - [CHANGELOG.md](CHANGELOG.md): what changed in each version
