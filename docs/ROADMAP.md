@@ -35,7 +35,7 @@ Not in v1. Rough order, open to change.
 
 ## Polish
 
-- Sound effects (muted by default).
+- More music tracks: per world, plus a boss theme.
 - Screen shake, hit flash, particle effects.
 - i18n for UI strings (en / lt).
 

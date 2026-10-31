@@ -7,7 +7,8 @@ A hero stands on the left and swings his weapon at mobs walking in from the
 right. Mobs drop coins; coins buy new weapons and upgrades. The hero
 auto-advances through stages and bosses on his own.
 
-> Status: planning. See [docs/PLAN.md](docs/PLAN.md).
+> Status: planning (`0.1.0`). See [docs/PLAN.md](docs/PLAN.md) and
+> [CHANGELOG.md](CHANGELOG.md).
 
 ## Embed
 
@@ -56,3 +57,4 @@ game.destroy();
 - [docs/PLAN.md](docs/PLAN.md): v1 scope, mechanics, numbers, milestones
 - [docs/ROADMAP.md](docs/ROADMAP.md): features planned for later
 - [docs/DECISIONS.md](docs/DECISIONS.md): why things are the way they are
+- [CHANGELOG.md](CHANGELOG.md): what changed in each version

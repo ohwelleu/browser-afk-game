@@ -6,9 +6,10 @@ debug panel.
 
 ## Core flow
 
-1. The page loads with a still scene and the hint "click to start". After the
-   first start, the game remembers it and auto-starts next time (unless
-   `prefers-reduced-motion`).
+1. The page loads with a still scene and a **Start** button over it, every
+   time. Nothing runs or plays until it is pressed. The button also unlocks
+   audio (browsers block sound before a user click). If a save exists, the
+   button reads "Continue" and shows the saved stage.
 2. Mobs spawn on the right and walk left until they reach the hero.
 3. The hero attacks the nearest mob in range on his own (sword slash animation).
 4. Each kill drops coins, which fly to the coin counter.
@@ -83,7 +84,7 @@ Damage/speed levels are kept when you buy a new weapon.
 - `localStorage`, plain JSON with a `version` field (for migrations).
 - Autosaves every 5 s and on `visibilitychange` / `pagehide`.
 - Saved: coins, weapon tier, upgrade levels, current stage, auto-advance,
-  "has started" flag.
+  audio settings (music/SFX volume, mute), game version that wrote the save.
 
 ## Runtime behaviour
 
@@ -93,6 +94,18 @@ Damage/speed levels are kept when you buy a new weapon.
   is hidden. **No offline progress.** Time only counts while it is running.
 - Canvas scales by whole numbers with `imageSmoothingEnabled = false` and
   respects `devicePixelRatio`.
+
+## Audio
+
+- **Music:** a looping chiptune background track, generated with the Web
+  Audio API (oscillators + a tiny sequencer, notes defined in code). No audio
+  files, same idea as the sprites.
+- **SFX:** sword swing, hit, mob death, coin pickup, purchase, hero death,
+  boss appears, stage clear.
+- Starts only after the Start button. Pauses with the game (off-screen or tab
+  hidden).
+- Menu: mute toggle and separate music and SFX volume sliders, saved.
+- Default volume is low. Respect the page being a blog, not a game site.
 
 ## Pixel art
 
@@ -115,6 +128,22 @@ Enabled with the `debug` attribute or the `?afkdebug` URL param:
 
 - TypeScript, Vite library mode, zero runtime dependencies.
 - Output: `dist/afk-game.js` (registers `<afk-game>`, also exports `mount`).
+
+## Versioning
+
+- [Semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH`, e.g.
+  `1.0.1`.
+  - PATCH: bug fixes, balance tweaks (`1.0.0 → 1.0.1`)
+  - MINOR: new features/content, saves stay compatible (`1.0.1 → 1.1.0`)
+  - MAJOR: breaking changes to the embed API or save format without a
+    migration (`1.1.0 → 2.0.0`)
+- `package.json` `version` is the single source of truth. The build injects
+  it, so it is shown in the menu footer and available as
+  `AfkGame.version`.
+- Every release adds an entry to [CHANGELOG.md](../CHANGELOG.md) and gets a
+  git tag `vX.Y.Z` plus a GitHub Release with the changelog notes.
+- `0.x.y` while it is a concept. `1.0.0` = first version embedded on the
+  blog.
 - `demo/index.html` for development.
 - GitHub Action deploys the build + demo to Pages at
   `ohwelleu.github.io/afk-game/`.
@@ -129,6 +158,8 @@ Enabled with the `debug` attribute or the `?afkdebug` URL param:
 4. **Stages**: `world.stage` progression, boss at x.6, scaling, rollback on
    death, auto-advance toggle.
 5. **Shop**: weapons, damage, speed. Save/load.
-6. **Debug panel**.
-7. **Blog integration**: script tag + `<afk-game>` in the home hero of
+6. **Start screen & audio**: Start/Continue button, chiptune music loop,
+   SFX, volume/mute in menu.
+7. **Debug panel**.
+8. **Release `1.0.0`** + **blog integration**: script tag + `<afk-game>` in the home hero of
    ohwelleu.github.io (en + lt), theme vars mapped to the site palette.

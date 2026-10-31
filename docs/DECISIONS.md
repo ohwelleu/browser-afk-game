@@ -41,3 +41,20 @@ turns auto-advance back on.
 
 Pixel grids plus a palette, cached to offscreen canvases. The bundle stays
 small, and the hero/UI can recolour to the host site's theme.
+
+## 2026-10-31: Start button every load
+
+Browsers block audio until a user click, and a blog should not start making
+noise or burning CPU on its own. The game always waits for Start/Continue.
+
+## 2026-10-31: Music and SFX generated with Web Audio
+
+Chiptune notes are defined in code and played through oscillators, the same
+approach as the sprites. No audio files to download, tiny bundle, easy to
+tweak.
+
+## 2026-10-31: Semantic versioning + Keep a Changelog
+
+`package.json` is the source of truth for the version. Each release has a
+`CHANGELOG.md` entry, a `vX.Y.Z` tag and a GitHub Release. `0.x` while it
+is a concept, `1.0.0` when it goes on the blog.
