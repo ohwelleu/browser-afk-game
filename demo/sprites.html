@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>browser-afk-game · sprites</title>
+    <style>
+      body {
+        margin: 0;
+        font:
+          13px/1.4 ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
+        background: #888;
+        color: #111;
+      }
+      header {
+        padding: 12px 16px;
+      }
+      #errors {
+        color: #b00;
+        white-space: pre-wrap;
+      }
+      .themes {
+        display: flex;
+        flex-wrap: wrap;
+      }
+      .theme {
+        flex: 1 1 50%;
+        min-width: 600px;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .theme h2 {
+        margin: 0 0 12px;
+        font-size: 14px;
+      }
+      section {
+        margin-bottom: 18px;
+      }
+      section h3 {
+        margin: 0 0 6px;
+        font-size: 12px;
+        font-weight: normal;
+        opacity: 0.7;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 14px;
+      }
+      figure {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+      figcaption {
+        font-size: 11px;
+        opacity: 0.6;
+      }
+      canvas {
+        image-rendering: pixelated;
+        display: block;
+      }
+      .frames {
+        display: flex;
+        gap: 6px;
+        align-items: flex-end;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>browser-afk-game sprites</strong> · animated at 1× / 3× / 6×, plus every frame. Weapon
+      tier:
+      <select id="tier"></select>
+      <label><input type="checkbox" id="grid" /> pixel grid</label>
+      <label><input type="checkbox" id="slow" /> slow motion (¼ speed)</label>
+      <div id="errors"></div>
+    </header>
+    <div class="themes" id="themes"></div>
+    <script type="module" src="./sprites.ts"></script>
+  </body>
+</html>
