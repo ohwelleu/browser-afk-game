@@ -14,7 +14,14 @@ import { Loop } from './loop';
 import { SceneRenderer, sceneContent } from './render/scene';
 import { SpriteCache } from './render/sprites';
 import { computeView, type View } from './render/view';
-import { loadSave, readSavePreview, toSaveData, writeSave, type AudioSettings } from './save';
+import {
+  loadSave,
+  readSavePreview,
+  toSaveData,
+  validateSaveData,
+  writeSave,
+  type AudioSettings,
+} from './save';
 import { SfxMixer } from './sfx-mixer';
 import { coinSpin, icons, type SpriteDef } from './sprites';
 import { STYLES } from './styles';
@@ -23,6 +30,7 @@ import { createShow } from './ui/dom';
 import { createMenu, MENU_STYLES } from './ui/menu';
 import { Dialogs, MODAL_STYLES } from './ui/modal';
 import { createSoundPanel, SOUND_STYLES } from './ui/sound';
+import { createDebugPanel, type DebugPanel } from './ui/debug';
 
 export type GameOptions = {
   saveKey: string;
@@ -38,6 +46,12 @@ export type GameHandle = {
 const AUTOSAVE_MS = 5000;
 /** CSS px kept free at the top of the canvas for the HUD. */
 const HUD_HEIGHT = 64;
+/** Below this box width the HUD buttons stack down the right edge and the scene goes compact. */
+const COMPACT_WIDTH = 768;
+/** CSS px the stacked HUD column takes on compact boxes (4 × 44 px buttons + gaps). */
+const COMPACT_HUD_HEIGHT = 200;
+/** CSS px kept free at the bottom on compact boxes for the AUTO toggle and the debugger. */
+const COMPACT_BOTTOM = 64;
 /** Music switch order; '' = off. */
 const TRACK_CYCLE = [...TRACK_IDS, ''];
 const trackName = (id: string) => (id ? id[0].toUpperCase() + id.slice(1) : 'Off');
@@ -63,7 +77,6 @@ const HTML = `
     </div>
     <button class="auto-btn toggle" type="button" data-act="auto" title="Auto-advance: go to the next stage after a win"></button>
     <div class="overlay"><button class="start" type="button">Start</button></div>
-    <div class="debug" hidden></div>
   </div>`;
 
 /**
@@ -77,7 +90,6 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   const canvas = $<HTMLCanvasElement>('canvas');
   const overlay = $('.overlay');
   const startButton = $<HTMLButtonElement>('.start');
-  const debugEl = $('.debug');
   const menuButton = $<HTMLButtonElement>('[data-act="menu"]');
   const soundButton = $<HTMLButtonElement>('[data-act="sound"]');
   const autoButton = $<HTMLButtonElement>('[data-act="auto"]');
@@ -95,9 +107,9 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   let palette: Palette = currentPalette();
   const sprites = new SpriteCache(palette);
   const scene = new SceneRenderer();
-  const content = sceneContent();
   let state: GameState = createState(saved?.progress);
-  let view: View = computeView(1, 1, 1, content);
+  let view: View = computeView(1, 1, 1, sceneContent());
+  let debugPanel: DebugPanel | null = null;
   let started = false;
   let paused = false;
   let onScreen = true;
@@ -196,12 +208,14 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   function resize(): void {
     // Inside the border: the canvas fills the padding box.
+    const compact = box.clientWidth < COMPACT_WIDTH;
     view = computeView(
       box.clientWidth,
       box.clientHeight,
       window.devicePixelRatio || 1,
-      content,
-      HUD_HEIGHT,
+      sceneContent(compact),
+      compact ? COMPACT_HUD_HEIGHT : HUD_HEIGHT,
+      compact ? COMPACT_BOTTOM : 0,
     );
     if (canvas.width !== view.pxWidth) canvas.width = view.pxWidth;
     if (canvas.height !== view.pxHeight) canvas.height = view.pxHeight;
@@ -267,10 +281,43 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       fpsTime = now;
     }
     const d = state.duel;
-    debugEl.textContent =
+    debugPanel?.setStats(
       `v${__VERSION__} ${loop.running ? 'running' : 'paused'} fps ${fps} scale ${view.scale}\n` +
-      `${d.phase} t${d.tick} hero ${d.heroHp} mob ${d.mob.hp}/${d.mob.maxHp} ` +
-      `dmg ${heroDamage(state)} vs ${d.mob.damage}`;
+        `${d.phase} t${d.tick} hero ${d.heroHp} mob ${d.mob.hp}/${d.mob.maxHp} ` +
+        `dmg ${heroDamage(state)} vs ${d.mob.damage}`,
+    );
+  }
+
+  // ── Debugger (bottom-left, `debug` attribute or ?afkdebug) ───────────────
+
+  function debugApply(data: unknown): string[] | null {
+    const result = validateSaveData(data, TRACK_CYCLE);
+    if (!result.ok) return result.errors;
+    state = createState(result.progress);
+    Object.assign(audioSettings, result.audio);
+    audio.setMuted(audioSettings.muted);
+    audio.setTrack(audioSettings.track);
+    audio.setMusicVolume(audioSettings.musicVolume);
+    audio.setSfxVolume(audioSettings.sfxVolume);
+    refreshAudioButtons();
+    writeSave(storage, opts.saveKey, toSaveData(state, audioSettings, __VERSION__));
+    if (!started) startButton.textContent = `Continue · ${state.world}.${state.stage}`;
+    refreshUi();
+    if (!loop.running) draw();
+    return null;
+  }
+
+  function debugReset(): void {
+    try {
+      storage?.removeItem(opts.saveKey);
+    } catch {
+      // storage blocked: nothing to clear
+    }
+    state = createState();
+    if (!started) startButton.textContent = 'Start';
+    saveNow(); // keeps the audio settings once the game is running
+    refreshUi();
+    if (!loop.running) draw();
   }
 
   // ── Running / pausing ────────────────────────────────────────────────────
@@ -360,7 +407,17 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   htmlObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   colorScheme.addEventListener('change', applyTheme);
 
-  debugEl.hidden = !opts.debug;
+  if (opts.debug) {
+    debugPanel = createDebugPanel(
+      box,
+      {
+        read: () => toSaveData(state, audioSettings, __VERSION__),
+        apply: debugApply,
+        reset: debugReset,
+      },
+      TRACK_CYCLE,
+    );
+  }
   applyTheme();
   resize();
 
@@ -372,6 +429,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     destroy() {
       saveNow();
       dialogs.destroy();
+      debugPanel?.destroy();
       loop.stop();
       audio.pause();
       audio.setTrack('');

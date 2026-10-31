@@ -19,11 +19,13 @@ import type { Palette } from '../theme';
 import { frameAt, type SpriteCache } from './sprites';
 import type { View } from './view';
 
-/** Art-pixel rows below the ground line. */
-const GROUND = 8;
-/** Art pixels above the tallest sprite for the HP bar and damage numbers. */
-const TOP_GAP = 14;
-const MARGIN = 16;
+/** Art-pixel rows below the characters' feet (there is no drawn ground line). */
+const GROUND = 4;
+/** Art pixels above the tallest sprite: exactly the mob HP bar (drawn 6 px above the mob). */
+const TOP_GAP = 6;
+/** Side margin and the minimum gap between hero and mob, in art pixels. */
+const MARGIN = 8;
+const COMPACT_MARGIN = 2;
 const FLASH = 0.12;
 const MOB_LUNGE = 6;
 const MOB_LUNGE_BACK = 0.15;
@@ -33,21 +35,25 @@ const TEXT_RISE = 14;
 const MOB_SPRITES: Record<MobKind, SpriteDef> = { ...mobs, boss: bossMushroomWalk };
 const heroSprites = Object.values(heroAnimations);
 
+const heroWidth = () => Math.max(...heroSprites.map((d) => d.width));
+const mobWidth = () => Math.max(...Object.values(MOB_SPRITES).map((d) => d.width));
+
 /**
  * Scene size in art pixels, read from the sprites so a taller hero (or a
  * bigger boss) just changes the scale instead of breaking the layout.
+ * `compact` (narrow boxes) uses tight margins and lets the slash arc reach
+ * into the gap, so the characters can be drawn bigger.
  */
-export function sceneContent(): { width: number; height: number } {
-  const heroW = Math.max(
-    ...heroSprites.map((d) => d.width),
-    ...slashArcs.map((a) => slashArcOffset.x + a.width),
-  );
-  const mobW = Math.max(...Object.values(MOB_SPRITES).map((d) => d.width));
+export function sceneContent(compact = false): { width: number; height: number } {
+  const heroW = compact
+    ? heroWidth()
+    : Math.max(heroWidth(), ...slashArcs.map((a) => slashArcOffset.x + a.width));
   const tallest = Math.max(
     ...heroSprites.map((d) => d.height),
     ...Object.values(MOB_SPRITES).map((d) => d.height),
   );
-  return { width: heroW + mobW + MARGIN * 3, height: tallest + GROUND + TOP_GAP };
+  const margin = compact ? COMPACT_MARGIN : MARGIN;
+  return { width: heroW + mobWidth() + margin * 3, height: tallest + GROUND + TOP_GAP };
 }
 
 type FloatText = { text: string; color: keyof Palette; x: number; y: number; born: number };
@@ -98,8 +104,6 @@ export class SceneRenderer {
     ctx.setTransform(view.scale, 0, 0, view.scale, 0, view.offsetY);
 
     const l = layout(s, view);
-    ctx.fillStyle = palette.fg;
-    ctx.fillRect(0, l.groundY, view.width, 1);
 
     drawHero(ctx, s, l, palette, sprites);
     drawMob(ctx, s, l, palette, sprites);
@@ -137,14 +141,19 @@ function layout(s: GameState, view: View): Layout {
   const groundY = view.height - GROUND;
   const hero = heroAnimations.idle;
   const mob = MOB_SPRITES[s.duel.mob.kind];
-  const edge = Math.max(MARGIN, Math.round(view.width * 0.12));
+  // Side margin: ~12% of the width, but always leave a gap for the widest mob.
+  const spare = view.width - hero.width - mobWidth();
+  const edge = Math.max(
+    COMPACT_MARGIN,
+    Math.min(Math.round(view.width * 0.12), Math.floor(spare / 3)),
+  );
   return {
     groundY,
     hero,
     heroX: edge,
     heroY: groundY - hero.height,
     mob,
-    mobX: Math.max(edge + hero.width + MARGIN * 2, view.width - edge - mob.width),
+    mobX: view.width - edge - mob.width,
     mobY: groundY - mob.height,
   };
 }
@@ -262,7 +271,7 @@ function drawIntro(ctx: CanvasRenderingContext2D, s: GameState, v: View, p: Pale
   if (seconds(d.tick) >= seconds(d.introTicks) - windup(weaponAttack(s.equipped)) - 0.2) return;
   const label = `${isBoss(s.stage) ? 'BOSS' : 'STAGE'} ${s.world}.${s.stage}`;
   const size = Math.max(14, Math.round(v.scale * 7));
-  const y = v.offsetY + (v.height - GROUND) * v.scale * 0.45;
+  const y = v.offsetY + (v.height - GROUND) * v.scale * 0.3;
   text(ctx, label, v.pxWidth / 2, y, size, isBoss(s.stage) ? p.purple : p.fg, p.bg);
 }
 

@@ -14,6 +14,7 @@ export const STYLES = `
   background: var(--_bg);
   color: var(--_fg);
   border: 3px solid var(--_fg);
+  container-type: inline-size;
   font: 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 canvas {
@@ -82,6 +83,19 @@ img { image-rendering: pixelated; display: block; }
   line-height: 1;
 }
 
+/* Compact boxes (< 768 px, same threshold as COMPACT_WIDTH in game.ts):
+   icon buttons stack down the right edge as 44 px touch targets, and the
+   stage label moves under the coins. */
+@container (max-width: 767px) {
+  .hud { grid-template-columns: 1fr auto; grid-template-rows: auto auto 1fr; }
+  .hud-left { grid-column: 1; grid-row: 1; }
+  .hud-center { grid-column: 1; grid-row: 2; text-align: left; }
+  .hud-right { grid-column: 2; grid-row: 1 / span 3; flex-direction: column; gap: 6px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .bar { width: 104px; }
+  .auto-btn { min-height: 44px; }
+}
+
 .toggle { min-width: 64px; padding: 4px 10px; font-weight: bold; }
 .toggle[aria-pressed='true'] { color: var(--_bg); background: var(--_fg); }
 
@@ -95,15 +109,4 @@ img { image-rendering: pixelated; display: block; }
   padding: 6px 10px;
 }
 
-.debug {
-  position: absolute;
-  left: 12px;
-  bottom: 4px;
-  white-space: pre;
-  pointer-events: none;
-  font-size: 11px;
-  opacity: 0.8;
-  z-index: 1;
-}
-.debug[hidden] { display: none; }
 `;

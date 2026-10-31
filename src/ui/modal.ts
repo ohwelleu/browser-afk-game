@@ -27,6 +27,10 @@ export const MODAL_STYLES = `
   width: min(300px, calc(100% - 24px));
 }
 .popover .panel { width: 100%; }
+/* Compact boxes: the icon column runs down the right edge, so open to its left. */
+@container (max-width: 767px) {
+  .popover { top: 12px; right: 68px; width: min(300px, calc(100% - 80px)); }
+}
 .panel {
   position: relative;
   width: min(560px, 100%);

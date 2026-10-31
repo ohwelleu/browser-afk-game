@@ -75,6 +75,97 @@ export function loadSave(storage: StorageLike | undefined, key: string): Loaded 
   };
 }
 
+export type Validated =
+  { ok: true; progress: Progress; audio: AudioSettings } | { ok: false; errors: string[] };
+
+/**
+ * Strict check for hand-edited saves (debugger): unlike `loadSave`, nothing
+ * is repaired. Every problem is listed and the data is only accepted when
+ * there are none.
+ */
+export function validateSaveData(data: unknown, tracks: readonly string[]): Validated {
+  const errors: string[] = [];
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { ok: false, errors: ['Save must be a JSON object.'] };
+  }
+  const d = data as Record<string, unknown>;
+  const int = (key: string, v: unknown, min: number, max = Number.MAX_SAFE_INTEGER) => {
+    if (!isInt(v, min) || v > max) {
+      errors.push(`${key} must be a whole number from ${min} to ${max}.`);
+      return false;
+    }
+    return true;
+  };
+  const bool = (key: string, v: unknown) => {
+    if (typeof v !== 'boolean') errors.push(`${key} must be true or false.`);
+  };
+
+  const worldOk = int('world', d.world, 1);
+  const stageOk = int('stage', d.stage, 1, STAGES_PER_WORLD);
+  if (int('best', d.best, 1) && worldOk && stageOk) {
+    const level = stageLevel(d.world as number, d.stage as number);
+    if ((d.best as number) < level) {
+      errors.push(`best must be at least the current stage level (${level}).`);
+    }
+  }
+  int('coins', d.coins, 0);
+  int('kills', d.kills, 0);
+  int('deaths', d.deaths, 0);
+  bool('autoAdvance', d.autoAdvance);
+
+  const levels = d.weaponLevels;
+  if (!Array.isArray(levels) || levels.length !== WEAPONS.length) {
+    errors.push(`weaponLevels must be a list of ${WEAPONS.length} numbers.`);
+  } else {
+    levels.forEach((v, i) => int(`weaponLevels[${i}] (${WEAPONS[i].name})`, v, i === 0 ? 1 : 0));
+    if (
+      int('equipped', d.equipped, 0, WEAPONS.length - 1) &&
+      !((levels[d.equipped as number] as number) >= 1)
+    ) {
+      errors.push('equipped must be a weapon you own (level 1 or more).');
+    }
+  }
+
+  const a = d.audio;
+  if (!a || typeof a !== 'object' || Array.isArray(a)) {
+    errors.push('audio must be an object.');
+  } else {
+    const au = a as Record<string, unknown>;
+    bool('audio.muted', au.muted);
+    if (typeof au.track !== 'string' || !tracks.includes(au.track)) {
+      errors.push(
+        `audio.track must be one of: ${tracks.map((t) => JSON.stringify(t)).join(', ')}.`,
+      );
+    }
+    for (const key of ['musicVolume', 'sfxVolume']) {
+      if (!isVolume(au[key])) errors.push(`audio.${key} must be a number from 0 to 1.`);
+    }
+  }
+
+  if (errors.length) return { ok: false, errors };
+  const au = a as AudioSettings;
+  return {
+    ok: true,
+    progress: {
+      world: d.world as number,
+      stage: d.stage as number,
+      best: d.best as number,
+      autoAdvance: d.autoAdvance as boolean,
+      coins: d.coins as number,
+      weaponLevels: [...(levels as number[])],
+      equipped: d.equipped as number,
+      kills: d.kills as number,
+      deaths: d.deaths as number,
+    },
+    audio: {
+      muted: au.muted,
+      track: au.track,
+      musicVolume: au.musicVolume,
+      sfxVolume: au.sfxVolume,
+    },
+  };
+}
+
 export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: string): SaveData {
   return {
     version: SAVE_VERSION,
