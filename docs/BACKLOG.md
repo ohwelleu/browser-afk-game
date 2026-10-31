@@ -5,29 +5,39 @@ when they're done, and move bigger ideas to [ROADMAP.md](ROADMAP.md).
 
 ## Art
 
-- [ ] **Hero v2 redesign**: tall and slim, about 32×64, ankle-length coat,
-      wide flat-brim hat, high collar + cravat, 1px outline, folds/buttons.
-      Notes: `references/hero/hero-v2.md`. Inspiration image (local only):
-      `references/hero/_private/tall-hunter-inspiration.mood.png`. Take the
-      style, not the character.
-- [ ] User's own reference images via `ref:` PRs (see `references/README.md`)
-      → art thread implements them.
-- [ ] PNG ↔ sprite converter script for `*.spec.png` references.
-- [ ] Decide whether shading needs one extra "shade" mid-tone slot (art
-      thread proposes with before/after).
-- [ ] Bigger mobs and boss for the duel layout (proposal: mobs 32–48, boss
-      64–96).
-- [ ] More and better animations: mob attack, mob hurt, mob death, hero
-      intro/victory pose, coin fly, damage number style.
-- [ ] Review the latest slash feedback (horizontal slash, slimmer hero, sword
-      in the right hand, per-tier slash arcs). It was merged in PR #2 without a
-      final look from the user.
+- [x] **Hero v2**: the user's own 32×64 assassin sprite (branch
+      `art/hero-v2`). The idle frame is copied 1:1. The other frames are
+      derived from it, and the slash is a slap with the white hand.
+- [ ] **Weapons sized for the 32×64 hero**: redraw all 5 tiers about
+      2× longer, then re-place the grip anchors and slash arcs.
+- [ ] **Bigger mobs and boss** to match the hero (proposal: mobs 32–48 tall,
+      boss 64–96).
+- [ ] **Sprite converter** (Aseprite/LibreSprite → game), so the user draws
+      sprites and animations themselves:
+  - [ ] palette file (`art/afk-palette.gpl`) + PNG → sprite, with palette
+        checks
+  - [ ] Aseprite JSON: tags = animations, per-frame durations
+  - [ ] marker layers: `hit` (damage frame), `anchor` (weapon grip),
+        `fx` (effect origin)
+  - [ ] watch mode (save in Aseprite → game reloads) + sprite → PNG export
+        of the existing art
+  - [ ] starter `art/hero.aseprite` with the current frames, tagged
+- [ ] User draws the hero animations (idle, slap, hurt, death), then mobs.
+- [ ] Decide: is the white hand always white (new palette slot) or does it
+      swap with the theme?
+- [ ] Decide: keep the sword, or make the slap itself the attack.
+- [ ] More animations: mob attack/hurt/death, hero intro/victory, coin fly,
+      damage number style.
 
 ## Music & sound
 
 - [ ] Pick the music style: medieval ambient or synthwave chill (or keep both
       and let the player switch).
 - [ ] Per-world tracks and a boss theme.
+- [ ] Third style: **8-bit synthwave**, an original synth track in the feel
+      of the user's YouTube example. That exact track would need its
+      artist's licence and an official download, so it stays out unless the
+      user finds both.
 
 ## Game
 

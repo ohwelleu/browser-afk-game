@@ -147,3 +147,17 @@ catches corruption and casual edits but is not anti-cheat.
 `death > attack > hurt > idle`. Getting hit while attacking shows a flash
 overlay instead of interrupting. Sounds follow the same priority, with
 per-sound cooldowns and a voice limit.
+
+## 2026-10-31: Hero stays 32×64; weapons and mobs scale up to match
+
+The hero is the user's own 32×64 sprite. Weapons (drawn for the old 32×32
+hero) get redrawn about 2× longer, and mobs and the boss get bigger, so the
+duel reads at the new scale.
+
+## 2026-10-31: The user draws sprites; a converter brings them into the game
+
+Art is drawn in Aseprite or LibreSprite with a fixed palette file. A
+converter turns the exports (tags = animations, frame durations, marker
+layers for the hit frame and weapon grip) into the text sprite format. The
+user's own art files can be committed publicly. Third-party references stay
+in `_private/`.
