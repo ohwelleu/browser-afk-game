@@ -1,38 +1,38 @@
-export type ThemeMode = "dark" | "light" | "auto";
-export type Theme = "dark" | "light";
+export type ThemeMode = 'dark' | 'light' | 'auto';
+export type Theme = 'dark' | 'light';
 
-export const COLOR_NAMES = ["orange", "yellow", "red", "purple", "green", "blue", "pink"] as const;
+export const COLOR_NAMES = ['orange', 'yellow', 'red', 'purple', 'green', 'blue', 'pink'] as const;
 export type ColorName = (typeof COLOR_NAMES)[number];
 
 export type Palette = { bg: string; fg: string } & Record<ColorName, string>;
 
 export const DEFAULT_PALETTES: Record<Theme, Palette> = {
   dark: {
-    bg: "#1f1f1f",
-    fg: "#ece9e2",
-    orange: "#ff7a1a",
-    yellow: "#facc15",
-    red: "#ef4444",
-    purple: "#9b6bff",
-    green: "#22c55e",
-    blue: "#4f8bff",
-    pink: "#f472b6",
+    bg: '#1f1f1f',
+    fg: '#ece9e2',
+    orange: '#ff7a1a',
+    yellow: '#facc15',
+    red: '#ef4444',
+    purple: '#9b6bff',
+    green: '#22c55e',
+    blue: '#4f8bff',
+    pink: '#f472b6',
   },
   light: {
-    bg: "#ece9e2",
-    fg: "#1f1f1f",
-    orange: "#ff6b00",
-    yellow: "#eab308",
-    red: "#dc2626",
-    purple: "#7c3aed",
-    green: "#16a34a",
-    blue: "#2563eb",
-    pink: "#db2777",
+    bg: '#ece9e2',
+    fg: '#1f1f1f',
+    orange: '#ff6b00',
+    yellow: '#eab308',
+    red: '#dc2626',
+    purple: '#7c3aed',
+    green: '#16a34a',
+    blue: '#2563eb',
+    pink: '#db2777',
   },
 };
 
 export function parseThemeMode(value: string | null | undefined): ThemeMode {
-  return value === "dark" || value === "light" ? value : "auto";
+  return value === 'dark' || value === 'light' ? value : 'auto';
 }
 
 /**
@@ -44,10 +44,10 @@ export function resolveTheme(
   htmlClasses: { contains(token: string): boolean },
   prefersDark: boolean,
 ): Theme {
-  if (mode !== "auto") return mode;
-  if (htmlClasses.contains("dark")) return "dark";
-  if (htmlClasses.contains("light")) return "light";
-  return prefersDark ? "dark" : "light";
+  if (mode !== 'auto') return mode;
+  if (htmlClasses.contains('dark')) return 'dark';
+  if (htmlClasses.contains('light')) return 'light';
+  return prefersDark ? 'dark' : 'light';
 }
 
 /**

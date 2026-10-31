@@ -1,4 +1,4 @@
-export const DEFAULT_SAVE_KEY = "afk-game";
+export const DEFAULT_SAVE_KEY = 'afk-game';
 
 export type SavePreview = { stage: string | null };
 
@@ -7,7 +7,7 @@ export type SavePreview = { stage: string | null };
  * is no usable save. The full save format arrives with the shop milestone.
  */
 export function readSavePreview(
-  storage: Pick<Storage, "getItem"> | undefined,
+  storage: Pick<Storage, 'getItem'> | undefined,
   key: string,
 ): SavePreview | null {
   let raw: string | null = null;
@@ -19,7 +19,7 @@ export function readSavePreview(
   if (!raw) return null;
   try {
     const data: unknown = JSON.parse(raw);
-    if (!data || typeof data !== "object") return null;
+    if (!data || typeof data !== 'object') return null;
     const { world, stage } = data as { world?: unknown; stage?: unknown };
     const valid = Number.isInteger(world) && Number.isInteger(stage);
     return { stage: valid ? `${world as number}.${stage as number}` : null };

@@ -1,10 +1,10 @@
-import { createGame, type GameHandle } from "./game";
-import { resolveOptions } from "./options";
-import { parseThemeMode } from "./theme";
+import { createGame, type GameHandle } from './game';
+import { resolveOptions } from './options';
+import { parseThemeMode } from './theme';
 
 /** `<afk-game save-key="…" theme="dark|light|auto" debug>` */
 export class AfkGameElement extends HTMLElement {
-  static observedAttributes = ["save-key", "theme", "debug"];
+  static observedAttributes = ['save-key', 'theme', 'debug'];
 
   private game: GameHandle | null = null;
 
@@ -19,7 +19,7 @@ export class AfkGameElement extends HTMLElement {
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
     if (!this.game || oldValue === newValue) return;
-    if (name === "theme") {
+    if (name === 'theme') {
       this.game.setTheme(parseThemeMode(newValue));
     } else {
       // save-key / debug change the whole instance; rebuild it.
@@ -31,12 +31,12 @@ export class AfkGameElement extends HTMLElement {
 
   private mountGame(): void {
     if (this.game) return;
-    const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
+    const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
     const opts = resolveOptions(
       {
-        saveKey: this.getAttribute("save-key") ?? undefined,
-        theme: this.getAttribute("theme") ?? undefined,
-        debug: this.hasAttribute("debug"),
+        saveKey: this.getAttribute('save-key') ?? undefined,
+        theme: this.getAttribute('theme') ?? undefined,
+        debug: this.hasAttribute('debug'),
       },
       location.search,
     );

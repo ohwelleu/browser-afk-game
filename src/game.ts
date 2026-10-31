@@ -1,12 +1,12 @@
-import { createAudio } from "./audio-stub";
-import { createState, update, type GameState } from "./game/state";
-import { Loop } from "./loop";
-import { render } from "./render/render";
-import { SpriteCache } from "./render/sprites";
-import { computeView, type View } from "./render/view";
-import { readSavePreview } from "./save";
-import { STYLES } from "./styles";
-import { buildPalette, resolveTheme, type Palette, type ThemeMode } from "./theme";
+import { createAudio } from './audio';
+import { createState, update, type GameState } from './game/state';
+import { Loop } from './loop';
+import { render } from './render/render';
+import { SpriteCache } from './render/sprites';
+import { computeView, type View } from './render/view';
+import { readSavePreview } from './save';
+import { STYLES } from './styles';
+import { buildPalette, resolveTheme, type Palette, type ThemeMode } from './theme';
 
 export type GameOptions = {
   saveKey: string;
@@ -31,17 +31,17 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       <div class="overlay"><button class="start" type="button">Start</button></div>
       <div class="debug" hidden></div>
     </div>`;
-  const box = root.querySelector<HTMLDivElement>(".box")!;
-  const canvas = root.querySelector("canvas")!;
-  const overlay = root.querySelector<HTMLDivElement>(".overlay")!;
-  const button = root.querySelector<HTMLButtonElement>(".start")!;
-  const debugEl = root.querySelector<HTMLDivElement>(".debug")!;
-  const ctx = canvas.getContext("2d")!;
+  const box = root.querySelector<HTMLDivElement>('.box')!;
+  const canvas = root.querySelector('canvas')!;
+  const overlay = root.querySelector<HTMLDivElement>('.overlay')!;
+  const button = root.querySelector<HTMLButtonElement>('.start')!;
+  const debugEl = root.querySelector<HTMLDivElement>('.debug')!;
+  const ctx = canvas.getContext('2d')!;
 
   const save = readSavePreview(safeLocalStorage(), opts.saveKey);
-  if (save) button.textContent = save.stage ? `Continue · ${save.stage}` : "Continue";
+  if (save) button.textContent = save.stage ? `Continue · ${save.stage}` : 'Continue';
 
-  const colorScheme = matchMedia("(prefers-color-scheme: dark)");
+  const colorScheme = matchMedia('(prefers-color-scheme: dark)');
   let themeMode = opts.theme;
   let palette: Palette = currentPalette();
   const sprites = new SpriteCache(palette);
@@ -67,8 +67,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   function applyTheme(): void {
     palette = currentPalette();
     sprites.setPalette(palette);
-    box.style.setProperty("--_bg", palette.bg);
-    box.style.setProperty("--_fg", palette.fg);
+    box.style.setProperty('--_bg', palette.bg);
+    box.style.setProperty('--_fg', palette.fg);
     if (!loop.running) draw();
   }
 
@@ -95,7 +95,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       fpsTime = now;
     }
     debugEl.textContent =
-      `v${__VERSION__}  ${loop.running ? "running" : "paused"}\n` +
+      `v${__VERSION__}  ${loop.running ? 'running' : 'paused'}\n` +
       `fps ${fps}  ticks ${state.ticks}  t ${state.time.toFixed(1)}s\n` +
       `scale ${view.scale}  scene ${view.width}×${view.height}`;
   }
@@ -114,7 +114,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     }
   }
 
-  button.addEventListener("click", () => {
+  button.addEventListener('click', () => {
     if (started) return;
     started = true;
     overlay.hidden = true;
@@ -124,7 +124,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(box);
-  window.addEventListener("resize", resize); // catches devicePixelRatio changes (zoom)
+  window.addEventListener('resize', resize); // catches devicePixelRatio changes (zoom)
 
   const intersectionObserver = new IntersectionObserver((entries) => {
     onScreen = entries[entries.length - 1].isIntersecting;
@@ -132,12 +132,12 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   });
   intersectionObserver.observe(host);
 
-  document.addEventListener("visibilitychange", syncRunning);
+  document.addEventListener('visibilitychange', syncRunning);
 
   // `auto` theme: follow `<html class>` and the OS colour scheme.
   const htmlObserver = new MutationObserver(applyTheme);
-  htmlObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-  colorScheme.addEventListener("change", applyTheme);
+  htmlObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  colorScheme.addEventListener('change', applyTheme);
 
   debugEl.hidden = !opts.debug;
   applyTheme();
@@ -154,10 +154,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       htmlObserver.disconnect();
-      window.removeEventListener("resize", resize);
-      document.removeEventListener("visibilitychange", syncRunning);
-      colorScheme.removeEventListener("change", applyTheme);
-      root.innerHTML = "";
+      window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', syncRunning);
+      colorScheme.removeEventListener('change', applyTheme);
+      root.innerHTML = '';
     },
   };
 }

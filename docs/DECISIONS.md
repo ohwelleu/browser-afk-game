@@ -105,3 +105,9 @@ yellow, red, pink, each with a light and a dark shade.
 A gothic hunter (hat, long coat, stakes) gives the game a theme and leaves
 room for bats/ghouls/vampires later. Resolution is a step up from the Chrome
 dino (~20×22): hero 32×32, mobs 24×24, boss 48×48.
+
+## 2026-10-31: Vendor ZzFX instead of the npm package
+
+The npm module creates an `AudioContext` on import and connects straight to
+the speakers. That would bypass our music/SFX buses and break "no audio
+before Start". Only its sample generator is copied, with the MIT header.

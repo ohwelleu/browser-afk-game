@@ -1,8 +1,8 @@
-import type { GameState } from "../game/state";
-import type { Palette } from "../theme";
-import { PLACEHOLDER_HERO, PLACEHOLDER_MUSHROOM } from "./placeholder-sprites";
-import { frameAt, type SpriteCache } from "./sprites";
-import type { View } from "./view";
+import type { GameState } from '../game/state';
+import type { Palette } from '../theme';
+import { PLACEHOLDER_HERO, PLACEHOLDER_MUSHROOM } from './placeholder-sprites';
+import { frameAt, type SpriteCache } from './sprites';
+import type { View } from './view';
 
 /** Art-pixel rows below the ground line. */
 const GROUND = 6;

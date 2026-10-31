@@ -1,8 +1,8 @@
-import { readFileSync } from "node:fs";
-import type { Plugin } from "vite";
-import { defineConfig } from "vitest/config";
+import { readFileSync } from 'node:fs';
+import type { Plugin } from 'vite';
+import { defineConfig } from 'vitest/config';
 
-const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
   version: string;
 };
 
@@ -12,8 +12,8 @@ const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), 
 const EMBED_TAG = '<script src="./afk-game.js" defer></script>';
 function demoDevEntry(): Plugin {
   return {
-    name: "afk-demo-dev-entry",
-    apply: "serve",
+    name: 'afk-demo-dev-entry',
+    apply: 'serve',
     transformIndexHtml(html) {
       return html.replace(EMBED_TAG, '<script type="module" src="/src/index.ts"></script>');
     },
@@ -27,19 +27,19 @@ export default defineConfig({
   plugins: [demoDevEntry()],
   publicDir: false,
   server: {
-    open: "/demo/",
+    open: '/demo/',
   },
   build: {
-    target: "es2020",
+    target: 'es2020',
     lib: {
-      entry: "src/index.ts",
-      name: "AfkGame",
-      formats: ["iife", "es"],
-      fileName: (format) => (format === "es" ? "afk-game.mjs" : "afk-game.js"),
+      entry: 'src/index.ts',
+      name: 'AfkGame',
+      formats: ['iife', 'es'],
+      fileName: (format) => (format === 'es' ? 'afk-game.mjs' : 'afk-game.js'),
     },
   },
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
   },
 });

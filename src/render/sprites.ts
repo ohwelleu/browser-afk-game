@@ -1,17 +1,17 @@
-import type { SpriteDef } from "../sprites/types";
-import type { Palette } from "../theme";
+import type { SpriteDef } from '../sprites/types';
+import type { Palette } from '../theme';
 
 const SLOTS: Record<string, keyof Palette | null> = {
-  ".": null,
-  "#": "fg",
-  o: "bg",
-  O: "orange",
-  Y: "yellow",
-  R: "red",
-  P: "purple",
-  G: "green",
-  B: "blue",
-  K: "pink",
+  '.': null,
+  '#': 'fg',
+  o: 'bg',
+  O: 'orange',
+  Y: 'yellow',
+  R: 'red',
+  P: 'purple',
+  G: 'green',
+  B: 'blue',
+  K: 'pink',
 };
 
 /** Checks a sprite against its declared size and the palette slots. Throws on the first problem. */
@@ -81,10 +81,10 @@ export class SpriteCache {
   }
 
   private draw(def: SpriteDef, index: number): HTMLCanvasElement {
-    const canvas = document.createElement("canvas");
+    const canvas = document.createElement('canvas');
     canvas.width = def.width;
     canvas.height = def.height;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext('2d')!;
     const pixels = framePixels(def, index, this.palette);
     for (let i = 0; i < pixels.length; i++) {
       const color = pixels[i];

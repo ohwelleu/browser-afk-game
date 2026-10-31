@@ -3,3 +3,6 @@ node_modules/
 package-lock.json
 # Markdown is owned by the planning thread; don't reformat it from code PRs.
 *.md
+# Audio module (music thread) predates the Prettier config; remove once it has run `npm run format`.
+src/audio/
+demo/audio.*

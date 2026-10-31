@@ -11,3 +11,6 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 site/
+
+# Vite cache when running `npx vite demo`
+demo/.vite/

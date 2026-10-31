@@ -7,9 +7,9 @@
     <script>
       // Apply the saved demo theme before first paint.
       document.documentElement.classList.toggle(
-        "dark",
-        (localStorage.getItem("afk-demo-theme") ??
-          (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark",
+        'dark',
+        (localStorage.getItem('afk-demo-theme') ??
+          (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark',
       );
     </script>
     <script src="./afk-game.js" defer></script>
@@ -99,27 +99,27 @@
 
     <script>
       const root = document.documentElement;
-      const game = document.getElementById("game");
+      const game = document.getElementById('game');
 
-      document.getElementById("toggle-page-theme").addEventListener("click", () => {
-        const dark = root.classList.toggle("dark");
-        localStorage.setItem("afk-demo-theme", dark ? "dark" : "light");
+      document.getElementById('toggle-page-theme').addEventListener('click', () => {
+        const dark = root.classList.toggle('dark');
+        localStorage.setItem('afk-demo-theme', dark ? 'dark' : 'light');
       });
-      document.getElementById("theme-attr").addEventListener("change", (e) => {
-        game.setAttribute("theme", e.target.value);
+      document.getElementById('theme-attr').addEventListener('change', (e) => {
+        game.setAttribute('theme', e.target.value);
       });
-      const debug = document.getElementById("debug");
-      debug.checked = new URLSearchParams(location.search).has("afkdebug");
-      debug.addEventListener("change", () => game.toggleAttribute("debug", debug.checked));
-      document.getElementById("clear-save").addEventListener("click", () => {
-        localStorage.removeItem("afk-game");
+      const debug = document.getElementById('debug');
+      debug.checked = new URLSearchParams(location.search).has('afkdebug');
+      debug.addEventListener('change', () => game.toggleAttribute('debug', debug.checked));
+      document.getElementById('clear-save').addEventListener('click', () => {
+        localStorage.removeItem('afk-game');
         location.reload();
       });
 
       // `AfkGame` is the global from the built bundle; the dev server loads the TS source instead.
       // Deferred scripts have run by DOMContentLoaded.
-      addEventListener("DOMContentLoaded", () => {
-        document.getElementById("version").textContent = window.AfkGame?.version ?? "dev";
+      addEventListener('DOMContentLoaded', () => {
+        document.getElementById('version').textContent = window.AfkGame?.version ?? 'dev';
       });
     </script>
   </body>
