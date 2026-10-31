@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SpriteDef } from '../sprites/types';
 import { DEFAULT_PALETTES } from '../theme';
-import { PLACEHOLDER_HERO, PLACEHOLDER_MUSHROOM } from './placeholder-sprites';
+import { bossMushroomWalk, heroSlash, slashArcs } from '../sprites';
 import { frameAt, framePixels, validateSprite } from './sprites';
 
 const sprite = (frames: string[][], fps?: number): SpriteDef => ({
@@ -26,9 +26,10 @@ describe('validateSprite', () => {
     expect(() => validateSprite(sprite([]))).toThrow(/no frames/);
   });
 
-  it('placeholder sprites are valid', () => {
-    expect(() => validateSprite(PLACEHOLDER_HERO)).not.toThrow();
-    expect(() => validateSprite(PLACEHOLDER_MUSHROOM)).not.toThrow();
+  it('accepts the real sprites', () => {
+    for (const def of [heroSlash, bossMushroomWalk, ...slashArcs]) {
+      expect(() => validateSprite(def)).not.toThrow();
+    }
   });
 });
 
