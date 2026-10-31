@@ -29,7 +29,10 @@ const isSprite = (v: unknown): v is SpriteDef =>
 const isWeapon = (v: unknown): v is WeaponDef => typeof v === "object" && v !== null && "poses" in v;
 
 const exported = Object.values(S as Record<string, unknown>);
-const sprites = exported.filter(isSprite);
+// Module namespaces are sorted by export name; show hero animations in play order instead.
+const ORDER = ["hero-idle", "hero-slash", "hero-hurt", "hero-death"];
+const rank = (s: SpriteDef) => (ORDER.includes(s.name) ? ORDER.indexOf(s.name) : ORDER.length);
+const sprites = exported.filter(isSprite).sort((a, b) => rank(a) - rank(b));
 const weapons = exported.filter(isWeapon).sort((a, b) => a.tier - b.tier);
 const anchors = ((S as Record<string, unknown>).heroWeaponAnchors ?? {}) as Record<string, WeaponAnchor[]>;
 
@@ -180,10 +183,10 @@ function addDrawable(parent: HTMLElement, d: Drawable, t: Theme) {
     const strip = document.createElement("div");
     strip.className = "frames";
     for (let f = 0; f < d.frameCount; f++) {
-      const c = canvasFor(d, 3);
+      const c = canvasFor(d, stripScale);
       const ctx = c.getContext("2d")!;
-      d.draw(ctx, f, t, 3);
-      gridOverlay(ctx, d, t, 3);
+      d.draw(ctx, f, t, stripScale);
+      gridOverlay(ctx, d, t, stripScale);
       strip.append(figure(`#${f}`, c));
     }
     row.append(strip);
@@ -199,8 +202,10 @@ const GROUPS: [string, (s: SpriteDef) => boolean][] = [
   ["Items", (s) => !/^(hero|mob|boss|weapon)-/.test(s.name)],
 ];
 
-// URL params for screenshots: ?tier=2&grid&only=Hero&theme=dark
+// URL params for screenshots: ?tier=2&grid&only=Hero&theme=dark&name=hero-death&strip=6
 const params = new URLSearchParams(location.search);
+const stripScale = Number(params.get("strip") ?? 3);
+const nameFilter = params.get("name");
 const tierSelect = document.getElementById("tier") as HTMLSelectElement;
 for (const w of weapons) tierSelect.add(new Option(w.name, String(w.tier)));
 if (params.has("tier")) tierSelect.value = params.get("tier")!;
@@ -223,14 +228,14 @@ function build() {
     col.append(h);
     for (const [title, test] of GROUPS) {
       if (only && !only.includes(title)) continue;
-      const list = sprites.filter(test);
+      const list = sprites.filter((s) => test(s) && (!nameFilter || s.name.startsWith(nameFilter)));
       const isHero = title === "Hero";
       if (!list.length && !(isHero && weapons.length)) continue;
       const h3 = document.createElement("h2");
       h3.textContent = title;
       col.append(h3);
       for (const s of list) addDrawable(col, isHero ? heroDrawable(s, weapon) : spriteDrawable(s), t);
-      if (isHero) for (const w of weapons) addDrawable(col, weaponDrawable(w), t);
+      if (isHero && !nameFilter) for (const w of weapons) addDrawable(col, weaponDrawable(w), t);
     }
     root.append(col);
   }
