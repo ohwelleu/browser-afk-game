@@ -26,6 +26,8 @@ export default defineConfig({
   },
   plugins: [demoDevEntry()],
   publicDir: false,
+  // Escape non-ASCII (♥, →, ·) so the bundle works on host pages without <meta charset>.
+  esbuild: { charset: 'ascii' },
   server: {
     open: '/demo/',
   },

@@ -62,12 +62,33 @@ export function frameAt(def: SpriteDef, time: number): number {
  */
 export class SpriteCache {
   private cache = new Map<SpriteDef, HTMLCanvasElement[]>();
+  private tinted = new Map<string, HTMLCanvasElement>();
 
   constructor(private palette: Palette) {}
 
   setPalette(palette: Palette): void {
     this.palette = palette;
     this.cache.clear();
+    this.tinted.clear();
+  }
+
+  /** The frame as a solid silhouette in `color` (hit flash). */
+  tint(def: SpriteDef, index: number, color: string): HTMLCanvasElement {
+    const key = `${def.name}|${index}|${color}`;
+    let canvas = this.tinted.get(key);
+    if (!canvas) {
+      const src = this.frame(def, index);
+      canvas = document.createElement('canvas');
+      canvas.width = src.width;
+      canvas.height = src.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(src, 0, 0);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, src.width, src.height);
+      this.tinted.set(key, canvas);
+    }
+    return canvas;
   }
 
   frame(def: SpriteDef, index: number): HTMLCanvasElement {

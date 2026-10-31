@@ -1,6 +1,3 @@
-/** Height of the scene in art pixels. Width follows the element's aspect ratio. */
-export const SCENE_HEIGHT = 80;
-
 export type View = {
   /** Canvas backing size in device pixels. */
   pxWidth: number;
@@ -14,16 +11,31 @@ export type View = {
   offsetY: number;
 };
 
-export function computeView(cssWidth: number, cssHeight: number, dpr: number): View {
+/**
+ * Picks the largest whole-number scale at which `content` (art px) fits the
+ * canvas below a `topReserve` CSS-px band (the HUD).
+ */
+export function computeView(
+  cssWidth: number,
+  cssHeight: number,
+  dpr: number,
+  content: { width: number; height: number },
+  topReserve = 0,
+): View {
   const pxWidth = Math.max(1, Math.round(cssWidth * dpr));
   const pxHeight = Math.max(1, Math.round(cssHeight * dpr));
-  const scale = Math.max(1, Math.floor(pxHeight / SCENE_HEIGHT));
+  const availH = Math.max(1, pxHeight - Math.round(topReserve * dpr));
+  const scale = Math.max(
+    1,
+    Math.min(Math.floor(availH / content.height), Math.floor(pxWidth / content.width)),
+  );
+  const height = Math.floor(pxHeight / scale);
   return {
     pxWidth,
     pxHeight,
     scale,
     width: Math.ceil(pxWidth / scale),
-    height: SCENE_HEIGHT,
-    offsetY: pxHeight - SCENE_HEIGHT * scale,
+    height,
+    offsetY: pxHeight - height * scale,
   };
 }
