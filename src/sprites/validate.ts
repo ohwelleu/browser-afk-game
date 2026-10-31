@@ -1,4 +1,4 @@
-import { PALETTE_SLOTS, type SpriteDef, type WeaponAnchor, type WeaponDef } from "./types";
+import { PALETTE_SLOTS, type SpriteDef, type WeaponAnchor, type WeaponDef } from './types';
 
 const ALLOWED = new Set<string>(PALETTE_SLOTS);
 
@@ -6,11 +6,11 @@ const ALLOWED = new Set<string>(PALETTE_SLOTS);
 export function validateSprite(s: SpriteDef): string[] {
   const errors: string[] = [];
   const at = (msg: string) => errors.push(`${s.name}: ${msg}`);
-  if (!s.name) at("missing name");
+  if (!s.name) at('missing name');
   if (!Number.isInteger(s.width) || s.width <= 0) at(`bad width ${s.width}`);
   if (!Number.isInteger(s.height) || s.height <= 0) at(`bad height ${s.height}`);
   if (s.fps !== undefined && !(s.fps > 0)) at(`bad fps ${s.fps}`);
-  if (s.frames.length === 0) at("no frames");
+  if (s.frames.length === 0) at('no frames');
   s.frames.forEach((frame, f) => {
     if (frame.length !== s.height) at(`frame ${f}: ${frame.length} rows, expected ${s.height}`);
     frame.forEach((row, y) => {
@@ -34,7 +34,7 @@ export function validateWeapon(w: WeaponDef): string[] {
     const ch = row?.[grip.x];
     if (ch === undefined)
       errors.push(`${w.name} ${pose}: grip (${grip.x},${grip.y}) outside sprite`);
-    else if (ch === ".")
+    else if (ch === '.')
       errors.push(`${w.name} ${pose}: grip (${grip.x},${grip.y}) is transparent`);
   }
   return errors;

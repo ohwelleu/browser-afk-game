@@ -21,7 +21,7 @@ export type SpriteDef = {
 };
 
 /** Palette slots in index order (index 0 = transparent), e.g. for indexed PNG export. */
-export const PALETTE_SLOTS = [".", "#", "o", "O", "Y", "R", "P", "G", "B", "K"] as const;
+export const PALETTE_SLOTS = ['.', '#', 'o', 'O', 'Y', 'R', 'P', 'G', 'B', 'K'] as const;
 export type PaletteSlot = (typeof PALETTE_SLOTS)[number];
 
 export type Point = { x: number; y: number };
@@ -37,7 +37,7 @@ export type Point = { x: number; y: number };
  *   back     blade straight back (to the left), with a bg outline so it reads
  *            when it crosses the coat
  */
-export type WeaponPose = "up" | "upFwd" | "fwd" | "downFwd" | "back";
+export type WeaponPose = 'up' | 'upFwd' | 'fwd' | 'downFwd' | 'back';
 
 export type WeaponPoseDef = {
   /** Single-frame sprite of the weapon in this pose. */

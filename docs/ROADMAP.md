@@ -15,8 +15,31 @@ Not in v1. Rough order, open to change.
 - More mob types per world, with themed worlds: bats, ghouls, werewolves,
   vampires (fits the vampire hunter hero).
 - Real bosses with their own sprites and mechanics (instead of a big mushroom).
-- More weapon tiers, maybe weapon types (crossbow, stakes, holy water, axe)
-  with different ranges.
+
+## Weapon types
+
+Each type has its own attack animation(s), effect, range and feel. Tiers
+(stick → gold) stay as upgrades within a type.
+
+| Type        | Range  | Feel                                         |
+| ----------- | ------ | -------------------------------------------- |
+| Sword (v1)  | melee  | baseline: fast horizontal slash              |
+| Large sword | melee  | slower, wide arc, hits several mobs (cleave) |
+| Crossbow    | ranged | shoots bolts, hits before mobs reach him     |
+| Later maybe | –      | stakes (thrown), holy water (area), axe      |
+
+Needs new hero poses per type (two-handed grip, aiming) plus projectile and
+impact sprites.
+
+## Attack skills (upgradable animations)
+
+The attack is not hardcoded as "slash". Skills can be unlocked and upgraded,
+each with its own animation, effect, damage multiplier and timing. Ideas:
+
+- Slash (v1) → double slash → spin slash (hits all mobs in range)
+- Thrust / lunge (longer reach)
+- Charged heavy strike (slow, big damage, screen shake)
+- Crossbow: piercing bolt, triple shot, explosive bolt
 
 ## Interaction
 
