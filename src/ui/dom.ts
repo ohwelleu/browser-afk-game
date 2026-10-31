@@ -18,3 +18,13 @@ export function createShow(): Show {
     (el as HTMLElement)[prop] = value;
   };
 }
+
+/** Sets `hidden` / `disabled` only when it changed (no DOM churn per frame). */
+export function setFlag(el: Element, prop: 'hidden' | 'disabled', value: boolean): void {
+  const target = el as HTMLElement & { disabled?: boolean };
+  if (target[prop] !== value) target[prop] = value;
+}
+
+export function setClass(el: Element, name: string, on: boolean): void {
+  if (el.classList.contains(name) !== on) el.classList.toggle(name, on);
+}

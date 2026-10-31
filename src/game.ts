@@ -122,7 +122,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   // ── Dialogs (menu modal, sound popover): one open at a time ──────────────
 
   const dialogs = new Dialogs(root, box);
-  const menu = createMenu({ act });
+  const menu = createMenu({ act, iconUrl });
   const sound = createSoundPanel(
     {
       toggleMute() {
@@ -185,6 +185,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     sprites.setPalette(palette);
     for (const [k, v] of Object.entries(palette)) box.style.setProperty(`--_${k}`, v);
     $<HTMLImageElement>('.coin-icon').src = iconUrl(coinSpin);
+    menu.refreshIcons();
     refreshAudioButtons();
     if (!loop.running) draw();
   }
@@ -311,8 +312,12 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         dialogs.toggle(sound.el, soundButton);
         return;
       case 'menu':
-        dialogs.toggle(menu.el, menuButton);
-        if (dialogs.isOpen(menu.el)) menu.refresh(state);
+        if (dialogs.isOpen(menu.el)) {
+          dialogs.close();
+        } else {
+          menu.refresh(state);
+          dialogs.open(menu.el, menuButton, menu.focusTarget);
+        }
         return;
       case 'auto':
         act((s) => setAutoAdvance(s, !s.autoAdvance));

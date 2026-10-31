@@ -5,6 +5,8 @@
  */
 
 export const MODAL_STYLES = `
+/* Dialog layouts respond to the game box width, not the page. */
+.box { container: afk-box / inline-size; }
 .modal {
   position: absolute;
   inset: 0;
@@ -34,12 +36,16 @@ export const MODAL_STYLES = `
   border: 3px solid var(--_fg);
   padding: 14px 16px;
 }
-.panel h2 { margin: 0 40px 8px 0; font-size: 16px; }
+.panel h2 { margin: 0 44px 8px 0; font-size: 1.15em; }
 .panel p { margin: 4px 0; }
-.close { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; padding: 0; }
+.close { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; padding: 0; font-weight: bold; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; }
 .row button { padding: 3px 10px; white-space: nowrap; }
-.muted { opacity: 0.6; }
+@container afk-box (max-width: 767px) {
+  .close { width: 44px; height: 44px; top: 4px; right: 4px; }
+  .panel h2 { margin-right: 52px; line-height: 44px; }
+  .row button { min-height: 44px; min-width: 64px; }
+}
 `;
 
 export type DialogKind = 'modal' | 'popover';
@@ -63,7 +69,7 @@ export function dialogHtml(o: {
     </div>`;
 }
 
-type Open = { el: HTMLElement; opener: HTMLElement; onClose?: () => void };
+type Open = { el: HTMLElement; opener: HTMLElement };
 
 const FOCUSABLE = 'button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -76,26 +82,19 @@ export class Dialogs {
   ) {
     box.addEventListener('keydown', this.onKeyDown);
     box.addEventListener('click', this.onClick);
-  }
-
-  /** The open dialog element, or null. */
-  get openEl(): HTMLElement | null {
-    return this.current?.el ?? null;
+    box.addEventListener('scroll', this.onScroll);
   }
 
   isOpen(el: HTMLElement): boolean {
     return this.current?.el === el;
   }
 
-  open(
-    el: HTMLElement,
-    opener: HTMLElement,
-    opts: { focus?: HTMLElement | null; onClose?: () => void } = {},
-  ): void {
+  /** Opens `el` (closing any other dialog) and focuses `focus` or its [X]. */
+  open(el: HTMLElement, opener: HTMLElement, focus?: HTMLElement): void {
     this.close(false);
     el.hidden = false;
-    this.current = { el, opener, onClose: opts.onClose };
-    (opts.focus ?? el.querySelector<HTMLElement>('.close'))?.focus();
+    this.current = { el, opener };
+    (focus ?? el.querySelector<HTMLElement>('.close'))?.focus({ preventScroll: true });
   }
 
   close(restoreFocus = true): void {
@@ -103,8 +102,7 @@ export class Dialogs {
     if (!cur) return;
     cur.el.hidden = true;
     this.current = null;
-    cur.onClose?.();
-    if (restoreFocus) cur.opener.focus();
+    if (restoreFocus) cur.opener.focus({ preventScroll: true });
   }
 
   toggle(el: HTMLElement, opener: HTMLElement): void {
@@ -115,8 +113,17 @@ export class Dialogs {
   destroy(): void {
     this.box.removeEventListener('keydown', this.onKeyDown);
     this.box.removeEventListener('click', this.onClick);
+    this.box.removeEventListener('scroll', this.onScroll);
     this.current = null;
   }
+
+  // The box clips its content and never scrolls, but the browser scrolls it
+  // anyway to reveal a focused element that overflows (e.g. a HUD button on a
+  // narrow screen), which shifts the dialogs sideways. Undo that.
+  private readonly onScroll = (): void => {
+    this.box.scrollLeft = 0;
+    this.box.scrollTop = 0;
+  };
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {
     if (!this.current) return;
@@ -135,10 +142,10 @@ export class Dialogs {
       const active = this.root.activeElement;
       if (e.shiftKey && (active === first || !dialog.contains(active))) {
         e.preventDefault();
-        last.focus();
+        last.focus({ preventScroll: true });
       } else if (!e.shiftKey && (active === last || !dialog.contains(active))) {
         e.preventDefault();
-        first.focus();
+        first.focus({ preventScroll: true });
       }
     }
   };

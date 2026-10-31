@@ -5,6 +5,10 @@ import { dialogHtml } from './modal';
 export const SOUND_STYLES = `
 .slider { display: grid; gap: 4px; margin: 10px 0 2px; }
 input[type='range'] { width: 100%; accent-color: var(--_fg); }
+.popover .panel { font-size: 1.1em; }
+@container afk-box (max-width: 767px) {
+  input[type='range'] { height: 44px; }
+}
 `;
 
 export type SoundDeps = {
