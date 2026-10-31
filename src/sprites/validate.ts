@@ -14,7 +14,8 @@ export function validateSprite(s: SpriteDef): string[] {
   s.frames.forEach((frame, f) => {
     if (frame.length !== s.height) at(`frame ${f}: ${frame.length} rows, expected ${s.height}`);
     frame.forEach((row, y) => {
-      if (row.length !== s.width) at(`frame ${f} row ${y}: ${row.length} chars, expected ${s.width}`);
+      if (row.length !== s.width)
+        at(`frame ${f} row ${y}: ${row.length} chars, expected ${s.width}`);
       for (const [x, ch] of [...row].entries()) {
         if (!ALLOWED.has(ch)) at(`frame ${f} row ${y} col ${x}: bad char ${JSON.stringify(ch)}`);
       }
@@ -31,8 +32,10 @@ export function validateWeapon(w: WeaponDef): string[] {
     errors.push(...validateSprite(sprite));
     const row = sprite.frames[0]?.[grip.y];
     const ch = row?.[grip.x];
-    if (ch === undefined) errors.push(`${w.name} ${pose}: grip (${grip.x},${grip.y}) outside sprite`);
-    else if (ch === ".") errors.push(`${w.name} ${pose}: grip (${grip.x},${grip.y}) is transparent`);
+    if (ch === undefined)
+      errors.push(`${w.name} ${pose}: grip (${grip.x},${grip.y}) outside sprite`);
+    else if (ch === ".")
+      errors.push(`${w.name} ${pose}: grip (${grip.x},${grip.y}) is transparent`);
   }
   return errors;
 }

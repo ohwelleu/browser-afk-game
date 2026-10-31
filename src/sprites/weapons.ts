@@ -13,14 +13,7 @@ export const stick: WeaponDef = {
         name: "weapon-stick-fwd",
         width: 11,
         height: 4,
-        frames: [
-          [
-            ".......GG..",
-            "......#....",
-            "###########",
-            "...#.......",
-          ],
-        ],
+        frames: [[".......GG..", "......#....", "###########", "...#......."]],
       },
     },
     up: {
@@ -30,19 +23,7 @@ export const stick: WeaponDef = {
         width: 4,
         height: 11,
         frames: [
-          [
-            "..#.",
-            "..#.",
-            "G.#.",
-            "G.#.",
-            ".##.",
-            "..#.",
-            "..#.",
-            "..##",
-            "..#.",
-            "..#.",
-            "..#.",
-          ],
+          ["..#.", "..#.", "G.#.", "G.#.", ".##.", "..#.", "..#.", "..##", "..#.", "..#.", "..#."],
         ],
       },
     },
@@ -105,13 +86,7 @@ export const woodenSword: WeaponDef = {
         name: "weapon-wooden-sword-fwd",
         width: 12,
         height: 3,
-        frames: [
-          [
-            "...#OOOOOOO.",
-            "####OOOOOOOO",
-            "...#........",
-          ],
-        ],
+        frames: [["...#OOOOOOO.", "####OOOOOOOO", "...#........"]],
       },
     },
     up: {
@@ -121,20 +96,7 @@ export const woodenSword: WeaponDef = {
         width: 3,
         height: 12,
         frames: [
-          [
-            ".O.",
-            "OO.",
-            "OO.",
-            "OO.",
-            "OO.",
-            "OO.",
-            "OO.",
-            "OO.",
-            "###",
-            ".#.",
-            ".#.",
-            ".#.",
-          ],
+          [".O.", "OO.", "OO.", "OO.", "OO.", "OO.", "OO.", "OO.", "###", ".#.", ".#.", ".#."],
         ],
       },
     },
@@ -199,13 +161,7 @@ export const stoneSword: WeaponDef = {
         name: "weapon-stone-sword-fwd",
         width: 13,
         height: 3,
-        frames: [
-          [
-            "...#########.",
-            "####o##o###o#",
-            "...###.##.#..",
-          ],
-        ],
+        frames: [["...#########.", "####o##o###o#", "...###.##.#.."]],
       },
     },
     up: {

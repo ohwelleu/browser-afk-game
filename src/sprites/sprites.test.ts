@@ -4,8 +4,12 @@ import type { SpriteDef, WeaponDef } from "./types";
 import { validateAnchors, validateSprite, validateWeapon } from "./validate";
 
 const exported = Object.values(S as Record<string, unknown>);
-const sprites = exported.filter((v): v is SpriteDef => typeof v === "object" && v !== null && "frames" in v);
-const weapons = exported.filter((v): v is WeaponDef => typeof v === "object" && v !== null && "poses" in v);
+const sprites = exported.filter(
+  (v): v is SpriteDef => typeof v === "object" && v !== null && "frames" in v,
+);
+const weapons = exported.filter(
+  (v): v is WeaponDef => typeof v === "object" && v !== null && "poses" in v,
+);
 
 describe("sprites", () => {
   it.each(sprites.map((s) => [s.name, s] as const))("%s has valid rows and chars", (_, s) => {
@@ -28,8 +32,20 @@ describe("sprites", () => {
     }
   });
 
+  it("validator rejects broken sprites", () => {
+    const bad: SpriteDef = { name: "bad", width: 3, height: 2, frames: [["##", "#x#", "###"]] };
+    expect(validateSprite(bad)).toEqual([
+      "bad: frame 0: 3 rows, expected 2",
+      "bad: frame 0 row 0: 2 chars, expected 3",
+      'bad: frame 0 row 1 col 1: bad char "x"',
+    ]);
+  });
+
   it("sprite names are unique", () => {
-    const names = [...sprites, ...weapons.flatMap((w) => Object.values(w.poses).map((p) => p.sprite))].map((s) => s.name);
+    const names = [
+      ...sprites,
+      ...weapons.flatMap((w) => Object.values(w.poses).map((p) => p.sprite)),
+    ].map((s) => s.name);
     expect(new Set(names).size).toBe(names.length);
   });
 });

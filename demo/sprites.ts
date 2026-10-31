@@ -12,13 +12,29 @@ const THEMES: Theme[] = [
     name: "dark",
     bg: "#1f1f1f",
     fg: "#ece9e2",
-    colours: { O: "#ff7a1a", P: "#9b6bff", G: "#22c55e", B: "#4f8bff", Y: "#facc15", R: "#ef4444", K: "#f472b6" },
+    colours: {
+      O: "#ff7a1a",
+      P: "#9b6bff",
+      G: "#22c55e",
+      B: "#4f8bff",
+      Y: "#facc15",
+      R: "#ef4444",
+      K: "#f472b6",
+    },
   },
   {
     name: "light",
     bg: "#ece9e2",
     fg: "#1f1f1f",
-    colours: { O: "#ff6b00", P: "#7c3aed", G: "#16a34a", B: "#2563eb", Y: "#eab308", R: "#dc2626", K: "#db2777" },
+    colours: {
+      O: "#ff6b00",
+      P: "#7c3aed",
+      G: "#16a34a",
+      B: "#2563eb",
+      Y: "#eab308",
+      R: "#dc2626",
+      K: "#db2777",
+    },
   },
 ];
 
@@ -26,7 +42,8 @@ const SCALES = [1, 3, 6];
 
 const isSprite = (v: unknown): v is SpriteDef =>
   typeof v === "object" && v !== null && "frames" in v && "width" in v;
-const isWeapon = (v: unknown): v is WeaponDef => typeof v === "object" && v !== null && "poses" in v;
+const isWeapon = (v: unknown): v is WeaponDef =>
+  typeof v === "object" && v !== null && "poses" in v;
 
 const exported = Object.values(S as Record<string, unknown>);
 // Module namespaces are sorted by export name; show hero animations in play order instead.
@@ -34,7 +51,10 @@ const ORDER = ["hero-idle", "hero-slash", "hero-hurt", "hero-death"];
 const rank = (s: SpriteDef) => (ORDER.includes(s.name) ? ORDER.indexOf(s.name) : ORDER.length);
 const sprites = exported.filter(isSprite).sort((a, b) => rank(a) - rank(b));
 const weapons = exported.filter(isWeapon).sort((a, b) => a.tier - b.tier);
-const anchors = ((S as Record<string, unknown>).heroWeaponAnchors ?? {}) as Record<string, WeaponAnchor[]>;
+const anchors = ((S as Record<string, unknown>).heroWeaponAnchors ?? {}) as Record<
+  string,
+  WeaponAnchor[]
+>;
 
 // ---------- validation ----------
 
@@ -56,7 +76,14 @@ function colourOf(ch: string, t: Theme): string | null {
   return t.colours[ch] ?? "#f0f";
 }
 
-function drawFrame(ctx: CanvasRenderingContext2D, frame: string[], t: Theme, dx: number, dy: number, scale: number) {
+function drawFrame(
+  ctx: CanvasRenderingContext2D,
+  frame: string[],
+  t: Theme,
+  dx: number,
+  dy: number,
+  scale: number,
+) {
   frame.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) {
       const c = colourOf(row[x], t);
@@ -171,7 +198,9 @@ function figure(caption: string, el: HTMLElement) {
 function addDrawable(parent: HTMLElement, d: Drawable, t: Theme) {
   const sec = document.createElement("section");
   const h = document.createElement("h3");
-  h.textContent = `${d.label} · ${d.frameCount} frame${d.frameCount > 1 ? "s" : ""}` + (d.frameCount > 1 ? ` @ ${d.fps} fps` : "");
+  h.textContent =
+    `${d.label} · ${d.frameCount} frame${d.frameCount > 1 ? "s" : ""}` +
+    (d.frameCount > 1 ? ` @ ${d.fps} fps` : "");
   const row = document.createElement("div");
   row.className = "row";
   for (const scale of SCALES) {
@@ -230,11 +259,12 @@ function build() {
       if (only && !only.includes(title)) continue;
       const list = sprites.filter((s) => test(s) && (!nameFilter || s.name.startsWith(nameFilter)));
       const isHero = title === "Hero";
-      if (!list.length && !(isHero && weapons.length)) continue;
+      if (!list.length && !(isHero && weapons.length && !nameFilter)) continue;
       const h3 = document.createElement("h2");
       h3.textContent = title;
       col.append(h3);
-      for (const s of list) addDrawable(col, isHero ? heroDrawable(s, weapon) : spriteDrawable(s), t);
+      for (const s of list)
+        addDrawable(col, isHero ? heroDrawable(s, weapon) : spriteDrawable(s), t);
       if (isHero && !nameFilter) for (const w of weapons) addDrawable(col, weaponDrawable(w), t);
     }
     root.append(col);
