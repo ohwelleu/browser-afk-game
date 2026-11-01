@@ -1,8 +1,14 @@
 import { STAGES_PER_WORLD, stageLevel, WEAPONS } from './game/balance';
 import { newProgress, type GameState, type Progress } from './game/state';
+import { loadGear, saveGear, validateGear } from './save-items';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
-export const SAVE_VERSION = 1;
+/**
+ * Save format version. History:
+ * 1. first demo save
+ * 2. + `items` (ring, pendant, bag, drop RNG); v1 saves load with empty gear
+ */
+export const SAVE_VERSION = 2;
 
 export type AudioSettings = {
   muted: boolean;
@@ -65,6 +71,8 @@ export function loadSave(storage: StorageLike | undefined, key: string): Loaded 
       equipped,
       kills: isInt(data.kills, 0) ? data.kills : 0,
       deaths: isInt(data.deaths, 0) ? data.deaths : 0,
+      // Migration v1 → v2: no `items` yet, so loadGear starts empty with a new seed.
+      items: loadGear(data.items),
     },
     audio: {
       ...(typeof audio.muted === 'boolean' ? { muted: audio.muted } : {}),
@@ -112,6 +120,7 @@ export function validateSaveData(data: unknown, tracks: readonly string[]): Vali
   int('kills', d.kills, 0);
   int('deaths', d.deaths, 0);
   bool('autoAdvance', d.autoAdvance);
+  const items = validateGear(d.items, errors);
 
   const levels = d.weaponLevels;
   if (!Array.isArray(levels) || levels.length !== WEAPONS.length) {
@@ -156,6 +165,7 @@ export function validateSaveData(data: unknown, tracks: readonly string[]): Vali
       equipped: d.equipped as number,
       kills: d.kills as number,
       deaths: d.deaths as number,
+      items: items!,
     },
     audio: {
       muted: au.muted,
@@ -179,6 +189,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     equipped: s.equipped,
     kills: s.kills,
     deaths: s.deaths,
+    items: saveGear(s.items),
     audio,
   };
 }

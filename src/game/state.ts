@@ -24,6 +24,7 @@ import {
   WEAPONS,
   type MobKind,
 } from './balance';
+import { gearTotals, mobHitDamage, newGear, onKill, type Gear, type Item } from './items';
 
 export type Phase = 'intro' | 'fighting' | 'mobDying' | 'heroDying' | 'transition';
 
@@ -54,6 +55,8 @@ export type GameEvent =
   | { type: 'sfx'; name: SfxName }
   | { type: 'damage'; target: 'hero' | 'mob'; amount: number }
   | { type: 'coins'; amount: number }
+  /** An item dropped; `soldFor` > 0 when the bag was full and it was sold at once. */
+  | { type: 'item'; item: Item; soldFor: number }
   /** Stage changed or a purchase happened: worth saving now. */
   | { type: 'save' };
 
@@ -70,6 +73,8 @@ export type GameState = {
   equipped: number;
   kills: number;
   deaths: number;
+  /** Ring, pendant, bag and the drop RNG (game/items.ts). */
+  items: Gear;
   duel: Duel;
   events: GameEvent[];
 };
@@ -85,6 +90,7 @@ export type Progress = Pick<
   | 'equipped'
   | 'kills'
   | 'deaths'
+  | 'items'
 >;
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
@@ -100,6 +106,7 @@ export function newProgress(): Progress {
     equipped: 0,
     kills: 0,
     deaths: 0,
+    items: newGear(),
   };
 }
 
@@ -143,10 +150,13 @@ export function newDuel(world: number, stage: number, fullIntro: boolean): Duel 
   };
 }
 
-/** Current hero damage per hit with the equipped weapon. */
-export function heroDamage(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number {
+/** Current hero damage per hit: the equipped weapon plus flat item damage. */
+export function heroDamage(
+  s: Pick<GameState, 'equipped' | 'weaponLevels'> & Partial<Pick<GameState, 'items'>>,
+): number {
   const attack = weaponAttack(s.equipped);
-  return safeInt(weaponDamage(s.equipped, s.weaponLevels[s.equipped] ?? 0) * attack.damageMult);
+  const weapon = weaponDamage(s.equipped, s.weaponLevels[s.equipped] ?? 0) * attack.damageMult;
+  return safeInt(weapon + gearTotals(s.items).damage);
 }
 
 /** Advances `dt` seconds in whole fixed ticks (the loop always passes one tick). */
@@ -227,6 +237,7 @@ function combat(s: GameState): void {
   const t = d.tick;
   const attack = weaponAttack(s.equipped);
   const mobKindDef = MOB_KINDS[d.mob.kind];
+  const gear = gearTotals(s.items);
 
   if (!d.heroSwung && t >= d.heroNextHit - secToTicks(windup(attack))) {
     d.heroSwung = true;
@@ -237,7 +248,7 @@ function combat(s: GameState): void {
     const dmg = heroDamage(s);
     d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
     d.mobHurtTick = t;
-    d.heroNextHit += Math.max(1, secToTicks(attack.interval));
+    d.heroNextHit += Math.max(1, secToTicks(attack.interval / (1 + gear.speed)));
     d.heroSwung = false;
     s.events.push({ type: 'damage', target: 'mob', amount: dmg }, { type: 'sfx', name: 'hit' });
   }
@@ -251,6 +262,7 @@ function combat(s: GameState): void {
       { type: 'sfx', name: 'coin' },
       { type: 'coins', amount: d.mob.coins },
     );
+    onKill(s, s.world, s.stage);
     return;
   }
 
@@ -259,14 +271,12 @@ function combat(s: GameState): void {
     d.mobAttackTick = t;
   }
   if (t >= d.mobNextHit) {
-    d.heroHp = Math.max(0, safeInt(d.heroHp - d.mob.damage));
+    const dmg = mobHitDamage(d.mob.damage, gear.defence);
+    d.heroHp = Math.max(0, safeInt(d.heroHp - dmg));
     d.heroHurtTick = t;
     d.mobNextHit += Math.max(1, secToTicks(mobKindDef.interval));
     d.mobLunged = false;
-    s.events.push(
-      { type: 'damage', target: 'hero', amount: d.mob.damage },
-      { type: 'sfx', name: 'hit' },
-    );
+    s.events.push({ type: 'damage', target: 'hero', amount: dmg }, { type: 'sfx', name: 'hit' });
   }
   if (d.heroHp <= 0) {
     setPhase(d, 'heroDying');

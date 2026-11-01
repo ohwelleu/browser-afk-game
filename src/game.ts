@@ -31,6 +31,7 @@ import { createMenu, MENU_STYLES } from './ui/menu';
 import { Dialogs, MODAL_STYLES } from './ui/modal';
 import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
+import { createToast, GEAR_STYLES } from './ui/gear';
 
 export type GameOptions = {
   saveKey: string;
@@ -84,7 +85,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -153,6 +154,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     audioSettings,
   );
   autoButton.before(menu.el, sound.el);
+  const toast = createToast(box, { iconUrl });
 
   const loop = new Loop((dt) => {
     state = update(state, dt);
@@ -164,6 +166,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     for (const e of events) {
       if (e.type === 'sfx') pendingSfx.push(e.name);
       else if (e.type === 'save') save = true;
+      else if (e.type === 'item') toast.show(e.item, e.soldFor);
     }
     scene.onEvents(state, events, view);
     if (save) saveNow();
@@ -430,6 +433,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       saveNow();
       dialogs.destroy();
       debugPanel?.destroy();
+      toast.destroy();
       loop.stop();
       audio.pause();
       audio.setTrack('');

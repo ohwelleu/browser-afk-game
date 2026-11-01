@@ -1,5 +1,6 @@
 import { upgradeCost, weaponDamage, WEAPONS } from '../game/balance';
 import { formatNumber } from '../game/format';
+import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
   buyUpgrade,
   buyWeapon,
@@ -11,6 +12,7 @@ import {
 } from '../game/state';
 import { coinSpin, weapons as weaponSprites, type SpriteDef } from '../sprites';
 import { createShow, html, setClass, setFlag } from './dom';
+import { createGearView, GEAR_HTML } from './gear';
 import { dialogHtml } from './modal';
 
 // Sizes are in em so a future pixel font can change the metrics in one place.
@@ -203,11 +205,13 @@ const BODY = `
           `<button type="button" data-act="equip" data-tier="${i}" class="inv-equip">Equip</button>`,
       )}
       <p class="note inv-hint">Buy more weapons in the Weapons tab.</p>
+      ${GEAR_HTML}
     </section>
     <section role="tabpanel" id="afk-panel-help" aria-labelledby="afk-tab-help" tabindex="0" hidden>
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Spend coins on <b>Upgrades</b> (more damage for the equipped weapon) and new <b>Weapons</b>, then equip them in <b>Inventory</b>.</p>
+      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A or the rare S). Equip them in <b>Inventory</b> for extra damage, defence, speed or item find.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <h3>Credits</h3>
       <p>Sound effects: ZzFX by Frank Force (MIT licence).<br />Music: original chiptune, synthesized in the browser.<br />Sprites: original pixel art, drawn in code.</p>
@@ -233,6 +237,10 @@ export function createMenu(deps: MenuDeps): Menu {
   const selectedTab = () => tabs.find((t) => t.dataset.tab === current)!;
   let current: MenuTab = 'upgrades';
   let last: GameState | null = null;
+  const gear = createGearView($('#afk-panel-inventory'), {
+    iconUrl: deps.iconUrl,
+    coinUrl: () => deps.iconUrl(coinSpin),
+  });
 
   function select(tab: MenuTab, focus = false): void {
     current = tab;
@@ -282,11 +290,21 @@ export function createMenu(deps: MenuDeps): Menu {
       case 'equip':
         deps.act((s) => equip(s, Number(target.dataset.tier)));
         break;
+      case 'item-equip':
+        deps.act((s) => equipItem(s, Number(target.dataset.id)));
+        break;
+      case 'item-sell':
+        deps.act((s) => sellItem(s, Number(target.dataset.id)));
+        break;
+      case 'item-unequip':
+        deps.act((s) => unequipItem(s, target.dataset.slot === 'ring' ? 'ring' : 'pendant'));
+        break;
       default:
         return;
     }
     // A button that just became disabled or hidden drops focus; keep it in the menu.
-    if (target.disabled || target.closest('[hidden]')) selectedTab().focus({ preventScroll: true });
+    if (!target.isConnected || target.disabled || target.closest('[hidden]'))
+      selectedTab().focus({ preventScroll: true });
   });
 
   function setWeaponIcon(img: HTMLImageElement, tier: number): void {
@@ -306,6 +324,7 @@ export function createMenu(deps: MenuDeps): Menu {
     }
     const up = $<HTMLImageElement>('.up-icon');
     if (up.dataset.shown) setWeaponIcon(up, Number(up.dataset.shown));
+    gear.refreshIcons();
   }
 
   function refresh(state: GameState): void {
@@ -377,6 +396,7 @@ export function createMenu(deps: MenuDeps): Menu {
       setFlag(li.querySelector('.inv-equip')!, 'hidden', equipped);
     }
     setFlag($('.inv-hint'), 'hidden', owned >= WEAPONS.length);
+    gear.refresh(state);
   }
 
   select(current);

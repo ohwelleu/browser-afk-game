@@ -3,6 +3,8 @@ import type { SfxName } from './audio/types';
 /** Higher plays first; when the voice cap is hit, the lowest are dropped. */
 export const SFX_PRIORITY: Record<SfxName, number> = {
   heroDeath: 10,
+  itemDropS: 9,
+  itemDrop: 7,
   bossAppear: 9,
   stageClear: 8,
   mobDeath: 7,

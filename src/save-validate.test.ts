@@ -63,4 +63,45 @@ describe('validateSaveData', () => {
     expect(validateSaveData(null, TRACKS).ok).toBe(false);
     expect(validateSaveData([1, 2], TRACKS).ok).toBe(false);
   });
+
+  it('accepts edited items and rejects broken ones', () => {
+    const item = {
+      id: 1,
+      slot: 'ring',
+      tier: 'B',
+      world: 1,
+      stage: 2,
+      stats: { damage: 2, speed: 0.03 },
+    };
+    const ok = { ...valid(), items: { ring: item, pendant: null, bag: [], rng: 7, nextId: 2 } };
+    const r = validateSaveData(ok, TRACKS);
+    expect(r.ok && r.progress.items.ring).toEqual(item);
+
+    const bad = {
+      ...valid(),
+      items: {
+        ring: { ...item, slot: 'pendant' },
+        pendant: null,
+        bag: [{ ...item, stats: { damage: 2 } }],
+        rng: 1.5,
+        nextId: 1,
+      },
+    };
+    const res = validateSaveData(bad, TRACKS);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.errors).toEqual([
+        'items.ring must hold a ring.',
+        'items.bag[0]: a B item has 2 stats.',
+        'items.rng must be a whole number from 0 to 4294967295.',
+        'items.nextId must be a whole number above every item id (1).',
+      ]);
+    }
+  });
+
+  it('requires items', () => {
+    const { items: _, ...noItems } = valid();
+    const r = validateSaveData(noItems, TRACKS);
+    expect(!r.ok && r.errors).toEqual(['items must be an object.']);
+  });
 });

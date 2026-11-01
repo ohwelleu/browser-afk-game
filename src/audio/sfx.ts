@@ -22,6 +22,10 @@ export const SFX: Record<SfxName, ZzfxParams> = {
   bossAppear: [0.37, 0, 60, 0.3, 0.5, 0.7, 2, 1, , , , , 0.08, 0.2, , , 0.15, 1, , 0.5, -800],
   // rising G–C–E–G arpeggio with an echo
   stageClear: [0.6, 0, 392, 0, 0.2, 0.2, 1, 1, , , 131, 0.1, 0.1, , , , 0.1],
+  // soft high blip with a short echo: an item dropped
+  itemDrop: [0.4, 0, 1319, 0, 0.03, 0.12, 0, 1, , , 330, 0.04, , , , , 0.06],
+  // S item: bright shimmering sparkle, rising, with tremolo and echo
+  itemDropS: [0.5, 0, 1568, 0.01, 0.25, 0.4, 0, 1, 2, , 523, 0.06, 0.08, , , , 0.1, 0.9, , 0.3],
 };
 
 export const SFX_NAMES = Object.keys(SFX) as SfxName[];
