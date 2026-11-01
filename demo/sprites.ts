@@ -248,8 +248,25 @@ const GROUPS: [string, (s: SpriteDef) => boolean][] = [
   ['Boss', (s) => s.name.startsWith('boss-')],
   ['Slash by tier', (s) => s.name === 'hero-slash'],
   ['Effects', (s) => s.name.startsWith('effect-')],
-  ['Items', (s) => !/^(hero|mob|boss|weapon|effect)-/.test(s.name)],
+  ['Gear', (s) => s.name.startsWith('item-')],
+  ['Items', (s) => !/^(hero|mob|boss|weapon|effect|item)-/.test(s.name)],
 ];
+
+/** One item icon inside a tier frame, the way the inventory draws it. */
+function gearDrawable(frame: SpriteDef, icon: SpriteDef | undefined): Drawable {
+  const at = S.ITEM_ICON_OFFSET;
+  return {
+    label: `${frame.name}${icon ? ` + ${icon.name}` : ''}`,
+    width: frame.width,
+    height: frame.height,
+    frameCount: frame.frames.length,
+    fps: frame.fps ?? 4,
+    draw(ctx, f, t, scale) {
+      drawFrame(ctx, frame.frames[f], t, 0, 0, scale);
+      if (icon) drawFrame(ctx, icon.frames[0], t, at.x, at.y, scale);
+    },
+  };
+}
 
 // URL params for screenshots: ?tier=2&grid&slow&only=Hero&theme=dark&name=hero-death&strip=6
 const params = new URLSearchParams(location.search);
@@ -287,6 +304,12 @@ function build() {
       if (title === 'Slash by tier') {
         for (const s of list) for (const w of weapons) addDrawable(col, heroDrawable(s, w), t);
         continue;
+      }
+      if (title === 'Gear' && !nameFilter) {
+        addDrawable(col, gearDrawable(S.itemSlotEmpty, undefined), t);
+        for (const fr of Object.values(S.itemFrames))
+          for (const icon of Object.values(S.itemIcons))
+            addDrawable(col, gearDrawable(fr, icon), t);
       }
       for (const s of list)
         addDrawable(col, isHero ? heroDrawable(s, weapon) : spriteDrawable(s), t);

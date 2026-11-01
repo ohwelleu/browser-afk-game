@@ -74,3 +74,24 @@ describe('sprites', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 });
+
+describe('gear', () => {
+  const frames = [...Object.values(S.itemFrames), S.itemSlotEmpty];
+
+  it('every tier frame and the empty slot share one size', () => {
+    for (const f of frames) expect([f.width, f.height]).toEqual([16, 16]);
+  });
+
+  it('icons fit inside the frame at the icon offset, with a gap to the border', () => {
+    for (const icon of Object.values(S.itemIcons)) {
+      expect(S.ITEM_ICON_OFFSET.x + icon.width).toBeLessThanOrEqual(16 - S.ITEM_ICON_OFFSET.x);
+      expect(S.ITEM_ICON_OFFSET.y + icon.height).toBeLessThanOrEqual(16 - S.ITEM_ICON_OFFSET.y);
+    }
+  });
+
+  it('only the S frame is animated', () => {
+    expect(S.itemFrames.S.frames.length).toBeGreaterThan(1);
+    for (const f of [S.itemFrames.C, S.itemFrames.B, S.itemFrames.A, S.itemSlotEmpty])
+      expect(f.frames).toHaveLength(1);
+  });
+});
