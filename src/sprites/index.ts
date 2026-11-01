@@ -5,3 +5,4 @@ export * from './mobs';
 export * from './boss';
 export * from './items';
 export * from './effects';
+export * from './gear';
