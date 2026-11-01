@@ -1,3 +1,8 @@
+import { FONT_STACK } from './ui/font';
+
+// Pixel font: 16 px is the smallest size that reads well in menus. It is off
+// the 11 px design grid (11 px is too small, 22 px too big for menu text), so
+// edges are slightly soft; canvas text snaps to the grid instead.
 export const STYLES = `
 :host {
   display: block;
@@ -15,7 +20,7 @@ export const STYLES = `
   color: var(--_fg);
   border: 3px solid var(--_fg);
   container-type: inline-size;
-  font: 14px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font: 16px/1.35 ${FONT_STACK};
 }
 canvas {
   position: absolute;

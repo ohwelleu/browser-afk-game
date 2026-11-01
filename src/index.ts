@@ -1,6 +1,7 @@
 import { AfkGameElement } from './element';
-import { createGame } from './game';
+import { createGame, type GameHandle } from './game';
 import { resolveOptions, type MountOptions } from './options';
+import { loadFont } from './ui/font';
 
 export type { MountOptions } from './options';
 export type { ThemeMode } from './theme';
@@ -16,14 +17,17 @@ export function mount(el: HTMLElement, opts: MountOptions = {}): { destroy(): vo
   const host = document.createElement('div');
   host.style.cssText = 'display:block;width:100%;height:100%;';
   el.appendChild(host);
-  const game = createGame(
-    host.attachShadow({ mode: 'open' }),
-    host,
-    resolveOptions(opts, location.search),
-  );
+  const root = host.attachShadow({ mode: 'open' });
+  let game: GameHandle | null = null;
+  let destroyed = false;
+  // Wait for the pixel font so canvas text is drawn with it from frame one.
+  void loadFont().then(() => {
+    if (!destroyed) game = createGame(root, host, resolveOptions(opts, location.search));
+  });
   return {
     destroy() {
-      game.destroy();
+      destroyed = true;
+      game?.destroy();
       host.remove();
     },
   };
