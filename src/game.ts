@@ -15,6 +15,7 @@ import { SceneRenderer, sceneContent } from './render/scene';
 import { SpriteCache } from './render/sprites';
 import { computeView, type View } from './render/view';
 import {
+  clearSave,
   loadSave,
   readSavePreview,
   toSaveData,
@@ -99,7 +100,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   const storage = safeLocalStorage();
   const preview = readSavePreview(storage, opts.saveKey);
-  const saved = loadSave(storage, opts.saveKey);
+  const { saved, status: loadStatus } = loadSave(storage, opts.saveKey);
+  // TODO(save notice): show this in the UI. Until then, log it.
+  if (loadStatus === 'backup') console.warn('[afk] Save was damaged; loaded the backup.');
+  if (loadStatus === 'reset') console.warn('[afk] Save and backup were damaged; new game.');
   if (preview?.stage) startButton.textContent = `Continue · ${preview.stage}`;
 
   const colorScheme = matchMedia('(prefers-color-scheme: dark)');
@@ -308,11 +312,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   }
 
   function debugReset(): void {
-    try {
-      storage?.removeItem(opts.saveKey);
-    } catch {
-      // storage blocked: nothing to clear
-    }
+    clearSave(storage, opts.saveKey);
     state = createState();
     if (!started) startButton.textContent = 'Start';
     saveNow(); // keeps the audio settings once the game is running
