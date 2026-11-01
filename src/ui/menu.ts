@@ -189,7 +189,8 @@ const BODY = `
         'shop-list',
         `<span class="shop-dmg"></span><span class="shop-price-text"></span>`,
         (i) =>
-          `<span class="tag shop-owned">Owned</span>` +
+          `<span class="tag on shop-equipped">Equipped</span>` +
+          `<button type="button" data-act="equip" data-tier="${i}" class="shop-equip">Equip</button>` +
           `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
           `<span class="tag shop-locked">Locked</span>`,
       )}
@@ -207,7 +208,7 @@ const BODY = `
     <section role="tabpanel" id="afk-panel-help" aria-labelledby="afk-tab-help" tabindex="0" hidden>
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
-      <p>Spend coins on <b>Upgrades</b> (more damage for the equipped weapon) and new <b>Weapons</b>, then equip them in <b>Inventory</b>.</p>
+      <p>Spend coins on <b>Upgrades</b> (more damage for the equipped weapon) and new <b>Weapons</b>. A new weapon is equipped if it hits harder; switch any time in <b>Inventory</b>.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <h3>Credits</h3>
       <p>Sound effects: ZzFX by Frank Force (MIT licence).<br />Music: original chiptune, synthesized in the browser.<br />Sprites: original pixel art, drawn in code.</p>
@@ -350,7 +351,9 @@ export function createMenu(deps: MenuDeps): Menu {
       show(priceText, w.price ? `${formatNumber(w.price)} coins` : 'Starter');
       setFlag(priceText, 'hidden', isNext);
       show(li.querySelector('.shop-price')!, formatNumber(w.price));
-      setFlag(li.querySelector('.shop-owned')!, 'hidden', !owned);
+      const equipped = i === state.equipped;
+      setFlag(li.querySelector('.shop-equipped')!, 'hidden', !(owned && equipped));
+      setFlag(li.querySelector('.shop-equip')!, 'hidden', !owned || equipped);
       const lockTag = li.querySelector('.shop-locked')!;
       setFlag(lockTag, 'hidden', !locked);
       show(lockTag, locked ? `Buy ${WEAPONS[i - 1].name} first` : '', 'title');

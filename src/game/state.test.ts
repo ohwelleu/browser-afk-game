@@ -180,16 +180,38 @@ describe('actions', () => {
     expect(buyUpgrade(next)).toBe(next); // can't afford: unchanged, same object
   });
 
-  it('weapon shop sells the next tier at level 1, equip is instant', () => {
+  it('weapon shop sells the next tier at level 1 and equips it when stronger', () => {
     let s = createState({ ...newProgress(), coins: WEAPONS[1].price });
     s = buyWeapon(s);
     expect(s.coins).toBe(0);
     expect(s.weaponLevels[1]).toBe(1);
-    expect(s.equipped).toBe(0);
-    expect(buyWeapon(s)).toBe(s);
-    s = equip(s, 1);
+    expect(s.equipped).toBe(1);
     expect(heroDamage(s)).toBe(WEAPONS[1].baseDmg);
+    expect(s.events).toContainEqual({ type: 'save' });
+    expect(buyWeapon(s)).toBe(s);
+  });
+
+  it('buying keeps a stronger, upgraded weapon equipped', () => {
+    let s = createState({
+      ...newProgress(),
+      coins: WEAPONS[1].price,
+      weaponLevels: [1000, 0, 0, 0, 0],
+    });
+    const before = heroDamage(s);
+    s = buyWeapon(s);
+    expect(s.weaponLevels[1]).toBe(1);
+    expect(s.equipped).toBe(0);
+    expect(heroDamage(s)).toBe(before);
+  });
+
+  it('equip is instant and a no-op for unowned weapons', () => {
+    let s = createState({ ...newProgress(), weaponLevels: [1000, 1, 0, 0, 0] });
+    s = equip(s, 1);
+    expect(s.equipped).toBe(1);
+    expect(heroDamage(s)).toBe(WEAPONS[1].baseDmg);
+    expect(s.events).toContainEqual({ type: 'save' });
     expect(equip(s, 3)).toBe(s); // not owned
+    expect(equip(s, 99)).toBe(s); // no such tier
   });
 
   it('coins never go negative', () => {

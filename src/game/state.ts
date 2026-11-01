@@ -330,6 +330,10 @@ export function buyWeapon(s: GameState): GameState {
   const next = draft(s);
   next.coins = safeInt(s.coins - WEAPONS[tier].price);
   next.weaponLevels[tier] = 1;
+  // Auto-equip unless the current weapon (maybe well upgraded) hits harder.
+  if (heroDamage({ equipped: tier, weaponLevels: next.weaponLevels }) >= heroDamage(next)) {
+    next.equipped = tier;
+  }
   next.events.push({ type: 'sfx', name: 'purchase' }, { type: 'save' });
   return next;
 }
