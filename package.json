@@ -14,9 +14,12 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "sprites": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/sprites/cli.ts"
   },
   "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "pngjs": "^7.0.0",
     "prettier": "^3.9.10",
     "typescript": "^7.0.2",
     "vite": "^6.4.5",
