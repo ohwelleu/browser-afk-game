@@ -16,6 +16,7 @@ import {
   type SpriteDef,
 } from '../sprites';
 import type { Palette } from '../theme';
+import { FONT_STACK, snapFontSize } from '../ui/font';
 import { frameAt, type SpriteCache } from './sprites';
 import type { View } from './view';
 
@@ -118,7 +119,7 @@ export class SceneRenderer {
     this.texts = this.texts.filter(
       (t) => s.ticks >= t.born && seconds(s.ticks - t.born) < TEXT_LIFE,
     );
-    const size = Math.max(10, Math.round(v.scale * 5));
+    const size = snapFontSize(v.scale * 5);
     for (const t of this.texts) {
       const age = seconds(s.ticks - t.born) / TEXT_LIFE;
       const y = t.y - TEXT_RISE * age;
@@ -270,7 +271,7 @@ function drawIntro(ctx: CanvasRenderingContext2D, s: GameState, v: View, p: Pale
   // Gone just before the first swing starts.
   if (seconds(d.tick) >= seconds(d.introTicks) - windup(weaponAttack(s.equipped)) - 0.2) return;
   const label = `${isBoss(s.stage) ? 'BOSS' : 'STAGE'} ${s.world}.${s.stage}`;
-  const size = Math.max(14, Math.round(v.scale * 7));
+  const size = snapFontSize(Math.max(22, v.scale * 7));
   const y = v.offsetY + (v.height - GROUND) * v.scale * 0.3;
   text(ctx, label, v.pxWidth / 2, y, size, isBoss(s.stage) ? p.purple : p.fg, p.bg);
 }
@@ -284,7 +285,7 @@ function text(
   color: string,
   outline: string,
 ): void {
-  ctx.font = `bold ${size}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+  ctx.font = `bold ${size}px ${FONT_STACK}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';

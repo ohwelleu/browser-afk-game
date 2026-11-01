@@ -1,6 +1,7 @@
 import { createGame, type GameHandle } from './game';
 import { resolveOptions } from './options';
 import { parseThemeMode } from './theme';
+import { loadFont } from './ui/font';
 
 /** `<afk-game save-key="…" theme="dark|light|auto" debug>` */
 export class AfkGameElement extends HTMLElement {
@@ -9,7 +10,10 @@ export class AfkGameElement extends HTMLElement {
   private game: GameHandle | null = null;
 
   connectedCallback(): void {
-    this.mountGame();
+    // Wait for the pixel font so canvas text is drawn with it from frame one.
+    void loadFont().then(() => {
+      if (this.isConnected) this.mountGame();
+    });
   }
 
   disconnectedCallback(): void {
