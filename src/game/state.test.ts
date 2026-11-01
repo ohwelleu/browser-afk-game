@@ -7,6 +7,7 @@ import {
   createState,
   equip,
   heroDamage,
+  heroDps,
   newProgress,
   secToTicks,
   setAutoAdvance,
@@ -231,5 +232,35 @@ describe('actions', () => {
     buyUpgrade(s);
     update(s, TICK);
     expect(JSON.stringify(s)).toBe(before);
+  });
+});
+
+describe('max DPS', () => {
+  it('DPS is damage per hit ÷ seconds between attacks', () => {
+    expect(heroDps(createState())).toBe(1); // stick lvl 1, 1 hit/s
+    expect(heroDps(createState({ ...newProgress(), weaponLevels: [5, 0, 0, 0, 0] }))).toBe(5);
+  });
+
+  it('old saves without maxDps start at the current DPS', () => {
+    const s = createState({ ...newProgress(), weaponLevels: [7, 0, 0, 0, 0], maxDps: 0 });
+    expect(s.maxDps).toBe(7);
+    expect(createState({ ...newProgress(), maxDps: 99 }).maxDps).toBe(99);
+  });
+
+  it('rises on upgrade and equip, never drops on equipping a weaker weapon', () => {
+    let s = createState({ ...newProgress(), coins: 5 });
+    s = buyUpgrade(s);
+    expect(s.maxDps).toBe(2);
+    s = createState({ ...newProgress(), weaponLevels: [1, 1, 0, 0, 0] });
+    s = equip(s, 1);
+    expect(s.maxDps).toBe(WEAPONS[1].baseDmg);
+    s = equip(s, 0);
+    expect(heroDps(s)).toBe(1);
+    expect(s.maxDps).toBe(WEAPONS[1].baseDmg);
+  });
+
+  it('fighting does not change it', () => {
+    const s = run(strong(), 10);
+    expect(s.maxDps).toBe(1000);
   });
 });

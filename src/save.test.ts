@@ -111,7 +111,14 @@ describe('writeSave / loadSave', () => {
 
   it('round-trips progress and audio settings', () => {
     let st = createState({ ...newProgress(), world: 2, stage: 4, coins: 123 });
-    st = { ...st, weaponLevels: [7, 2, 0, 0, 0], equipped: 1, autoAdvance: false, best: 12 };
+    st = {
+      ...st,
+      weaponLevels: [7, 2, 0, 0, 0],
+      equipped: 1,
+      autoAdvance: false,
+      best: 12,
+      maxDps: 42,
+    };
     const s = memory();
     writeSave(s, 'k', toSaveData(st, audio, '0.2.0'));
     const { saved, status } = loadSave(s, 'k');
@@ -126,6 +133,7 @@ describe('writeSave / loadSave', () => {
       equipped: 1,
       kills: 0,
       deaths: 0,
+      maxDps: 42,
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -217,7 +225,8 @@ describe('v1 migration (plain JSON saves)', () => {
     expect(s.getItem(backupKey('k'))).toBe(v1); // the old save is kept as the backup
     const again = loadSave(s, 'k');
     expect(again.status).toBe('ok');
-    expect(again.saved!.progress).toEqual(saved!.progress);
+    // A v1 save has no maxDps; createState raises it to the current DPS.
+    expect(again.saved!.progress).toEqual({ ...saved!.progress, maxDps: st.maxDps });
   });
 
   it('repairs bad v1 values instead of crashing', () => {
