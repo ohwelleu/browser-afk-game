@@ -2,12 +2,14 @@
 
 Things we agreed to do **later**. Owned by the planning thread. Tick items off
 when they're done, and move bigger ideas to [ROADMAP.md](ROADMAP.md). The
-rough order is in [PLAN.md → Milestones](PLAN.md#milestones).
+rough order is in [PLAN.md → Milestones](PLAN.md#milestones). Each
+unticked line is roughly one thread and one PR (see [WORKFLOW.md](WORKFLOW.md)).
 
 ## Sprite tool (next)
 
 The owner draws all sprites and animations in Aseprite/LibreSprite. A
 converter brings them into the game. Full guide: [SPRITES.md](SPRITES.md).
+Each line below is its own thread, in this order.
 
 - [ ] palette file (`art/afk-palette.gpl`, exists) + PNG → sprite, with
       palette checks
