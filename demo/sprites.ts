@@ -259,7 +259,10 @@ const GROUPS: [string, (s: SpriteDef) => boolean][] = [
   ['Companion', (s) => s.name.startsWith('crow-') || s.name === 'icon-crow'],
   ['Effects', (s) => s.name.startsWith('effect-')],
   ['Gear', (s) => s.name.startsWith('item-')],
-  ['Items', (s) => !/^(hero|mob|boss|weapon|effect|item|crow)-/.test(s.name) && s.name !== 'icon-crow'],
+  [
+    'Items',
+    (s) => !/^(hero|mob|boss|weapon|effect|item|crow)-/.test(s.name) && s.name !== 'icon-crow',
+  ],
 ];
 
 /** One item icon inside a tier frame, the way the inventory draws it. */
