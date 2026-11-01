@@ -57,6 +57,23 @@ describe('sprites', () => {
     }
   });
 
+  it('companions: same canvas on every animation, hit frame and beak tip are drawn', () => {
+    for (const [id, c] of Object.entries(S.companionSprites)) {
+      const anims = Object.values(c.animations);
+      for (const a of anims) expect([id, a.width, a.height]).toEqual([id, 16, 16]);
+      expect(c.hitFrame).toBeGreaterThanOrEqual(0);
+      expect(c.hitFrame).toBeLessThan(c.animations.peck.frames.length);
+      const row = c.animations.peck.frames[c.hitFrame][c.hitPoint.y];
+      expect(row?.[c.hitPoint.x] ?? '.').not.toBe('.');
+      expect([c.icon.width, c.icon.height]).toEqual([S.iconDamage.width, S.iconDamage.height]);
+    }
+  });
+
+  it('crow fly-back is fly-out facing left', () => {
+    const flip = (f: string[]) => f.map((r) => [...r].reverse().join(''));
+    expect(S.crowFlyBack.frames).toEqual(S.crowFlyOut.frames.map(flip));
+  });
+
   it('validator rejects broken sprites', () => {
     const bad: SpriteDef = { name: 'bad', width: 3, height: 2, frames: [['##', '#x#', '###']] };
     expect(validateSprite(bad)).toEqual([
