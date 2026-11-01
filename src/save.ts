@@ -3,6 +3,8 @@ import { newProgress, type GameState, type Progress } from './game/state';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
 export const SAVE_VERSION = 1;
+export const SAVE_PREFIX = 'AFK1';
+export const backupKey = (key: string) => `${key}.bak`;
 
 export type AudioSettings = {
   muted: boolean;
@@ -12,8 +14,8 @@ export type AudioSettings = {
 };
 
 /**
- * Demo save: plain JSON in localStorage. The checksummed save string, backup
- * slot and export/import come with Save v2 (docs/PLAN.md → Save).
+ * What the game saves. In localStorage it is stored as a save string (see
+ * `encodeSave`); the previous good save is kept under `<key>.bak`.
  */
 export type SaveData = Progress & {
   version: number;
@@ -23,6 +25,13 @@ export type SaveData = Progress & {
 
 export type Loaded = { progress: Progress; audio: Partial<AudioSettings> };
 
+/**
+ * `ok`: the main save loaded. `backup`: the main save was broken, the backup
+ * loaded. `reset`: both were broken, this is a new game. `none`: no save yet.
+ */
+export type LoadStatus = 'none' | 'ok' | 'backup' | 'reset';
+export type LoadResult = { saved: Loaded | null; status: LoadStatus };
+
 type StorageLike = Pick<Storage, 'getItem'>;
 
 const isInt = (v: unknown, min: number): v is number =>
@@ -31,13 +40,33 @@ const isVolume = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 
 /**
- * Reads and validates a save. Anything missing or out of range falls back
- * to a new game's value; a broken save never throws. Returns null when
- * there is no save at all.
+ * Loads the save under `key`, falling back to `<key>.bak`, then to a new
+ * game. Never throws. A save string must pass `decodeSave` (format, checksum
+ * and the strict schema). A plain-JSON v1 save (written before save strings)
+ * is still accepted and repaired leniently; the next write turns it into a
+ * save string.
  */
-export function loadSave(storage: StorageLike | undefined, key: string): Loaded | null {
-  const data = readJson(storage, key);
-  if (!data) return null;
+export function loadSave(storage: StorageLike | undefined, key: string): LoadResult {
+  const main = readRaw(storage, key);
+  if (main === null) return { saved: null, status: 'none' };
+  const fromMain = parseStored(main);
+  if (fromMain) return { saved: fromMain, status: 'ok' };
+  const bak = readRaw(storage, backupKey(key));
+  const fromBak = bak === null ? null : parseStored(bak);
+  return fromBak ? { saved: fromBak, status: 'backup' } : { saved: null, status: 'reset' };
+}
+
+function parseStored(raw: string): Loaded | null {
+  if (raw.startsWith(`${SAVE_PREFIX}.`)) {
+    const r = decodeSave(raw);
+    return r.ok ? { progress: r.progress, audio: r.audio } : null;
+  }
+  const data = parseJsonObject(raw);
+  return data ? repairV1(data) : null;
+}
+
+/** v1 (plain JSON) saves: anything missing or out of range gets a new game's value. */
+function repairV1(data: Record<string, unknown>): Loaded {
   const fresh = newProgress();
   const levels = Array.isArray(data.weaponLevels) ? data.weaponLevels : [];
   const weaponLevels = WEAPONS.map((_, i) => {
@@ -79,11 +108,12 @@ export type Validated =
   { ok: true; progress: Progress; audio: AudioSettings } | { ok: false; errors: string[] };
 
 /**
- * Strict check for hand-edited saves (debugger): unlike `loadSave`, nothing
- * is repaired. Every problem is listed and the data is only accepted when
- * there are none.
+ * Strict schema check (save strings, debugger): nothing is repaired. Every
+ * problem is listed and the data is only accepted when there are none.
+ * Without `tracks`, any track name is accepted (the game falls back to its
+ * default track when it doesn't know one).
  */
-export function validateSaveData(data: unknown, tracks: readonly string[]): Validated {
+export function validateSaveData(data: unknown, tracks?: readonly string[]): Validated {
   const errors: string[] = [];
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return { ok: false, errors: ['Save must be a JSON object.'] };
@@ -132,7 +162,9 @@ export function validateSaveData(data: unknown, tracks: readonly string[]): Vali
   } else {
     const au = a as Record<string, unknown>;
     bool('audio.muted', au.muted);
-    if (typeof au.track !== 'string' || !tracks.includes(au.track)) {
+    if (typeof au.track !== 'string') {
+      errors.push('audio.track must be text.');
+    } else if (tracks && !tracks.includes(au.track)) {
       errors.push(
         `audio.track must be one of: ${tracks.map((t) => JSON.stringify(t)).join(', ')}.`,
       );
@@ -183,38 +215,123 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
   };
 }
 
+// ── Save string ──────────────────────────────────────────────────────────────
+//
+// `AFK1.<base64url(JSON)>.<checksum>`, checksum = FNV-1a 32-bit of the base64
+// payload as 8 hex digits. The checksum catches corruption and casual edits.
+// It is NOT anti-cheat: anyone can decode and re-sign a save with the public JS.
+
+/** Save data → save string. Pure; meant for reuse by export/import and share links. */
+export function encodeSave(data: SaveData): string {
+  const payload = toBase64Url(JSON.stringify(data));
+  return `${SAVE_PREFIX}.${payload}.${fnv1a(payload)}`;
+}
+
+export type Decoded =
+  | { ok: true; data: Record<string, unknown>; progress: Progress; audio: AudioSettings }
+  | { ok: false; errors: string[] };
+
+/** Checks the format, checksum and schema of a save string. Pure, never throws. */
+export function decodeSave(text: string, tracks?: readonly string[]): Decoded {
+  const parts = String(text).trim().split('.');
+  if (parts.length !== 3 || parts[0] !== SAVE_PREFIX) {
+    return { ok: false, errors: [`Not a save string (expected ${SAVE_PREFIX}.…).`] };
+  }
+  const [, payload, sum] = parts;
+  if (fnv1a(payload) !== sum.toLowerCase()) {
+    return { ok: false, errors: ['Checksum does not match: the save is damaged or edited.'] };
+  }
+  let json: string;
+  try {
+    json = fromBase64Url(payload);
+  } catch {
+    return { ok: false, errors: ['Save data is not valid base64url text.'] };
+  }
+  const data = parseJsonObject(json);
+  if (!data) return { ok: false, errors: ['Save data is not a JSON object.'] };
+  const r = validateSaveData(data, tracks);
+  return r.ok ? { ok: true, data, progress: r.progress, audio: r.audio } : r;
+}
+
+/** FNV-1a 32-bit over char codes (the payload is ASCII), as 8 hex digits. */
+export function fnv1a(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+function toBase64Url(text: string): string {
+  let bin = '';
+  for (const b of new TextEncoder().encode(text)) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromBase64Url(b64: string): string {
+  if (!/^[A-Za-z0-9_-]+$/.test(b64)) throw new Error('bad base64url');
+  const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+}
+
+// ── Storage ──────────────────────────────────────────────────────────────────
+
+/**
+ * Writes the save string. The value it replaces is first copied to
+ * `<key>.bak`, but only if it still loads, so a broken save never overwrites
+ * a good backup. Returns false instead of throwing when storage fails.
+ */
 export function writeSave(
-  storage: Pick<Storage, 'setItem'> | undefined,
+  storage: Pick<Storage, 'getItem' | 'setItem'> | undefined,
   key: string,
   data: SaveData,
 ): boolean {
+  if (!storage) return false;
   try {
-    storage?.setItem(key, JSON.stringify(data));
-    return Boolean(storage);
+    const next = encodeSave(data);
+    const prev = readRaw(storage, key);
+    if (prev !== null && prev !== next && parseStored(prev)) {
+      storage.setItem(backupKey(key), prev);
+    }
+    storage.setItem(key, next);
+    return true;
   } catch {
     return false; // quota full or storage blocked: keep playing, just don't save
   }
 }
 
-export type SavePreview = { stage: string | null };
-
-/** Peek at an existing save to label the Start button. Null when there is no usable save. */
-export function readSavePreview(storage: StorageLike | undefined, key: string): SavePreview | null {
-  const data = readJson(storage, key);
-  if (!data) return null;
-  const { world, stage } = data;
-  const valid = Number.isInteger(world) && Number.isInteger(stage);
-  return { stage: valid ? `${world as number}.${stage as number}` : null };
+/** Removes the save and its backup. */
+export function clearSave(storage: Pick<Storage, 'removeItem'> | undefined, key: string): void {
+  try {
+    storage?.removeItem(key);
+    storage?.removeItem(backupKey(key));
+  } catch {
+    // storage blocked: nothing to clear
+  }
 }
 
-function readJson(storage: StorageLike | undefined, key: string): Record<string, unknown> | null {
-  let raw: string | null = null;
+export type SavePreview = { stage: string };
+
+/**
+ * Peek at an existing save to label the Start button with the stage
+ * `loadSave` would continue from. Null when there is no usable save.
+ */
+export function readSavePreview(storage: StorageLike | undefined, key: string): SavePreview | null {
+  const { saved } = loadSave(storage, key);
+  return saved ? { stage: `${saved.progress.world}.${saved.progress.stage}` } : null;
+}
+
+function readRaw(storage: StorageLike | undefined, key: string): string | null {
   try {
-    raw = storage?.getItem(key) ?? null;
+    return storage?.getItem(key) || null;
   } catch {
     return null; // storage blocked (privacy mode, sandboxed iframe)
   }
-  if (!raw) return null;
+}
+
+function parseJsonObject(raw: string): Record<string, unknown> | null {
   try {
     const data: unknown = JSON.parse(raw);
     return data && typeof data === 'object' && !Array.isArray(data)
