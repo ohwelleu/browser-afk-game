@@ -3,6 +3,7 @@ import type { SfxName } from './audio/types';
 import { HERO_MAX_HP, isBoss } from './game/balance';
 import { formatNumber } from './game/format';
 import {
+  companionClick,
   createState,
   heroDamage,
   heroDps,
@@ -376,6 +377,20 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         act((s) => setAutoAdvance(s, !s.autoAdvance));
         return;
     }
+  });
+
+  // A click or tap anywhere on the game screen (not on a control or a
+  // dialog) makes the companion peck. Cooldown and phase rules are in
+  // `companionClick`; nothing happens while paused.
+  box.addEventListener('pointerdown', (e) => {
+    if (!e.isPrimary || e.button !== 0 || !loop.running) return;
+    const target = e.target as Element;
+    if (
+      target.closest('button, a, input, select, textarea, label, [role="dialog"], .overlay, .dbg')
+    ) {
+      return;
+    }
+    act(companionClick);
   });
 
   startButton.addEventListener('click', () => {

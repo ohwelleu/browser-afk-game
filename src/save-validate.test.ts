@@ -106,4 +106,33 @@ describe('validateSaveData', () => {
     const r = validateSaveData(noItems, TRACKS);
     expect(!r.ok && r.errors).toEqual(['items must be an object.']);
   });
+
+  it('accepts a companion or an empty slot, and migrates v1 saves', () => {
+    const crow = { id: 'crow', dmgLevel: 5, autoUnlocked: true, speedLevel: 21 };
+    const r = validateSaveData({ ...valid(), companion: crow }, TRACKS);
+    expect(r.ok && r.progress.companion).toEqual(crow);
+    expect(validateSaveData({ ...valid(), companion: null }, TRACKS).ok).toBe(true);
+    const v1 = { ...valid(), version: 1 };
+    delete v1.companion;
+    const m = validateSaveData(v1, TRACKS);
+    expect(m.ok && m.progress.companion).toBeNull();
+  });
+
+  it.each([
+    [{ id: 'dragon', dmgLevel: 1, autoUnlocked: false, speedLevel: 1 }, 'companion.id'],
+    [{ id: 'crow', dmgLevel: 0, autoUnlocked: false, speedLevel: 1 }, 'companion.dmgLevel'],
+    [{ id: 'crow', dmgLevel: 1, autoUnlocked: 1, speedLevel: 1 }, 'companion.autoUnlocked'],
+    [{ id: 'crow', dmgLevel: 1, autoUnlocked: true, speedLevel: 22 }, 'companion.speedLevel'],
+    ['crow', 'companion must be'],
+  ])('rejects companion %j', (companion, msg) => {
+    const r = validateSaveData({ ...valid(), companion }, TRACKS);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain(msg);
+  });
+
+  it('requires the companion field on current saves', () => {
+    const d = valid();
+    delete d.companion;
+    expect(validateSaveData(d, TRACKS).ok).toBe(false);
+  });
 });

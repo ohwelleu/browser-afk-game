@@ -7,6 +7,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+- Crow companion (docs/design/active-play.md → 1. Crow): unlocks in the shop
+  after 1.1 is cleared (25 coins), sits in the one companion slot and pecks
+  the mob when you click or tap the game (0.5 s cooldown). Upgrades: damage
+  (flat, 1 × level), auto attack (150, every 3.0 s) and speed (down to 1.0 s).
+  Crow damage numbers have their own colour. Placeholder sprite until the
+  crow art lands.
+- Save v2: new `companion` field; v1 saves are migrated with an empty slot.
+
 ### Changed
 
 - Plan and backlog updated: milestones marked done; new items for the sprite

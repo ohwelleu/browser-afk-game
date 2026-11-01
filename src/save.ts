@@ -1,5 +1,12 @@
-import { STAGES_PER_WORLD, stageLevel, WEAPONS } from './game/balance';
-import { newProgress, type GameState, type Progress } from './game/state';
+import {
+  companionMaxSpeedLevel,
+  COMPANIONS,
+  STAGES_PER_WORLD,
+  stageLevel,
+  WEAPONS,
+  type CompanionId,
+} from './game/balance';
+import { newProgress, type Companion, type GameState, type Progress } from './game/state';
 import { loadGear, saveGear, validateGear } from './save-items';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
@@ -7,11 +14,37 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  * Version of the data inside the save (the `AFK1` prefix is the string
  * format, not this). History:
  * 1. first demo save
- * 2. + `items` (ring, pendant, bag, drop RNG); v1 saves load with empty gear
+ * 2. + `items` (ring, pendant, bag, drop RNG); old saves load with empty gear
+ * 3. + `companion` (the crow); old saves load with an empty slot
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
+
+/**
+ * `MIGRATIONS[v]` turns a version `v` save into version `v + 1`. Items need
+ * no step here: `loadGear` repairs a missing `items` to empty gear.
+ */
+const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
+  2: (d) => {
+    d.companion = null;
+  },
+};
+
+/**
+ * Brings an older save up to `SAVE_VERSION` (a save without `version` is v1).
+ * Returns a new object; saves from a newer game are left as they are.
+ */
+export function migrateSave(data: Record<string, unknown>): Record<string, unknown> {
+  const d = { ...data };
+  let v = isInt(d.version, 1) ? d.version : 1;
+  for (; v < SAVE_VERSION; v++) MIGRATIONS[v]?.(d);
+  d.version = Math.max(v, isInt(d.version, 1) ? d.version : 1);
+  return d;
+}
+
+const isCompanionId = (v: unknown): v is CompanionId =>
+  typeof v === 'string' && Object.prototype.hasOwnProperty.call(COMPANIONS, v);
 
 export type AudioSettings = {
   muted: boolean;
@@ -104,6 +137,7 @@ function repairV1(data: Record<string, unknown>): Loaded {
       maxDps: isInt(data.maxDps, 0) ? data.maxDps : 0,
       // Migration v1 → v2: no `items` yet, so loadGear starts empty with a new seed.
       items: loadGear(data.items),
+      companion: loadCompanion(data.companion),
     },
     audio: {
       ...(typeof audio.muted === 'boolean' ? { muted: audio.muted } : {}),
@@ -111,6 +145,20 @@ function repairV1(data: Record<string, unknown>): Loaded {
       ...(isVolume(audio.musicVolume) ? { musicVolume: audio.musicVolume } : {}),
       ...(isVolume(audio.sfxVolume) ? { sfxVolume: audio.sfxVolume } : {}),
     },
+  };
+}
+
+/** Lenient companion read: an unknown id drops it, bad levels fall back to 1. */
+function loadCompanion(v: unknown): Companion | null {
+  if (!v || typeof v !== 'object') return null;
+  const c = v as Record<string, unknown>;
+  if (!isCompanionId(c.id)) return null;
+  const max = companionMaxSpeedLevel(COMPANIONS[c.id]);
+  return {
+    id: c.id,
+    dmgLevel: isInt(c.dmgLevel, 1) ? c.dmgLevel : 1,
+    autoUnlocked: c.autoUnlocked === true,
+    speedLevel: isInt(c.speedLevel, 1) ? Math.min(c.speedLevel, max) : 1,
   };
 }
 
@@ -128,7 +176,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return { ok: false, errors: ['Save must be a JSON object.'] };
   }
-  const d = data as Record<string, unknown>;
+  const d = migrateSave(data as Record<string, unknown>);
   const int = (key: string, v: unknown, min: number, max = Number.MAX_SAFE_INTEGER) => {
     if (!isInt(v, min) || v > max) {
       errors.push(`${key} must be a whole number from ${min} to ${max}.`);
@@ -168,6 +216,26 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     }
   }
 
+  const c = d.companion;
+  if (c !== null) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) {
+      errors.push('companion must be null or an object.');
+    } else {
+      const co = c as Record<string, unknown>;
+      if (!isCompanionId(co.id)) {
+        errors.push(
+          `companion.id must be one of: ${Object.keys(COMPANIONS)
+            .map((k) => JSON.stringify(k))
+            .join(', ')}.`,
+        );
+      } else {
+        int('companion.speedLevel', co.speedLevel, 1, companionMaxSpeedLevel(COMPANIONS[co.id]));
+      }
+      int('companion.dmgLevel', co.dmgLevel, 1);
+      bool('companion.autoUnlocked', co.autoUnlocked);
+    }
+  }
+
   const a = d.audio;
   if (!a || typeof a !== 'object' || Array.isArray(a)) {
     errors.push('audio must be an object.');
@@ -202,6 +270,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       deaths: d.deaths as number,
       maxDps: d.maxDps as number,
       items: items!,
+      companion: c ? pickCompanion(c as Companion) : null,
     },
     audio: {
       muted: au.muted,
@@ -211,6 +280,13 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     },
   };
 }
+
+const pickCompanion = (c: Companion): Companion => ({
+  id: c.id,
+  dmgLevel: c.dmgLevel,
+  autoUnlocked: c.autoUnlocked,
+  speedLevel: c.speedLevel,
+});
 
 export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: string): SaveData {
   return {
@@ -227,6 +303,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     deaths: s.deaths,
     maxDps: s.maxDps,
     items: saveGear(s.items),
+    companion: s.companion ? pickCompanion(s.companion) : null,
     audio,
   };
 }

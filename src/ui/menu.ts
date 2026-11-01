@@ -1,16 +1,32 @@
-import { upgradeCost, weaponDamage, WEAPONS } from '../game/balance';
+import {
+  companionAutoInterval,
+  companionDamage,
+  companionMaxSpeedLevel,
+  COMPANIONS,
+  upgradeCost,
+  weaponDamage,
+  WEAPONS,
+} from '../game/balance';
 import { formatNumber } from '../game/format';
 import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
+  buyCompanion,
   buyUpgrade,
   buyWeapon,
-  canBuyWeapon,
+  canBuyCompanion,
   canUpgrade,
+  canUpgradeCompanion,
+  canBuyWeapon,
+  companionDef,
+  companionUpgradeCost,
   equip,
+  shopCompanion,
+  upgradeCompanion,
+  type CompanionUpgrade,
   nextWeapon,
   type GameState,
 } from '../game/state';
-import { coinSpin, weapons as weaponSprites, type SpriteDef } from '../sprites';
+import { coinSpin, crowPlaceholder, weapons as weaponSprites, type SpriteDef } from '../sprites';
 import { createShow, html, setClass, setFlag } from './dom';
 import { createGearView, GEAR_HTML } from './gear';
 import { dialogHtml } from './modal';
@@ -185,6 +201,24 @@ const BODY = `
           `<button type="button" data-act="upgrade" data-amount="${n}">Upgrade ×${n} ${price('up-cost')}</button>`,
       ).join('')}</div>
       <p class="note">Upgrades raise the equipped weapon's damage. Switch weapons in Inventory.</p>
+      <div class="comp-up" hidden>
+        <h3>Companion</h3>
+        <div class="item">
+          <span class="icon"><img alt="" data-icon="companion" /></span>
+          <div class="item-body">
+            <span class="item-name"><span class="comp-name"></span> · Lv <span class="comp-level"></span></span>
+            <span class="item-stats">
+              <span>Damage <span class="comp-dmg"></span> → <span class="dmg-next comp-next"></span></span>
+              <span class="comp-auto"></span>
+            </span>
+          </div>
+        </div>
+        <div class="buy-row">
+          <button type="button" data-act="comp-up" data-kind="dmg">Damage +1 ${price('comp-cost-dmg')}</button>
+          <button type="button" data-act="comp-up" data-kind="auto">Auto attack ${price('comp-cost-auto')}</button>
+          <button type="button" data-act="comp-up" data-kind="speed"><span class="comp-speed-label">Faster</span> ${price('comp-cost-speed')}</button>
+        </div>
+      </div>
     </section>
     <section role="tabpanel" id="afk-panel-shop" aria-labelledby="afk-tab-shop" hidden>
       ${weaponRows(
@@ -196,6 +230,19 @@ const BODY = `
           `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
           `<span class="tag shop-locked">Locked</span>`,
       )}
+      <h3>Companion</h3>
+      <ul class="list"><li class="item comp-shop">
+        <span class="icon"><img alt="" data-icon="companion" /></span>
+        <div class="item-body">
+          <span class="item-name">${COMPANIONS.crow.name}</span>
+          <span class="item-stats"><span>Pecks the mob when you click or tap</span></span>
+        </div>
+        <div class="action">
+          <span class="tag comp-owned">Owned</span>
+          <button type="button" data-act="buy-companion" class="comp-buy">Buy ${price('comp-price')}</button>
+          <span class="tag comp-locked" title="Clear stage 1.1 first">Locked</span>
+        </div>
+      </li></ul>
     </section>
     <section role="tabpanel" id="afk-panel-inventory" aria-labelledby="afk-tab-inventory" hidden>
       ${weaponRows(
@@ -207,12 +254,15 @@ const BODY = `
       )}
       <p class="note inv-hint">Buy more weapons in the Weapons tab.</p>
       ${GEAR_HTML}
+      <h3>Companion slot</h3>
+      <p class="inv-comp"></p>
     </section>
     <section role="tabpanel" id="afk-panel-help" aria-labelledby="afk-tab-help" tabindex="0" hidden>
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Spend coins on <b>Upgrades</b> (more damage for the equipped weapon) and new <b>Weapons</b>. A new weapon is equipped if it hits harder; switch any time in <b>Inventory</b>.</p>
       <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A or the rare S). Equip them in <b>Inventory</b> for extra damage, defence, speed or item find.</p>
+      <p>Clear stage 1.1 to unlock the <b>crow</b> in the Weapons tab. Click or tap anywhere on the game to make it peck the monster.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <h3>Credits</h3>
       <p>Sound effects: ZzFX by Frank Force (MIT licence).<br />Music: original chiptune, synthesized in the browser.<br />Sprites: original pixel art, drawn in code.</p>
@@ -300,6 +350,12 @@ export function createMenu(deps: MenuDeps): Menu {
       case 'item-unequip':
         deps.act((s) => unequipItem(s, target.dataset.slot === 'ring' ? 'ring' : 'pendant'));
         break;
+      case 'buy-companion':
+        deps.act(buyCompanion);
+        break;
+      case 'comp-up':
+        deps.act((s) => upgradeCompanion(s, target.dataset.kind as CompanionUpgrade));
+        break;
       default:
         return;
     }
@@ -322,6 +378,11 @@ export function createMenu(deps: MenuDeps): Menu {
     for (const img of $$<HTMLImageElement>('img[data-icon="coin"]')) img.src = coin;
     for (const img of $$<HTMLImageElement>('img[data-icon="weapon"][data-tier]')) {
       setWeaponIcon(img, Number(img.dataset.tier));
+    }
+    for (const img of $$<HTMLImageElement>('img[data-icon="companion"]')) {
+      img.src = deps.iconUrl(crowPlaceholder);
+      img.width = crowPlaceholder.width * ICON_SCALE;
+      img.height = crowPlaceholder.height * ICON_SCALE;
     }
     const up = $<HTMLImageElement>('.up-icon');
     if (up.dataset.shown) setWeaponIcon(up, Number(up.dataset.shown));
@@ -352,6 +413,36 @@ export function createMenu(deps: MenuDeps): Menu {
       setFlag(btn, 'disabled', !affordable);
       show(btn, affordable ? '' : 'Not enough coins', 'title');
     }
+    refreshCompanionUpgrades(state);
+  }
+
+  function refreshCompanionUpgrades(state: GameState): void {
+    const c = state.companion;
+    const def = companionDef(state);
+    setFlag($('.comp-up'), 'hidden', !c || !def);
+    if (!c || !def) return;
+    show($('.comp-name'), def.name);
+    show($('.comp-level'), formatNumber(c.dmgLevel));
+    show($('.comp-dmg'), formatNumber(companionDamage(def, c.dmgLevel)));
+    show($('.comp-next'), formatNumber(companionDamage(def, c.dmgLevel + 1)));
+    const interval = companionAutoInterval(def, c.speedLevel).toFixed(1);
+    show($('.comp-auto'), c.autoUnlocked ? `Auto every ${interval} s` : 'Auto attack: locked');
+    const maxed = c.speedLevel >= companionMaxSpeedLevel(def);
+    show($('.comp-speed-label'), maxed ? 'Fastest' : 'Faster');
+    for (const btn of $$<HTMLButtonElement>('[data-act="comp-up"]')) {
+      const kind = btn.dataset.kind as CompanionUpgrade;
+      const cost = companionUpgradeCost(state, kind);
+      setFlag(
+        btn,
+        'hidden',
+        (kind === 'auto' && c.autoUnlocked) || (kind === 'speed' && !c.autoUnlocked),
+      );
+      setFlag(btn.querySelector('.price')!, 'hidden', cost === null);
+      if (cost !== null) show(btn.querySelector(`.comp-cost-${kind}`)!, formatNumber(cost));
+      const ok = canUpgradeCompanion(state, kind);
+      setFlag(btn, 'disabled', !ok);
+      show(btn, ok || cost === null ? '' : 'Not enough coins', 'title');
+    }
   }
 
   function refreshShop(state: GameState): void {
@@ -381,6 +472,17 @@ export function createMenu(deps: MenuDeps): Menu {
       setFlag(buy, 'disabled', isNext && !affordable);
       show(buy, isNext && !affordable ? 'Not enough coins' : '', 'title');
     }
+    const offer = shopCompanion(state);
+    const owned = state.companion !== null;
+    setClass($('.comp-shop'), 'locked', !owned && !offer);
+    setFlag($('.comp-owned'), 'hidden', !owned);
+    setFlag($('.comp-locked'), 'hidden', owned || offer !== null);
+    const buyComp = $<HTMLButtonElement>('.comp-buy');
+    setFlag(buyComp, 'hidden', !offer);
+    show($('.comp-price'), formatNumber(COMPANIONS.crow.price));
+    const canComp = canBuyCompanion(state);
+    setFlag(buyComp, 'disabled', !canComp);
+    show(buyComp, offer && !canComp ? 'Not enough coins' : '', 'title');
   }
 
   function refreshInventory(state: GameState): void {
@@ -400,6 +502,11 @@ export function createMenu(deps: MenuDeps): Menu {
     }
     setFlag($('.inv-hint'), 'hidden', owned >= WEAPONS.length);
     gear.refresh(state);
+    const comp = companionDef(state);
+    show(
+      $('.inv-comp'),
+      comp ? `${comp.name} (equipped)` : 'Empty. Companions are sold in the Weapons tab.',
+    );
   }
 
   select(current);

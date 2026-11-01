@@ -8,6 +8,12 @@ import type { SfxName } from '../audio/types';
 import { TICK_RATE } from '../loop';
 import { weaponAttack, windup } from './attacks';
 import {
+  companionAutoInterval,
+  companionDamage,
+  companionDmgCost,
+  companionMaxSpeedLevel,
+  companionSpeedCost,
+  COMPANIONS,
   DUEL,
   HERO_MAX_HP,
   isBoss,
@@ -22,6 +28,8 @@ import {
   upgradeCost,
   weaponDamage,
   WEAPONS,
+  type CompanionDef,
+  type CompanionId,
   type MobKind,
 } from './balance';
 import { gearTotals, mobHitDamage, newGear, onKill, type Gear, type Item } from './items';
@@ -49,11 +57,23 @@ export type Duel = {
   heroHurtTick: number | null;
   mobAttackTick: number | null;
   mobHurtTick: number | null;
+  /** Duel ticks when the companion's pecks in flight land. Dropped with the duel. */
+  companionPecks: number[];
+  /** Duel tick the last companion attack started (fly-out animation). */
+  companionAttackTick: number | null;
+};
+
+/** The equipped companion (one slot). Saved as is. */
+export type Companion = {
+  id: CompanionId;
+  dmgLevel: number;
+  autoUnlocked: boolean;
+  speedLevel: number;
 };
 
 export type GameEvent =
   | { type: 'sfx'; name: SfxName }
-  | { type: 'damage'; target: 'hero' | 'mob'; amount: number }
+  | { type: 'damage'; target: 'hero' | 'mob'; amount: number; source?: 'companion' }
   | { type: 'coins'; amount: number }
   /** An item dropped; `soldFor` > 0 when the bag was full and it was sold at once. */
   | { type: 'item'; item: Item; soldFor: number }
@@ -77,6 +97,11 @@ export type GameState = {
   maxDps: number;
   /** Ring, pendant, bag and the drop RNG (game/items.ts). */
   items: Gear;
+  companion: Companion | null;
+  /** `ticks` of the last click peck, for the click cooldown (not saved). */
+  companionClickTick: number | null;
+  /** Fighting ticks since the last auto peck (not saved). */
+  companionAutoCharge: number;
   duel: Duel;
   events: GameEvent[];
 };
@@ -94,6 +119,7 @@ export type Progress = Pick<
   | 'deaths'
   | 'maxDps'
   | 'items'
+  | 'companion'
 >;
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
@@ -111,6 +137,7 @@ export function newProgress(): Progress {
     deaths: 0,
     maxDps: 0,
     items: newGear(),
+    companion: null,
   };
 }
 
@@ -122,6 +149,9 @@ export function createState(progress: Progress = newProgress()): GameState {
     weaponLevels: [...progress.weaponLevels],
     // Old saves have no maxDps (0): start from what the hero does right now.
     maxDps: Math.max(progress.maxDps, heroDps(progress)),
+    companion: progress.companion ? { ...progress.companion } : null,
+    companionClickTick: null,
+    companionAutoCharge: 0,
     // The first duel after Start/Continue always gets the full intro.
     duel: newDuel(progress.world, progress.stage, true),
     events: [],
@@ -153,6 +183,8 @@ export function newDuel(world: number, stage: number, fullIntro: boolean): Duel 
     heroHurtTick: null,
     mobAttackTick: null,
     mobHurtTick: null,
+    companionPecks: [],
+    companionAttackTick: null,
   };
 }
 
@@ -192,7 +224,12 @@ function draft(state: GameState): GameState {
   return {
     ...state,
     weaponLevels: [...state.weaponLevels],
-    duel: { ...state.duel, mob: { ...state.duel.mob } },
+    companion: state.companion ? { ...state.companion } : null,
+    duel: {
+      ...state.duel,
+      mob: { ...state.duel.mob },
+      companionPecks: [...state.duel.companionPecks],
+    },
     events: [],
   };
 }
@@ -272,6 +309,7 @@ function combat(s: GameState): void {
     d.heroSwung = false;
     s.events.push({ type: 'damage', target: 'mob', amount: dmg }, { type: 'sfx', name: 'hit' });
   }
+  companionCombat(s);
   if (d.mob.hp <= 0) {
     setPhase(d, 'mobDying');
     d.outcome = 'win';
@@ -304,6 +342,55 @@ function combat(s: GameState): void {
     s.deaths++;
     s.events.push({ type: 'sfx', name: 'heroDeath' });
   }
+}
+
+/** Companion auto attack and landing pecks. Only while `fighting`. */
+function companionCombat(s: GameState): void {
+  const d = s.duel;
+  const def = companionDef(s);
+  if (!def || !s.companion || d.phase !== 'fighting' || d.mob.hp <= 0) return;
+  const t = d.tick;
+
+  if (s.companion.autoUnlocked) {
+    const interval = secToTicks(companionAutoInterval(def, s.companion.speedLevel));
+    if (s.companionAutoCharge >= Math.max(1, interval)) {
+      s.companionAutoCharge = 0;
+      launchPeck(s, def);
+    }
+    s.companionAutoCharge++;
+  }
+
+  const due = d.companionPecks.filter((at) => at <= t);
+  if (!due.length) return;
+  d.companionPecks = d.companionPecks.filter((at) => at > t);
+  const dmg = companionDamage(def, s.companion.dmgLevel);
+  for (let i = 0; i < due.length && d.mob.hp > 0; i++) {
+    d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
+    d.mobHurtTick = t;
+    s.events.push(
+      { type: 'damage', target: 'mob', amount: dmg, source: 'companion' },
+      { type: 'sfx', name: 'hit' },
+    );
+  }
+}
+
+/** Starts a peck: it lands after the attack's fly-out time. */
+function launchPeck(s: GameState, def: CompanionDef): void {
+  const d = s.duel;
+  d.companionAttackTick = d.tick;
+  d.companionPecks.push(d.tick + Math.max(1, secToTicks(windup(def.attack))));
+}
+
+export function companionDef(s: Pick<GameState, 'companion'>): CompanionDef | null {
+  return s.companion ? COMPANIONS[s.companion.id] : null;
+}
+
+/** Click cooldown left, from 1 (just pecked) to 0 (ready). */
+export function companionCooldown(s: GameState): number {
+  const def = companionDef(s);
+  if (!def || s.companionClickTick === null) return 0;
+  const total = secToTicks(def.clickCooldown);
+  return total > 0 ? Math.max(0, 1 - (s.ticks - s.companionClickTick) / total) : 0;
 }
 
 function advanceStage(s: GameState): void {
@@ -383,5 +470,87 @@ export function setAutoAdvance(s: GameState, on: boolean): GameState {
   const next = draft(s);
   next.autoAdvance = on;
   next.events.push({ type: 'save' });
+  return next;
+}
+
+// ── Companion actions ──────────────────────────────────────────────────────
+
+/** A click or tap on the game screen: the companion pecks, unless it's on cooldown. */
+export function companionClick(s: GameState): GameState {
+  const def = companionDef(s);
+  if (!def || s.duel.phase !== 'fighting' || companionCooldown(s) > 0) return s;
+  const next = draft(s);
+  next.companionClickTick = s.ticks;
+  launchPeck(next, def);
+  return next;
+}
+
+/** The companion offered in the shop, or null (not unlocked yet, or the slot is taken). */
+export function shopCompanion(s: Pick<GameState, 'best' | 'companion'>): CompanionDef | null {
+  if (s.companion) return null;
+  const def = COMPANIONS.crow;
+  return s.best >= def.unlockLevel ? def : null;
+}
+
+export function canBuyCompanion(s: GameState): boolean {
+  const def = shopCompanion(s);
+  return def !== null && s.coins >= def.price;
+}
+
+/** Buys the companion; it goes straight into the companion slot. */
+export function buyCompanion(s: GameState): GameState {
+  const def = shopCompanion(s);
+  if (!def || !canBuyCompanion(s)) return s;
+  return purchase(s, def.price, (n) => {
+    n.companion = { id: def.id, dmgLevel: 1, autoUnlocked: false, speedLevel: 1 };
+  });
+}
+
+export type CompanionUpgrade = 'dmg' | 'auto' | 'speed';
+
+/** Price of the next level of `kind`, or null when it can't be bought (no companion, maxed, locked). */
+export function companionUpgradeCost(
+  s: Pick<GameState, 'companion'>,
+  kind: CompanionUpgrade,
+): number | null {
+  const c = s.companion;
+  const def = companionDef(s);
+  if (!c || !def) return null;
+  switch (kind) {
+    case 'dmg':
+      return companionDmgCost(def, c.dmgLevel);
+    case 'auto':
+      return c.autoUnlocked ? null : def.autoPrice;
+    case 'speed':
+      return c.autoUnlocked && c.speedLevel < companionMaxSpeedLevel(def)
+        ? companionSpeedCost(def, c.speedLevel)
+        : null;
+  }
+}
+
+export function canUpgradeCompanion(s: GameState, kind: CompanionUpgrade): boolean {
+  const cost = companionUpgradeCost(s, kind);
+  return cost !== null && s.coins >= cost;
+}
+
+export function upgradeCompanion(s: GameState, kind: CompanionUpgrade): GameState {
+  const cost = companionUpgradeCost(s, kind);
+  if (cost === null || s.coins < cost) return s;
+  return purchase(s, cost, (n) => {
+    const c = n.companion!;
+    if (kind === 'dmg') c.dmgLevel++;
+    else if (kind === 'speed') c.speedLevel++;
+    else {
+      c.autoUnlocked = true;
+      n.companionAutoCharge = 0;
+    }
+  });
+}
+
+function purchase(s: GameState, cost: number, apply: (next: GameState) => void): GameState {
+  const next = draft(s);
+  next.coins = safeInt(s.coins - cost);
+  apply(next);
+  next.events.push({ type: 'sfx', name: 'purchase' }, { type: 'save' });
   return next;
 }

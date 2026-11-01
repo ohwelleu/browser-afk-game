@@ -1,10 +1,17 @@
 import { weaponAttack, windup } from '../game/attacks';
 import { DUEL, isBoss, MOB_KINDS, type MobKind } from '../game/balance';
 import { formatNumber } from '../game/format';
-import { secToTicks, type GameEvent, type GameState } from '../game/state';
+import {
+  companionCooldown,
+  companionDef,
+  secToTicks,
+  type GameEvent,
+  type GameState,
+} from '../game/state';
 import { TICK_RATE } from '../loop';
 import {
   bossMushroomWalk,
+  crowPlaceholder,
   heroAnimations,
   heroWeaponAnchors,
   mobs,
@@ -32,6 +39,13 @@ const MOB_LUNGE = 6;
 const MOB_LUNGE_BACK = 0.15;
 const TEXT_LIFE = 0.9;
 const TEXT_RISE = 14;
+/** Companion damage numbers: an existing accent until the palette step picks a shade. */
+const COMPANION_DMG_COLOR: keyof Palette = 'blue';
+/** Companion flight after the peck lands: a short hold at the mob, then back to the perch. */
+const PECK_HOLD = 0.08;
+const PECK_BACK = 0.25;
+/** Companion sprite sets by `CompanionDef.sprites`. Placeholder until `art/crow` lands. */
+const COMPANION_SPRITES: Record<string, SpriteDef> = { crow: crowPlaceholder };
 
 const MOB_SPRITES: Record<MobKind, SpriteDef> = { ...mobs, boss: bossMushroomWalk };
 const heroSprites = Object.values(heroAnimations);
@@ -74,7 +88,7 @@ export class SceneRenderer {
         const onMob = e.target === 'mob';
         this.texts.push({
           text: formatNumber(e.amount),
-          color: onMob ? 'fg' : 'red',
+          color: e.source === 'companion' ? COMPANION_DMG_COLOR : onMob ? 'fg' : 'red',
           x: (onMob ? l.mobX + l.mob.width / 2 : l.heroX + l.hero.width / 2) + jitter,
           y: (onMob ? l.mobY : l.heroY) - 6,
           born: s.ticks,
@@ -108,6 +122,7 @@ export class SceneRenderer {
 
     drawHero(ctx, s, l, palette, sprites);
     drawMob(ctx, s, l, palette, sprites);
+    drawCompanion(ctx, s, l, palette, sprites);
 
     // Text in device pixels so it stays sharp at any scale.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -262,6 +277,52 @@ function drawMob(
   ctx.fillRect(l.mobX + 1, barY + 1, barW - 2, 2);
   ctx.fillStyle = ratio < 0.3 ? p.red : p.green;
   ctx.fillRect(l.mobX + 1, barY + 1, Math.ceil((barW - 2) * ratio), 2);
+}
+
+function drawCompanion(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  l: Layout,
+  p: Palette,
+  sprites: SpriteCache,
+): void {
+  const def = companionDef(s);
+  const sprite = def && COMPANION_SPRITES[def.sprites];
+  if (!def || !sprite) return;
+  const d = s.duel;
+  // Perched just behind the hero's shoulder.
+  const perchX = Math.max(0, l.heroX - sprite.width + 6);
+  const perchY = l.heroY + 16;
+  let x = perchX;
+  let y = perchY;
+  if (d.companionAttackTick !== null) {
+    const out = windup(def.attack);
+    const age = seconds(d.tick - d.companionAttackTick);
+    const targetX = l.mobX - sprite.width + 4;
+    const targetY = Math.max(0, l.mobY + Math.round(l.mob.height * 0.3));
+    const back = Math.max(0, 1 - (age - out - PECK_HOLD) / PECK_BACK);
+    const t = Math.min(1, age < out ? age / out : back);
+    // A small arc up on the way out and back.
+    x = Math.round(perchX + (targetX - perchX) * t);
+    y = Math.round(perchY + (targetY - perchY) * t - Math.sin(Math.PI * t) * 6);
+  }
+  ctx.drawImage(sprites.frame(sprite, frameAt(sprite, seconds(s.ticks))), x, y);
+
+  // Click cooldown ring around the perch.
+  const cd = companionCooldown(s);
+  if (cd > 0) {
+    ctx.beginPath();
+    ctx.arc(
+      perchX + sprite.width / 2,
+      perchY + sprite.height / 2,
+      Math.max(sprite.width, sprite.height) / 2 + 2,
+      -Math.PI / 2,
+      -Math.PI / 2 + cd * Math.PI * 2,
+    );
+    ctx.strokeStyle = p[COMPANION_DMG_COLOR];
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
 }
 
 /** Stage banner, only on full intros (a new stage, or the first duel after Start). */
