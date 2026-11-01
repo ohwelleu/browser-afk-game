@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { newGear, type Item } from './game/items';
 import { createState, newProgress } from './game/state';
 import {
   backupKey,
@@ -134,6 +135,7 @@ describe('writeSave / loadSave', () => {
       kills: 0,
       deaths: 0,
       maxDps: 42,
+      items: st.items,
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -240,7 +242,11 @@ describe('v1 migration (plain JSON saves)', () => {
       audio: { muted: 1, musicVolume: 2 },
     });
     const { saved } = loadSave(storage(bad), 'k');
-    expect(saved!.progress).toEqual({ ...newProgress(), weaponLevels: [1, 0, 0, 0, 0] });
+    expect(saved!.progress).toEqual({
+      ...newProgress(),
+      weaponLevels: [1, 0, 0, 0, 0],
+      items: { ...newGear(), rng: expect.any(Number) },
+    });
     expect(saved!.audio).toEqual({});
   });
 });
@@ -266,5 +272,60 @@ describe('readSavePreview', () => {
       },
     };
     expect(readSavePreview(blocked, 'k')).toBeNull();
+  });
+});
+
+describe('items in the save (v2)', () => {
+  const load = (raw: string) => loadSave(memory({ k: raw }), 'k').saved!;
+
+  it('round-trips gear', () => {
+    const ring: Item = {
+      id: 3,
+      slot: 'ring',
+      tier: 'B',
+      world: 2,
+      stage: 1,
+      stats: { damage: 4, speed: 0.025 },
+    };
+    const bagItem: Item = {
+      id: 5,
+      slot: 'pendant',
+      tier: 'C',
+      world: 1,
+      stage: 6,
+      stats: { defence: 1 },
+    };
+    const items = { ring, pendant: null, bag: [bagItem], rng: 42, nextId: 6 };
+    const st = { ...createState(), items };
+    const s = memory();
+    writeSave(s, 'k', toSaveData(st, audio, '0.2.0'));
+    expect(loadSave(s, 'k').saved!.progress.items).toEqual(items);
+  });
+
+  it('migrates a v1 save (no items) to empty gear and keeps the rest', () => {
+    const v1 = JSON.stringify({ version: 1, world: 2, stage: 3, coins: 50, weaponLevels: [4, 1] });
+    const { progress } = load(v1);
+    expect([progress.world, progress.stage, progress.coins]).toEqual([2, 3, 50]);
+    expect(progress.items).toEqual({ ...newGear(), rng: expect.any(Number) });
+    expect(Number.isSafeInteger(progress.items.rng)).toBe(true);
+  });
+
+  it('drops broken or duplicate items and repairs nextId', () => {
+    const good = { id: 2, slot: 'ring', tier: 'C', world: 1, stage: 1, stats: { damage: 1 } };
+    const raw = JSON.stringify({
+      items: {
+        ring: { ...good, slot: 'pendant' }, // wrong slot
+        pendant: { ...good, id: 9, slot: 'pendant' },
+        bag: [good, good, { ...good, id: 4, tier: 'S' }, { ...good, id: 5, stats: { luck: 1 } }],
+        rng: -3,
+        nextId: 1,
+      },
+    });
+    const { items } = load(raw).progress;
+    expect(items.ring).toBeNull();
+    expect(items.pendant?.id).toBe(9);
+    expect(items.bag.map((i) => i.id)).toEqual([2]);
+    expect(items.nextId).toBe(10);
+    expect(items.rng).toBeGreaterThanOrEqual(0);
   });
 });

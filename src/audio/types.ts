@@ -6,7 +6,9 @@ export type SfxName =
   | 'purchase'
   | 'heroDeath'
   | 'bossAppear'
-  | 'stageClear';
+  | 'stageClear'
+  | 'itemDrop'
+  | 'itemDropS';
 
 export interface GameAudio {
   /** Call from the Start button click: creates/unlocks the AudioContext and starts the music. */

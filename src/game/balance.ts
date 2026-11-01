@@ -120,3 +120,59 @@ export function upgradeCost(tier: number, level: number): number {
   if (!w || level < 1) return Number.MAX_SAFE_INTEGER;
   return safeInt(Math.ceil(w.upgradeBase * UPGRADE_GROWTH ** (level - 1)));
 }
+
+// ── Items: ring and pendant (docs/design/active-play.md → 2. Items) ────────
+
+export type ItemSlot = 'ring' | 'pendant';
+export type ItemTier = 'C' | 'B' | 'A' | 'S';
+export type ItemStat = 'damage' | 'defence' | 'speed' | 'itemFind';
+
+export const ITEM_SLOTS: readonly ItemSlot[] = ['ring', 'pendant'];
+export const ITEM_TIERS: readonly ItemTier[] = ['C', 'B', 'A', 'S'];
+export const ITEM_STATS: readonly ItemStat[] = ['damage', 'defence', 'speed', 'itemFind'];
+
+export const ITEMS = {
+  /** How many different stats an item of each tier has (S = all 4). */
+  statCount: { C: 1, B: 2, A: 3, S: 4 } as Record<ItemTier, number>,
+  tierMult: { C: 1.0, B: 1.3, A: 1.6, S: 2.0 } as Record<ItemTier, number>,
+  /** Rarity weights of a drop, before item find. */
+  rarity: { C: 70, B: 22, A: 7, S: 1 } as Record<ItemTier, number>,
+  /** Chance per kill that something drops at all (item find never changes this). */
+  dropChance: { mob: 0.005, boss: 0.03 },
+  /** Every stat value is × a uniform roll in [min, max). */
+  roll: { min: 0.8, max: 1.2 },
+  /**
+   * `value = base × growth^(L−1) × tierMult × roll`. Flat stats round down
+   * (min 1); % stats are fractions (0.02 = +2 %) and don't grow with the stage.
+   */
+  stats: {
+    damage: { base: 1, growth: 1.25, flat: true },
+    defence: { base: 0.3, growth: 1.05, flat: true },
+    speed: { base: 0.02, growth: 1, flat: false },
+    itemFind: { base: 0.05, growth: 1, flat: false },
+  } as Record<ItemStat, { base: number; growth: number; flat: boolean }>,
+  /** Caps on the total of both equipped items. */
+  caps: { speed: 0.25, itemFind: 1.0 },
+  inventorySize: 20,
+  /** Sell price = `mobCoins(drop stage) × sellMult × tierMult`. */
+  sellMult: 5,
+};
+
+/** One stat roll on an item from stage level `L`. `roll` is the 0.8–1.2 factor. */
+export function itemStatValue(stat: ItemStat, L: number, tier: ItemTier, roll: number): number {
+  const p = ITEMS.stats[stat];
+  const v = p.base * p.growth ** (L - 1) * ITEMS.tierMult[tier] * roll;
+  // % stats: kept to 0.01 % steps so saves and labels stay tidy.
+  return p.flat ? Math.max(1, safeInt(v)) : Math.round(v * 10_000) / 10_000;
+}
+
+/** Rarity weights with item find: B/A/S × (1 + itemFind), C unchanged (normalise by the sum). */
+export function itemRarityWeights(itemFind: number): Record<ItemTier, number> {
+  const f = 1 + Math.max(0, itemFind);
+  const r = ITEMS.rarity;
+  return { C: r.C, B: r.B * f, A: r.A * f, S: r.S * f };
+}
+
+export function itemSellPrice(world: number, stage: number, tier: ItemTier): number {
+  return safeInt(mobCoins(world, stage) * ITEMS.sellMult * ITEMS.tierMult[tier]);
+}

@@ -1,8 +1,15 @@
 import { STAGES_PER_WORLD, stageLevel, WEAPONS } from './game/balance';
 import { newProgress, type GameState, type Progress } from './game/state';
+import { loadGear, saveGear, validateGear } from './save-items';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
-export const SAVE_VERSION = 1;
+/**
+ * Version of the data inside the save (the `AFK1` prefix is the string
+ * format, not this). History:
+ * 1. first demo save
+ * 2. + `items` (ring, pendant, bag, drop RNG); v1 saves load with empty gear
+ */
+export const SAVE_VERSION = 2;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -95,6 +102,8 @@ function repairV1(data: Record<string, unknown>): Loaded {
       kills: isInt(data.kills, 0) ? data.kills : 0,
       deaths: isInt(data.deaths, 0) ? data.deaths : 0,
       maxDps: isInt(data.maxDps, 0) ? data.maxDps : 0,
+      // Migration v1 → v2: no `items` yet, so loadGear starts empty with a new seed.
+      items: loadGear(data.items),
     },
     audio: {
       ...(typeof audio.muted === 'boolean' ? { muted: audio.muted } : {}),
@@ -144,6 +153,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
   int('deaths', d.deaths, 0);
   int('maxDps', d.maxDps, 0);
   bool('autoAdvance', d.autoAdvance);
+  const items = validateGear(d.items, errors);
 
   const levels = d.weaponLevels;
   if (!Array.isArray(levels) || levels.length !== WEAPONS.length) {
@@ -191,6 +201,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       kills: d.kills as number,
       deaths: d.deaths as number,
       maxDps: d.maxDps as number,
+      items: items!,
     },
     audio: {
       muted: au.muted,
@@ -215,6 +226,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     kills: s.kills,
     deaths: s.deaths,
     maxDps: s.maxDps,
+    items: saveGear(s.items),
     audio,
   };
 }
