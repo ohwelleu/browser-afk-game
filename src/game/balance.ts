@@ -2,6 +2,7 @@
  * Every tunable number of the game. Logic reads from here; nothing else
  * should hardcode balance values. See docs/PLAN.md → Balance.
  */
+import type { AttackDef } from './attacks';
 
 export const STAGES_PER_WORLD = 6;
 export const BOSS_STAGE = 6;
@@ -119,4 +120,94 @@ export function upgradeCost(tier: number, level: number): number {
   const w = WEAPONS[tier];
   if (!w || level < 1) return Number.MAX_SAFE_INTEGER;
   return safeInt(Math.ceil(w.upgradeBase * UPGRADE_GROWTH ** (level - 1)));
+}
+
+// ── Companions (docs/design/active-play.md → 1. Crow) ──────────────────────
+
+export type CompanionId = 'crow';
+
+/**
+ * A companion is data, so another one (an animal, a drone…) is a new entry
+ * here, not new code. There is one companion slot.
+ */
+export type CompanionDef = {
+  id: CompanionId;
+  name: string;
+  price: number;
+  /** Shows up in the shop once `best` reaches this stage level (2 = 1.1 cleared). */
+  unlockLevel: number;
+  /** `damage = baseDmg × dmgLevel × attack.damageMult`. */
+  baseDmg: number;
+  /** `hitFrame / fps` is the fly-out time before the peck lands. */
+  attack: AttackDef;
+  /** Seconds between click pecks. Clicks during the cooldown are ignored. */
+  clickCooldown: number;
+  /** Auto attack interval at speed level 1, in seconds. */
+  autoStart: number;
+  /** Auto attacks never get faster than this. */
+  autoMinInterval: number;
+  /** Seconds taken off the auto interval per speed level. */
+  autoStep: number;
+  /** Cost from `level` to `level + 1`: `base × growth^(level−1)`. */
+  dmgUpgrade: { base: number; growth: number };
+  /** One-off price that unlocks the auto attack. */
+  autoPrice: number;
+  speedUpgrade: { base: number; growth: number };
+  /** Sprite set key. */
+  sprites: string;
+};
+
+export const COMPANIONS: Record<CompanionId, CompanionDef> = {
+  crow: {
+    id: 'crow',
+    name: 'Crow',
+    price: 25,
+    unlockLevel: 2,
+    baseDmg: 1,
+    attack: {
+      id: 'peck',
+      heroAnim: 'peck',
+      hitFrame: 2,
+      fps: 12,
+      interval: 3.0,
+      targets: 'single',
+      damageMult: 1,
+    },
+    clickCooldown: 0.5,
+    autoStart: 3.0,
+    autoMinInterval: 1.0,
+    autoStep: 0.1,
+    dmgUpgrade: { base: 10, growth: 1.15 },
+    autoPrice: 150,
+    speedUpgrade: { base: 50, growth: 1.3 },
+    sprites: 'crow',
+  },
+};
+
+/** `damage = baseDmg × dmgLevel` (flat, its own levels). */
+export function companionDamage(def: CompanionDef, dmgLevel: number): number {
+  return safeInt(def.baseDmg * dmgLevel * def.attack.damageMult);
+}
+
+/** `autoInterval = max(autoMinInterval, autoStart − autoStep × (speedLevel − 1))`, in seconds. */
+export function companionAutoInterval(def: CompanionDef, speedLevel: number): number {
+  return Math.max(def.autoMinInterval, def.autoStart - def.autoStep * (speedLevel - 1));
+}
+
+/** Highest useful speed level (the one that reaches `autoMinInterval`): 21 for the crow. */
+export function companionMaxSpeedLevel(def: CompanionDef): number {
+  return 1 + Math.round((def.autoStart - def.autoMinInterval) / def.autoStep);
+}
+
+const growthCost = (p: { base: number; growth: number }, level: number) =>
+  level < 1 ? Number.MAX_SAFE_INTEGER : safeInt(Math.ceil(p.base * p.growth ** (level - 1)));
+
+/** Damage upgrade cost from `level` to `level + 1`. */
+export const companionDmgCost = (def: CompanionDef, level: number): number =>
+  growthCost(def.dmgUpgrade, level);
+
+/** Speed upgrade cost from `level` to `level + 1` (MAX_SAFE_INTEGER once capped). */
+export function companionSpeedCost(def: CompanionDef, level: number): number {
+  if (level >= companionMaxSpeedLevel(def)) return Number.MAX_SAFE_INTEGER;
+  return growthCost(def.speedUpgrade, level);
 }
