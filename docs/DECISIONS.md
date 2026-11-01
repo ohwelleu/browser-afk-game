@@ -161,3 +161,22 @@ converter turns the exports (tags = animations, frame durations, marker
 layers for the hit frame and weapon grip) into the text sprite format. The
 user's own art files can be committed publicly. Third-party references stay
 in `_private/`.
+
+## 2026-11-01: Slow progress down, but measure first
+
+The owner finds progress too fast. We build the simulator before touching
+numbers, agree on target times per world, then tune `balance.ts`. New
+upgrades (defence, ascend, speed) each get re-checked with the sim.
+
+## 2026-11-01: A client-side save can always be decoded
+
+A checksum or hash only catches corruption and casual edits. The key and
+the code are in the public JS, so anyone can decode or forge a save at any
+time. Trustworthy rankings need a server: Firebase is the first candidate
+(Anonymous Auth for a unique id, Security Rules for plausibility checks).
+
+## Open: online ranking
+
+Firebase leaderboard + anonymous unique sessions, research only. Open:
+what's ranked (highest stage? ascends?), how much cheating we accept, and
+a privacy note on the site.
