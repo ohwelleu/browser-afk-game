@@ -47,7 +47,16 @@ const isWeapon = (v: unknown): v is WeaponDef =>
 
 const exported = Object.values(S as Record<string, unknown>);
 // Module namespaces are sorted by export name; show hero animations in play order instead.
-const ORDER = ['hero-idle', 'hero-slash', 'hero-hurt', 'hero-death'];
+const ORDER = [
+  'hero-idle',
+  'hero-slash',
+  'hero-hurt',
+  'hero-death',
+  'crow-idle',
+  'crow-fly-out',
+  'crow-peck',
+  'crow-fly-back',
+];
 const tierOf = (s: SpriteDef) =>
   ((S as Record<string, unknown>).slashArcs as SpriteDef[] | undefined)?.indexOf(s) ?? -1;
 const rank = (s: SpriteDef) =>
@@ -247,9 +256,10 @@ const GROUPS: [string, (s: SpriteDef) => boolean][] = [
   ['Mobs', (s) => s.name.startsWith('mob-')],
   ['Boss', (s) => s.name.startsWith('boss-')],
   ['Slash by tier', (s) => s.name === 'hero-slash'],
+  ['Companion', (s) => s.name.startsWith('crow-') || s.name === 'icon-crow'],
   ['Effects', (s) => s.name.startsWith('effect-')],
   ['Gear', (s) => s.name.startsWith('item-')],
-  ['Items', (s) => !/^(hero|mob|boss|weapon|effect|item)-/.test(s.name)],
+  ['Items', (s) => !/^(hero|mob|boss|weapon|effect|item|crow)-/.test(s.name) && s.name !== 'icon-crow'],
 ];
 
 /** One item icon inside a tier frame, the way the inventory draws it. */

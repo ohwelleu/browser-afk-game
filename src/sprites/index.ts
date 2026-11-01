@@ -6,3 +6,4 @@ export * from './boss';
 export * from './items';
 export * from './effects';
 export * from './gear';
+export * from './crow';
