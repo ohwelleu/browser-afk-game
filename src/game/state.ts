@@ -70,6 +70,8 @@ export type GameState = {
   equipped: number;
   kills: number;
   deaths: number;
+  /** Highest `heroDps` ever reached (local stat; the future ranking value). */
+  maxDps: number;
   duel: Duel;
   events: GameEvent[];
 };
@@ -85,6 +87,7 @@ export type Progress = Pick<
   | 'equipped'
   | 'kills'
   | 'deaths'
+  | 'maxDps'
 >;
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
@@ -100,6 +103,7 @@ export function newProgress(): Progress {
     equipped: 0,
     kills: 0,
     deaths: 0,
+    maxDps: 0,
   };
 }
 
@@ -109,6 +113,8 @@ export function createState(progress: Progress = newProgress()): GameState {
     ...progress,
     best: Math.max(progress.best, stageLevel(progress.world, progress.stage)),
     weaponLevels: [...progress.weaponLevels],
+    // Old saves have no maxDps (0): start from what the hero does right now.
+    maxDps: Math.max(progress.maxDps, heroDps(progress)),
     // The first duel after Start/Continue always gets the full intro.
     duel: newDuel(progress.world, progress.stage, true),
     events: [],
@@ -147,6 +153,20 @@ export function newDuel(world: number, stage: number, fullIntro: boolean): Duel 
 export function heroDamage(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number {
   const attack = weaponAttack(s.equipped);
   return safeInt(weaponDamage(s.equipped, s.weaponLevels[s.equipped] ?? 0) * attack.damageMult);
+}
+
+/**
+ * Hero damage per second with the equipped weapon: damage per hit ÷ seconds
+ * between attacks. Computed from weapon + level (not measured), so game
+ * speed, pauses and intros can't inflate or deflate it. Whole number.
+ */
+export function heroDps(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number {
+  return safeInt(heroDamage(s) / weaponAttack(s.equipped).interval);
+}
+
+/** Raises `maxDps` to the current DPS if it's higher (mutates a draft). */
+function trackMaxDps(s: GameState): void {
+  s.maxDps = Math.max(s.maxDps, heroDps(s));
 }
 
 /** Advances `dt` seconds in whole fixed ticks (the loop always passes one tick). */
@@ -309,6 +329,7 @@ export function buyUpgrade(s: GameState): GameState {
   const next = draft(s);
   next.coins = safeInt(s.coins - upgradeCost(s.equipped, level));
   next.weaponLevels[s.equipped] = level + 1;
+  trackMaxDps(next);
   next.events.push({ type: 'sfx', name: 'purchase' }, { type: 'save' });
   return next;
 }
@@ -338,6 +359,7 @@ export function equip(s: GameState, tier: number): GameState {
   if (tier === s.equipped || !((s.weaponLevels[tier] ?? 0) >= 1)) return s;
   const next = draft(s);
   next.equipped = tier;
+  trackMaxDps(next);
   next.events.push({ type: 'save' });
   return next;
 }

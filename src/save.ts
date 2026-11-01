@@ -65,6 +65,7 @@ export function loadSave(storage: StorageLike | undefined, key: string): Loaded 
       equipped,
       kills: isInt(data.kills, 0) ? data.kills : 0,
       deaths: isInt(data.deaths, 0) ? data.deaths : 0,
+      maxDps: isInt(data.maxDps, 0) ? data.maxDps : 0,
     },
     audio: {
       ...(typeof audio.muted === 'boolean' ? { muted: audio.muted } : {}),
@@ -111,6 +112,7 @@ export function validateSaveData(data: unknown, tracks: readonly string[]): Vali
   int('coins', d.coins, 0);
   int('kills', d.kills, 0);
   int('deaths', d.deaths, 0);
+  int('maxDps', d.maxDps, 0);
   bool('autoAdvance', d.autoAdvance);
 
   const levels = d.weaponLevels;
@@ -156,6 +158,7 @@ export function validateSaveData(data: unknown, tracks: readonly string[]): Vali
       equipped: d.equipped as number,
       kills: d.kills as number,
       deaths: d.deaths as number,
+      maxDps: d.maxDps as number,
     },
     audio: {
       muted: au.muted,
@@ -179,6 +182,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     equipped: s.equipped,
     kills: s.kills,
     deaths: s.deaths,
+    maxDps: s.maxDps,
     audio,
   };
 }

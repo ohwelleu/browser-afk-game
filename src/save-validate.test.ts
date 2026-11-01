@@ -40,6 +40,8 @@ describe('validateSaveData', () => {
     ['autoAdvance', 'yes'],
     ['equipped', 3],
     ['kills', null],
+    ['maxDps', -1],
+    ['maxDps', undefined],
   ])('rejects %s = %s', (key, value) => {
     const r = validateSaveData({ ...valid(), [key]: value }, TRACKS);
     expect(r.ok).toBe(false);

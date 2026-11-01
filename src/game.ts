@@ -5,6 +5,7 @@ import { formatNumber } from './game/format';
 import {
   createState,
   heroDamage,
+  heroDps,
   setAutoAdvance,
   update,
   type GameEvent,
@@ -284,7 +285,9 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     debugPanel?.setStats(
       `v${__VERSION__} ${loop.running ? 'running' : 'paused'} fps ${fps} scale ${view.scale}\n` +
         `${d.phase} t${d.tick} hero ${d.heroHp} mob ${d.mob.hp}/${d.mob.maxHp} ` +
-        `dmg ${heroDamage(state)} vs ${d.mob.damage}`,
+        `dmg ${heroDamage(state)} vs ${d.mob.damage}
+` +
+        `dps ${formatNumber(heroDps(state))} max ${formatNumber(state.maxDps)}`,
     );
   }
 

@@ -34,7 +34,14 @@ describe('readSavePreview', () => {
 describe('loadSave / toSaveData', () => {
   it('round-trips progress and audio settings', () => {
     let s = createState({ ...newProgress(), world: 2, stage: 4, coins: 123 });
-    s = { ...s, weaponLevels: [7, 2, 0, 0, 0], equipped: 1, autoAdvance: false, best: 12 };
+    s = {
+      ...s,
+      weaponLevels: [7, 2, 0, 0, 0],
+      equipped: 1,
+      autoAdvance: false,
+      best: 12,
+      maxDps: 42,
+    };
     const audio = { muted: true, track: 'synthwave', musicVolume: 0.2, sfxVolume: 0.9 };
     const data = toSaveData(s, audio, '0.2.0');
     let written = '';
@@ -50,6 +57,7 @@ describe('loadSave / toSaveData', () => {
       equipped: 1,
       kills: 0,
       deaths: 0,
+      maxDps: 42,
     });
     expect(loaded.audio).toEqual(audio);
   });

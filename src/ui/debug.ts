@@ -36,6 +36,7 @@ const FIELDS: Field[] = [
   { key: 'autoAdvance', label: 'Auto-advance', kind: 'bool' },
   { key: 'kills', label: 'Kills', kind: 'int' },
   { key: 'deaths', label: 'Deaths', kind: 'int' },
+  { key: 'maxDps', label: 'Max DPS', kind: 'int' },
   { key: 'audio.muted', label: 'Muted', kind: 'bool' },
   { key: 'audio.track', label: 'Music track', kind: 'track' },
   { key: 'audio.musicVolume', label: 'Music volume (0–1)', kind: 'volume' },
