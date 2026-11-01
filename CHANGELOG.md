@@ -9,20 +9,44 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 
-- Crow companion (docs/design/active-play.md → 1. Crow): unlocks in the shop
-  after 1.1 is cleared (25 coins), sits in the one companion slot and pecks
-  the mob when you click or tap the game (0.5 s cooldown). Upgrades: damage
-  (flat, 1 × level), auto attack (150, every 3.0 s) and speed (down to 1.0 s).
-  Crow damage numbers have their own colour. Placeholder sprite until the
-  crow art lands.
-- Save v2: new `companion` field; v1 saves are migrated with an empty slot.
+- **Crow companion**: unlocks in the Weapons tab after 1.1 is cleared (25
+  coins) and pecks the mob when you click or tap the game (0.5 s cooldown).
+  Upgrades: damage, auto attack (150, every 3.0 s) and speed (down to
+  1.0 s). Crow damage numbers have their own colour. Placeholder sprite in
+  the game; the real crow sprites are in the sprite set.
+- **Rings and pendants** (tiers C/B/A/S) drop from monsters, with damage,
+  defence, speed and item find. 20-slot bag, equip/unequip/sell in
+  Inventory, a drop toast, and a sparkle for S items.
+- **Defence** (from items): each mob hit is lowered, never below 1.
+- Item sprites: ring and pendant icons, tier frames C/B/A/S (S glows and
+  sparkles), empty slot frame. Crow sprites (idle, fly-out, peck, fly-back),
+  shop icon and peck effect.
+- Max DPS stat (highest hero damage per second), saved with kills/deaths
+  and shown in the debug panel.
+- `npm run sprites`: converts PNG strips in `art/` into text sprites in
+  `src/sprites/generated/`, with exact palette errors (frame, x, y,
+  colour). Not used by the game yet.
+- Design doc `docs/design/active-play.md` (crow, items).
 
 ### Changed
 
+- Buying a weapon equips it right away if it hits at least as hard as the
+  current one. The Weapons tab can also equip owned weapons.
+- **Save string**: saves are stored as a checksummed `AFK1.…` string with a
+  backup slot (`<save-key>.bak`). A damaged save falls back to the backup,
+  then to a new game, and never crashes. Old plain-JSON saves load as before
+  and are converted on the next save.
+- Save data version 3 (2 adds `items`, 3 adds `companion`). Old saves load
+  with an empty bag and an empty companion slot.
+- **Pixel font**: all UI text (HUD, menus, buttons, damage numbers, stage
+  banner) uses Pixelify Sans, embedded as a 12.6 KB WOFF2 subset (Latin +
+  Lithuanian). Bundle +18 kB (+15 kB gzip).
+- `art/hero-idle.png` re-exported in the exact palette colours, feet on the
+  bottom row.
 - Plan and backlog updated: milestones marked done; new items for the sprite
   tool, defence and speed upgrades, crossbow and more weapons, item rarity
   tiers, auras, clicker, skills, ascend, shop tabs, save sharing, Firebase
-  ranking, new music and a simulation blog post.
+  ranking, new music and a simulation blog post. New `docs/WORKFLOW.md`.
 
 ## [0.2.0] - 2026-11-01
 
