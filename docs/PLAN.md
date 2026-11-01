@@ -336,8 +336,7 @@ rebuilds the cached sprites (cheap).
 
 - Reference: the Chrome "no internet" dino, but **a bit more detailed**.
   The dino is about 20×22 art pixels. We go up to:
-  - hero: **32×64** art grid (tall and slim; redesign in progress, see
-    `references/hero/`)
+  - hero: **32×64** art grid (the owner's own sprite, `art/hero-idle.png`)
   - mobs: **24×24** for now. The art thread will propose bigger sizes
     (e.g. 32–48) to suit the duel layout.
   - boss: **48×48** for now (64–96 proposed)
@@ -372,7 +371,10 @@ still works.
 
 ## Debug panel & simulator
 
-Enabled with the `debug` attribute or the `?afkdebug` URL param:
+Enabled with the `debug` attribute or the `?afkdebug` URL param.
+
+**Built today:** a save editor (world, stage, coins, weapon levels, equipped,
+auto-advance, stats, audio). **Planned:**
 
 - +coins (×10 / ×1000), set stage, kill mob, god mode
 - game speed ×1 / ×5 / ×20
@@ -422,22 +424,50 @@ Enabled with the `debug` attribute or the `?afkdebug` URL param:
 
 ## Milestones
 
-Done: 1 scaffold, 2 sprites v1, audio module (music + SFX).
+**Done** (`0.2.0`, live on `/en/game`):
 
-3. **Duel core (pure logic)**: duel state machine, timers, damage on hit
-   frame, death/advance/rollback, auto-advance, world-1 tutorial rule,
-   `balance.ts`, weapons/upgrades/inventory state, all safeguards from
-   [Safeguards](#safeguards). Vitest tests plus the `npm run sim` CLI.
-4. **Scene & HUD**: 546 px layout, real sprites, animation priority + hit
-   flash, damage numbers, coin fly, top bar (HP, coins, stage), pause /
-   music switch / mute buttons, pixel font.
-5. **Menus**: ☰ menu, Upgrades, Weapons shop, Inventory, Auto-advance,
-   Help & credits. Modals with a square [X], Esc and focus trap.
-6. **Save v2**: save string with checksum, backup slot, validation,
-   export/import (text + `.txt`), one-tab guard.
-7. **Debug panel + simulator UI**.
-8. **Art & music final**: hero v2 (32×64) from `references/`, mob/boss
-   resize, music style pick.
-9. **Release `1.0.0`** + **blog integration**: script tag + `<afk-game>`
-   in the home hero of ohwelleu.github.io (en + lt), theme vars mapped to
-   the site palette.
+- 1 scaffold · 2 sprites v1 · audio module (music + SFX)
+- 3 duel core: state machine, timers, balance, weapons/upgrades/equip,
+  Vitest tests (PR #4)
+- 4 scene & HUD: 546 px layout, sprites, mobile scaling (PRs #4/#5)
+- 5 menus: modal helper, Upgrades / Weapons / Inventory / Help tabs (PR #6)
+- debug panel as a **save editor** (stage, coins, levels, audio) (PR #5)
+- hero v2: the owner's own 32×64 sprite, slap attack (PR #7)
+
+**Not done yet** from the original plan: the save is still plain JSON
+(no checksum, backup or export), there's no simulator and no `npm run sim`,
+no pixel font, no one-tab guard, no bulk buy.
+
+**Next** (rough order, see [BACKLOG.md](BACKLOG.md) for the full list):
+
+6. **Sprite tool**: Aseprite/LibreSprite → game converter (see
+   [SPRITES.md](SPRITES.md)).
+7. **Simulator first, then balance**: headless sim + `npm run sim` + debug
+   panel UI. Use it to slow progress down on purpose (see
+   [Pacing](#pacing-to-do)) before adding new upgrades.
+8. **Character & weapons**: defence upgrade, buy → equip, bigger swords,
+   crossbow, more weapon tiers.
+9. **Save v2**: checksummed string, backup slot, `.txt` export/import,
+   share link, one-tab guard.
+10. **Shop & UI**: shop tabs (Character / Weapons / Ascend / Other), help
+    behind a small ⓘ icon, pixel font, bulk buy.
+11. **Ascend (prestige)**, then the speed upgrade.
+12. **Active play**: clicking, skills with long cooldowns, auras, items
+    with rarity tiers.
+13. **Music**: an original 8-bit synthwave track, then pick the default.
+14. **Online (research first)**: ranking with Firebase, unique sessions.
+15. **Release `1.0.0`** + blog integration.
+
+## Pacing (to do)
+
+The owner finds progress too fast. Before changing numbers:
+
+1. Build the simulator (milestone 7) and record a baseline: time to reach
+   worlds 2, 3, 5 and 10.
+2. Agree on target times (for example world 2 ≈ 5 min, world 5 ≈ 1 h,
+   world 10 ≈ 1 day of AFK).
+3. Tune in `src/game/balance.ts` only. The levers are mob HP growth (1.28),
+   upgrade cost growth (1.15), coins per kill (1.30) and weapon price
+   steps (×30).
+4. Defence, ascend and speed upgrades change the curve, so re-run the sim
+   after each.

@@ -4,8 +4,9 @@ Not in v1. Rough order, open to change.
 
 ## Progression
 
-- **Prestige / resets.** Optional reset that grants **badges** with a
-  permanent percentage bonus (e.g. +5% damage per badge).
+- **Ascend (prestige).** Optional reset that grants ascend points / badges
+  with a permanent bonus (e.g. +5% damage each). Now in the
+  [backlog](BACKLOG.md#progression--balance), together with the speed upgrade.
 - **Manual advance button.** Step to the next stage by hand, besides the
   auto-advance toggle.
 - More upgrade types: hero max HP, HP regen, crit chance, coin bonus.
@@ -43,15 +44,17 @@ each with its own animation, effect, damage multiplier and timing. Ideas:
 
 ## Interaction
 
-- Clicking a mob for bonus damage.
-- Spells / active skills with cooldowns.
+Clicking and long-cooldown skills are now in the
+[backlog](BACKLOG.md#active-play).
 
 ## Saves & accounts
 
 - Save integrity: a checksum/signature to discourage casual save editing.
   This is **not** real anti-cheat. Real anti-cheat needs a server.
-- Optional account / cloud save (needs a backend).
-- Export / import save as a string.
+- Optional account / cloud save (needs a backend). Firebase (Anonymous
+  Auth + Firestore) is the first candidate, see
+  [backlog → Online](BACKLOG.md#online-research-first).
+- Export / import save as a string and a share link (backlog).
 
 ## Distribution
 
