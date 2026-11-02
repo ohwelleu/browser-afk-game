@@ -20,6 +20,7 @@ import {
   FONT_CANDIDATES,
   FONT_STACK,
   fontFamily,
+  loadCandidate,
   UI_FONT_SIZES,
   uiFontVars,
   useFont,
@@ -131,6 +132,13 @@ const STYLES = `
 .dbg-font { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
 .dbg-sample { margin: 0; font-size: var(--afk-fs, 16px); overflow-wrap: anywhere; }
 .dbg-font-info { overflow-wrap: anywhere; }
+.dbg-compare summary { padding: 0; font-weight: normal; }
+.dbg-compare[open] summary { border: 0; margin-bottom: 6px; }
+.dbg-compare-list { display: grid; gap: 8px; }
+.dbg-compare-row { display: grid; gap: 2px; border-top: 3px solid var(--_fg); padding-top: 6px; }
+.dbg-compare-head { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
+.dbg-compare-head button { font-size: var(--afk-fs-small, 12px); padding: 0 6px; }
+.dbg-compare-row p { margin: 0; overflow-wrap: anywhere; }
 .dbg-err { margin: 0; color: var(--_red); white-space: pre-wrap; }
 .dbg-ok { margin: 0; color: var(--_green); }
 .dbg [hidden] { display: none; }
@@ -170,6 +178,10 @@ export function createDebugPanel(
       ).join('')}</select></label>
       <p class="dbg-sample">${FONT_SAMPLE}<br />${FONT_LETTERS}</p>
       <p class="dbg-stats dbg-font-info"></p>
+      <details class="dbg-compare">
+        <summary>Compare all fonts</summary>
+        <div class="dbg-compare-list">${FONT_CANDIDATES.map(compareRowHtml).join('')}</div>
+      </details>
       <div class="dbg-row">
         <button type="button" data-dbg="load">Load current</button>
         <button type="button" data-dbg="reset">Reset all progress</button>
@@ -242,6 +254,23 @@ export function createDebugPanel(
     );
   }
   fontSelect.addEventListener('change', () => pickFont(findFont(fontSelect.value), true));
+
+  // "Compare all fonts": loads every candidate the first time it opens; each
+  // row shows the sample in its font at its crisp body size.
+  const compare = $<HTMLDetailsElement>('.dbg-compare');
+  let compareLoaded = false;
+  compare.addEventListener('toggle', () => {
+    if (!compare.open || compareLoaded) return;
+    compareLoaded = true;
+    for (const f of FONT_CANDIDATES) {
+      const status = $<HTMLSpanElement>(`[data-compare-status="${f.id}"]`);
+      status.textContent = 'loading…';
+      loadCandidate(f, fontBase).then(
+        () => (status.textContent = ''),
+        () => (status.textContent = 'could not load'),
+      );
+    }
+  });
   pickFont(findFont(storage?.getItem(FONT_KEY) ?? null), false);
 
   function fieldHtml(f: Field): string {
@@ -354,6 +383,11 @@ export function createDebugPanel(
       case 'load':
         load();
         return;
+      case 'use-font': {
+        const id = (e.target as Element).closest<HTMLElement>('[data-font]')?.dataset.font;
+        pickFont(findFont(id ?? null), true);
+        return;
+      }
       case 'reset':
         confirm('Clear the save and restart from 1.1?', () => {
           api.reset();
@@ -441,6 +475,20 @@ export function createDebugPanel(
       style.remove();
     },
   };
+}
+
+/** One "Compare all fonts" row: name, a Use button and the sample in that font. */
+function compareRowHtml(f: FontCandidate): string {
+  const style =
+    `font-family: ${fontFamily(f)}, ${FONT_STACK}; font-size: ${f.snapUi ? crispSize(16, f) : 16}px;` +
+    (f.bold ? '' : ' font-synthesis: none;');
+  return `<div class="dbg-compare-row">
+    <div class="dbg-compare-head">
+      <span>${f.label} <span data-compare-status="${f.id}"></span></span>
+      <button type="button" data-dbg="use-font" data-font="${f.id}">Use</button>
+    </div>
+    <p style="${style}">${FONT_SAMPLE}<br />${FONT_LETTERS}</p>
+  </div>`;
 }
 
 /** Inline styles on the game box: family, no faked bold, crisp size variables. */

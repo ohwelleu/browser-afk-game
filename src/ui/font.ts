@@ -159,29 +159,40 @@ export function uiFontVars(f: FontCandidate): Record<string, string> {
 const candidateLoads = new Map<string, Promise<void>>();
 
 /**
- * Makes `f` the active font: registers its file (once, resolved against
- * `base`) and waits for it. Rejects if the file can't load; the old font stays.
+ * Registers `f`'s file (once, resolved against `base`) and waits for it,
+ * without making it active. Rejects if the file can't load.
+ */
+export function loadCandidate(
+  f: FontCandidate,
+  base: string,
+  doc: Document | undefined = globalThis.document,
+): Promise<void> {
+  if (!f.file || !doc?.fonts || typeof FontFace === 'undefined') return Promise.resolve();
+  let load = candidateLoads.get(f.id);
+  if (!load) {
+    const url = new URL(f.file, base).href;
+    const face = new FontFace(fontFamily(f), `url(${JSON.stringify(url)})`);
+    doc.fonts.add(face);
+    load = face.load().then(() => undefined);
+    candidateLoads.set(f.id, load);
+    load.catch(() => {
+      candidateLoads.delete(f.id);
+      doc.fonts.delete(face);
+    });
+  }
+  return load;
+}
+
+/**
+ * Makes `f` the active font once its file has loaded (see `loadCandidate`).
+ * Rejects if the file can't load; the old font stays.
  */
 export async function useFont(
   f: FontCandidate,
   base: string,
   doc: Document | undefined = globalThis.document,
 ): Promise<void> {
-  if (f.file && doc?.fonts && typeof FontFace !== 'undefined') {
-    let load = candidateLoads.get(f.id);
-    if (!load) {
-      const url = new URL(f.file, base).href;
-      const face = new FontFace(fontFamily(f), `url(${JSON.stringify(url)})`);
-      doc.fonts.add(face);
-      load = face.load().then(() => undefined);
-      candidateLoads.set(f.id, load);
-      load.catch(() => {
-        candidateLoads.delete(f.id);
-        doc.fonts.delete(face);
-      });
-    }
-    await load;
-  }
+  await loadCandidate(f, base, doc);
   active = f;
 }
 

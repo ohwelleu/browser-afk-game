@@ -8,6 +8,7 @@ import {
   DEFAULT_FONT,
   FONT_CANDIDATES,
   fontStack,
+  loadCandidate,
   resetActiveFont,
   snapFontSize,
   uiFontVars,
@@ -73,5 +74,10 @@ describe('font candidates', () => {
     expect(fontStack().startsWith('afk-font-press-start-2p,')).toBe(true);
     expect(boldPrefix()).toBe('');
     expect(snapFontSize(20)).toBe(16);
+  });
+
+  it('load for comparison without becoming active', async () => {
+    await loadCandidate(byId('tiny5'), 'http://x/fonts/');
+    expect(activeFont()).toBe(DEFAULT_FONT);
   });
 });
