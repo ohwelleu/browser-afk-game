@@ -416,6 +416,9 @@ auto-advance, stats, audio). **Planned:**
   `AfkGame.version`.
 - Every release adds an entry to [CHANGELOG.md](../CHANGELOG.md) and gets a
   git tag `vX.Y.Z` plus a GitHub Release with the changelog notes.
+- A release is a merge of `staging` into `main`, and every such merge is a
+  release with a version bump. Steps in
+  [WORKFLOW.md → Release](WORKFLOW.md#release-staging--main).
 - `0.x.y` while it is a concept. `1.0.0` = first version embedded on the
   blog.
 - `demo/index.html` for development.

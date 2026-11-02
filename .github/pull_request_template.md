@@ -1,3 +1,5 @@
+<!-- Base branch: `staging` for features. Only release PRs (staging → main) and hotfixes target `main`. -->
+
 ## What
 
 <!-- What this PR does, in a few lines. -->

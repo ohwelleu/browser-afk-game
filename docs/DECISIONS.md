@@ -192,3 +192,12 @@ them about 2× bigger for the 32×64 hero.
 the data version: 1 first demo, 2 adds `items`, 3 adds `companion`, 4 adds
 `character`. Older
 saves are migrated on load; plain-JSON saves from 0.2.0 still load.
+
+## 2026-11-02: `staging` branch, releases are the only merges to `main`
+
+All feature PRs target `staging`, where they are tested together. When the
+owner says `staging` is good, it's merged into `main` as a release: version
+bump in `package.json`, `[Unreleased]` becomes the new version's update
+notes in `CHANGELOG.md`, tag `vX.Y.Z`, GitHub Release. `main` (the live
+site) always equals the last release. Replaces the `integrate/wave*`
+branches. Steps in [WORKFLOW.md](WORKFLOW.md#branches-and-releases).
