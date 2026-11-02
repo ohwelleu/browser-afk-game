@@ -13,6 +13,7 @@ import {
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
+import { heroDefence } from '../game/state';
 import {
   backupKey,
   decodeSave,
@@ -475,7 +476,7 @@ export function extraStats(data: SaveData, dropForced = false): string {
   const drop = dropForced ? '100% (forced)' : percent(chance);
   return (
     `${crow}\n` +
-    `items dmg +${formatNumber(t.damage)} def +${formatNumber(t.defence)} ` +
+    `items dmg +${formatNumber(t.damage)} def +${formatNumber(t.defence)} (total ${formatNumber(heroDefence(data))}) ` +
     `spd +${percent(t.speed)} find +${percent(t.itemFind)}\n` +
     `drop ${drop} bag ${data.items.bag.length}/${ITEMS.inventorySize}`
   );

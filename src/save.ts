@@ -6,7 +6,13 @@ import {
   WEAPONS,
   type CompanionId,
 } from './game/balance';
-import { newProgress, type Companion, type GameState, type Progress } from './game/state';
+import {
+  newProgress,
+  type Character,
+  type Companion,
+  type GameState,
+  type Progress,
+} from './game/state';
 import { loadGear, saveGear, validateGear } from './save-items';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
@@ -16,8 +22,9 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  * 1. first demo save
  * 2. + `items` (ring, pendant, bag, drop RNG); old saves load with empty gear
  * 3. + `companion` (the crow); old saves load with an empty slot
+ * 4. + `character: { defenceLevel }` (coin upgrades); old saves start at 0
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -28,6 +35,9 @@ export const backupKey = (key: string) => `${key}.bak`;
 const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   2: (d) => {
     d.companion = null;
+  },
+  3: (d) => {
+    d.character = { defenceLevel: 0 };
   },
 };
 
@@ -138,6 +148,7 @@ function repairV1(data: Record<string, unknown>): Loaded {
       // Migration v1 → v2: no `items` yet, so loadGear starts empty with a new seed.
       items: loadGear(data.items),
       companion: loadCompanion(data.companion),
+      character: loadCharacter(data.character),
     },
     audio: {
       ...(typeof audio.muted === 'boolean' ? { muted: audio.muted } : {}),
@@ -160,6 +171,12 @@ function loadCompanion(v: unknown): Companion | null {
     autoUnlocked: c.autoUnlocked === true,
     speedLevel: isInt(c.speedLevel, 1) ? Math.min(c.speedLevel, max) : 1,
   };
+}
+
+/** Lenient character read: a missing or bad level falls back to 0. */
+function loadCharacter(v: unknown): Character {
+  const c = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  return { defenceLevel: isInt(c.defenceLevel, 0) ? c.defenceLevel : 0 };
 }
 
 export type Validated =
@@ -236,6 +253,13 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     }
   }
 
+  const ch = d.character;
+  if (!ch || typeof ch !== 'object' || Array.isArray(ch)) {
+    errors.push('character must be an object.');
+  } else {
+    int('character.defenceLevel', (ch as Record<string, unknown>).defenceLevel, 0);
+  }
+
   const a = d.audio;
   if (!a || typeof a !== 'object' || Array.isArray(a)) {
     errors.push('audio must be an object.');
@@ -271,6 +295,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       maxDps: d.maxDps as number,
       items: items!,
       companion: c ? pickCompanion(c as Companion) : null,
+      character: { defenceLevel: (ch as Character).defenceLevel },
     },
     audio: {
       muted: au.muted,
@@ -304,6 +329,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     maxDps: s.maxDps,
     items: saveGear(s.items),
     companion: s.companion ? pickCompanion(s.companion) : null,
+    character: { defenceLevel: s.character.defenceLevel },
     audio,
   };
 }

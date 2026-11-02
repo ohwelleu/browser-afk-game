@@ -3,6 +3,8 @@ import {
   companionDamage,
   companionMaxSpeedLevel,
   COMPANIONS,
+  defenceFromLevel,
+  defenceReduction,
   STAGES_PER_WORLD,
   upgradeCost,
   weaponDamage,
@@ -13,6 +15,10 @@ import { formatNumber } from '../game/format';
 import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
   buyCompanion,
+  buyDefence,
+  canBuyDefence,
+  defenceCost,
+  heroDefence,
   buyUpgrade,
   buyWeapon,
   canBuyCompanion,
@@ -137,6 +143,7 @@ const TABS = [
     id: 'shop',
     label: 'Shop',
     subs: [
+      { id: 'character', label: 'Character' },
       { id: 'weapons', label: 'Weapons' },
       { id: 'companions', label: 'Companions' },
       { id: 'ascend', label: 'Ascend' },
@@ -237,9 +244,66 @@ function panelWithSubs(tab: (typeof TABS)[number], content: Record<string, strin
     </section>`;
 }
 
+/**
+ * Shop → Character rows: one coin upgrade each. HP and speed become new
+ * entries here (markup and refresh are generic).
+ */
+type CharacterRow = {
+  id: string;
+  name: string;
+  level(s: GameState): number;
+  /** Stat now → after one more level, and the effect line. */
+  stat(s: GameState): { now: string; next: string; effect: string };
+  cost(s: GameState): number;
+  canBuy(s: GameState): boolean;
+  buy(s: GameState): GameState;
+};
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+const CHARACTER_ROWS: readonly CharacterRow[] = [
+  {
+    id: 'defence',
+    name: 'Defence',
+    level: (s) => s.character.defenceLevel,
+    stat: (s) => {
+      const now = heroDefence(s);
+      const next =
+        now +
+        defenceFromLevel(s.character.defenceLevel + 1) -
+        defenceFromLevel(s.character.defenceLevel);
+      return {
+        now: formatNumber(now),
+        next: formatNumber(next),
+        effect: `Mob hits −${pct(defenceReduction(now))} → −${pct(defenceReduction(next))}`,
+      };
+    },
+    cost: defenceCost,
+    canBuy: canBuyDefence,
+    buy: buyDefence,
+  },
+];
+
 const companionIcon = `<span class="icon"><img alt="" data-icon="companion" /></span>`;
 
 const SHOP = {
+  character: `
+    <ul class="list">${CHARACTER_ROWS.map(
+      (r) => `
+      <li class="item" data-char="${r.id}">
+        <div class="item-body">
+          <span class="item-name">${r.name} · Lv <span class="char-level"></span></span>
+          <span class="item-stats">
+            <span>${r.name} <span class="char-now"></span> → <span class="dmg-next char-next"></span></span>
+            <span class="char-effect"></span>
+          </span>
+        </div>
+        <div class="action">
+          <button type="button" data-act="buy-char" data-char="${r.id}">Buy ${price('char-cost')}</button>
+        </div>
+      </li>`,
+    ).join('')}</ul>
+    <p class="note">Defence from rings and pendants counts too. A hit always does at least 1.</p>`,
   weapons: weaponRows(
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>`,
@@ -464,6 +528,11 @@ export function createMenu(deps: MenuDeps): Menu {
       case 'item-unequip':
         deps.act((s) => unequipItem(s, target.dataset.slot === 'ring' ? 'ring' : 'pendant'));
         break;
+      case 'buy-char': {
+        const row = CHARACTER_ROWS.find((r) => r.id === target.dataset.char);
+        if (row) deps.act(row.buy);
+        break;
+      }
       case 'buy-companion':
         deps.act(buyCompanion);
         break;
@@ -505,12 +574,29 @@ export function createMenu(deps: MenuDeps): Menu {
     show($('.wallet-coins'), formatNumber(state.coins));
     const sub = currentSub[current];
     if (current === 'shop') {
-      if (sub === 'weapons') refreshShopWeapons(state);
+      if (sub === 'character') refreshShopCharacter(state);
+      else if (sub === 'weapons') refreshShopWeapons(state);
       else if (sub === 'companions') refreshShopCompanions(state);
     } else if (current === 'inventory') {
       if (sub === 'weapons') refreshInventoryWeapons(state);
       else if (sub === 'companions') refreshCompanionUpgrades(state);
       else if (sub === 'accessories') gear.refresh(state);
+    }
+  }
+
+  function refreshShopCharacter(state: GameState): void {
+    for (const r of CHARACTER_ROWS) {
+      const li = $(`li[data-char="${r.id}"]`);
+      const st = r.stat(state);
+      show(li.querySelector('.char-level')!, formatNumber(r.level(state)));
+      show(li.querySelector('.char-now')!, st.now);
+      show(li.querySelector('.char-next')!, st.next);
+      show(li.querySelector('.char-effect')!, st.effect);
+      show(li.querySelector('.char-cost')!, formatNumber(r.cost(state)));
+      const ok = r.canBuy(state);
+      const btn = li.querySelector<HTMLButtonElement>('button')!;
+      setFlag(btn, 'disabled', !ok);
+      show(btn, ok ? '' : 'Not enough coins', 'title');
     }
   }
 

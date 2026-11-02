@@ -13,7 +13,9 @@ import {
   companionDmgCost,
   companionMaxSpeedLevel,
   companionSpeedCost,
+  characterCost,
   COMPANIONS,
+  defenceFromLevel,
   DUEL,
   HERO_MAX_HP,
   isBoss,
@@ -71,6 +73,9 @@ export type Companion = {
   speedLevel: number;
 };
 
+/** Character upgrade levels (0 = not bought). Saved as is. */
+export type Character = { defenceLevel: number };
+
 export type GameEvent =
   | { type: 'sfx'; name: SfxName }
   | { type: 'damage'; target: 'hero' | 'mob'; amount: number; source?: 'companion' }
@@ -98,6 +103,8 @@ export type GameState = {
   /** Ring, pendant, bag and the drop RNG (game/items.ts). */
   items: Gear;
   companion: Companion | null;
+  /** Coin upgrades bought in Shop → Character. */
+  character: Character;
   /** `ticks` of the last click peck, for the click cooldown (not saved). */
   companionClickTick: number | null;
   /** Fighting ticks since the last auto peck (not saved). */
@@ -120,6 +127,7 @@ export type Progress = Pick<
   | 'maxDps'
   | 'items'
   | 'companion'
+  | 'character'
 >;
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
@@ -138,6 +146,7 @@ export function newProgress(): Progress {
     maxDps: 0,
     items: newGear(),
     companion: null,
+    character: { defenceLevel: 0 },
   };
 }
 
@@ -150,6 +159,7 @@ export function createState(progress: Progress = newProgress()): GameState {
     // Old saves have no maxDps (0): start from what the hero does right now.
     maxDps: Math.max(progress.maxDps, heroDps(progress)),
     companion: progress.companion ? { ...progress.companion } : null,
+    character: { ...progress.character },
     companionClickTick: null,
     companionAutoCharge: 0,
     // The first duel after Start/Continue always gets the full intro.
@@ -204,6 +214,11 @@ export function heroDamage(
  */
 export function heroDps(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number {
   return safeInt(heroDamage(s) / weaponAttack(s.equipped).interval);
+}
+
+/** Total defence: equipped items plus the coin upgrade. */
+export function heroDefence(s: Partial<Pick<GameState, 'items' | 'character'>>): number {
+  return safeInt(gearTotals(s.items).defence + defenceFromLevel(s.character?.defenceLevel ?? 0));
 }
 
 /** Raises `maxDps` to the current DPS if it's higher (mutates a draft). */
@@ -329,7 +344,7 @@ function combat(s: GameState): void {
     d.mobAttackTick = t;
   }
   if (t >= d.mobNextHit) {
-    const dmg = mobHitDamage(d.mob.damage, gear.defence);
+    const dmg = mobHitDamage(d.mob.damage, heroDefence(s));
     d.heroHp = Math.max(0, safeInt(d.heroHp - dmg));
     d.heroHurtTick = t;
     d.mobNextHit += Math.max(1, secToTicks(mobKindDef.interval));
@@ -544,6 +559,23 @@ export function upgradeCompanion(s: GameState, kind: CompanionUpgrade): GameStat
       c.autoUnlocked = true;
       n.companionAutoCharge = 0;
     }
+  });
+}
+
+// ── Character upgrades ─────────────────────────────────────────────────────
+
+export const defenceCost = (s: Pick<GameState, 'character'>): number =>
+  characterCost('defence', s.character.defenceLevel);
+
+export function canBuyDefence(s: GameState): boolean {
+  return s.coins >= defenceCost(s);
+}
+
+/** Buys one defence level. */
+export function buyDefence(s: GameState): GameState {
+  if (!canBuyDefence(s)) return s;
+  return purchase(s, defenceCost(s), (n) => {
+    n.character = { ...n.character, defenceLevel: n.character.defenceLevel + 1 };
   });
 }
 

@@ -267,3 +267,43 @@ export function companionSpeedCost(def: CompanionDef, level: number): number {
   if (level >= companionMaxSpeedLevel(def)) return Number.MAX_SAFE_INTEGER;
   return growthCost(def.speedUpgrade, level);
 }
+
+// ── Character upgrades (bought with coins in Shop → Character) ─────────────
+
+export type CharacterUpgradeId = 'defence';
+
+/**
+ * Each upgrade: cost of buying level `n` is `base × growth^(n−1)` (level 0 =
+ * not bought), and every level adds `perLevel` to the stat. HP and speed
+ * go here later.
+ */
+export const CHARACTER: Record<
+  CharacterUpgradeId,
+  { base: number; growth: number; perLevel: number }
+> = {
+  // Mob coins grow 1.3× per stage, so the price keeps pace with progress.
+  defence: { base: 50, growth: 1.3, perLevel: 5 },
+};
+
+/** Cost to go from `level` to `level + 1`. */
+export function characterCost(id: CharacterUpgradeId, level: number): number {
+  const p = CHARACTER[id];
+  if (!(level >= 0)) return Number.MAX_SAFE_INTEGER;
+  return safeInt(Math.ceil(p.base * p.growth ** level));
+}
+
+/** Defence points from the coin upgrade at `level`. */
+export const defenceFromLevel = (level: number): number =>
+  safeInt(CHARACTER.defence.perLevel * Math.max(0, level));
+
+/**
+ * The one defence formula (items + coin upgrade):
+ * `taken = dmg × 100 / (100 + defence)`, rounded down, never below 1.
+ * Diminishing returns, so defence can't make the hero immortal.
+ */
+export function defendedDamage(raw: number, defence: number): number {
+  return Math.max(1, safeInt((raw * 100) / (100 + Math.max(0, defence))));
+}
+
+/** Share of each mob hit removed by `defence` (0.2 = −20 %), before rounding. */
+export const defenceReduction = (defence: number): number => 1 - 100 / (100 + Math.max(0, defence));
