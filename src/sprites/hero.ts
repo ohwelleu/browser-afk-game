@@ -853,9 +853,9 @@ export const heroWeaponAnchors: Record<HeroAnimation, WeaponAnchor[]> = {
     { x: 10, y: 43, pose: 'downFwd' },
   ],
   slash: [
-    { x: 3, y: 31, pose: 'back' },
-    { x: 18, y: 28, pose: 'upFwd' },
-    { x: 30, y: 29, pose: 'fwd' },
+    { x: 5, y: 32, pose: 'up' },
+    { x: 16, y: 29, pose: 'upFwd' },
+    { x: 27, y: 28, pose: 'fwd' },
     { x: 10, y: 42, pose: 'downFwd' },
   ],
   hurt: [
