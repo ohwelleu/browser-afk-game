@@ -1,20 +1,16 @@
 /**
  * `npm run sprites [-- --frame 32x64]`
  *
- * Reads `art/<name>.png` and `art/<name>-<anim>.png` (horizontal strips),
- * checks every pixel against the palette and writes
+ * Reads Aseprite sheets (`art/<name>.png` + `art/<name>.json`, one animation
+ * per tag, frame durations kept) and plain horizontal strips
+ * (`art/<name>-<anim>.png`, cut by `--frame`), checks every pixel against the
+ * palette and writes
  * `src/sprites/generated/<name>.ts`. Any error fails the run and nothing is written.
  */
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  checkSameSize,
-  parseFrameSize,
-  pngToStrip,
-  renderModule,
-  type FrameSize,
-  type Strip,
-} from './convert.ts';
+import { buildSprites } from './build.ts';
+import { parseFrameSize, type FrameSize } from './convert.ts';
 
 const ART = 'art';
 const OUT = join('src', 'sprites', 'generated');
@@ -27,20 +23,7 @@ function main(args: string[]): number {
     else throw new Error(`unknown argument "${args[i]}"`);
   }
 
-  // Group files by character: `hero-idle.png` and `hero-slash.png` → `hero`.
-  const groups = new Map<string, { file: string; strip: Strip }[]>();
-  const errors: string[] = [];
-  const files = readdirSync(ART)
-    .filter((f) => f.endsWith('.png'))
-    .sort();
-  for (const file of files) {
-    const label = file.slice(0, -4);
-    const name = label.split('-')[0];
-    const res = pngToStrip(readFileSync(join(ART, file)), label, frame);
-    errors.push(...res.errors);
-    groups.set(name, [...(groups.get(name) ?? []), { file, strip: res.strip }]);
-  }
-  for (const list of groups.values()) errors.push(...checkSameSize(list.map((e) => e.strip)));
+  const { modules, errors, files } = buildSprites(ART, frame);
 
   if (errors.length) {
     const shown = errors.slice(0, 50);
@@ -51,17 +34,12 @@ function main(args: string[]): number {
   }
 
   mkdirSync(OUT, { recursive: true });
-  for (const [name, list] of groups) {
-    const path = join(OUT, `${name}.ts`);
-    const src = renderModule(
-      list.map((e) => e.strip),
-      list.map((e) => `${ART}/${e.file}`),
-    );
-    writeFileSync(path, src);
-    const summary = list.map((e) => `${e.strip.label} ${e.strip.frames.length}f`).join(', ');
-    console.log(`${path.replace(/\\/g, '/')}  (${summary})`);
+  for (const m of modules) {
+    const path = join(OUT, `${m.name}.ts`);
+    writeFileSync(path, m.source);
+    console.log(`${path.replace(/\\/g, '/')}  (${m.summary})`);
   }
-  if (!files.length) console.log(`sprites: no PNG files in ${ART}/`);
+  if (!files) console.log(`sprites: no PNG files in ${ART}/`);
   return 0;
 }
 
