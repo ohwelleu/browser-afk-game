@@ -34,6 +34,8 @@ export type Strip = {
   width: number;
   height: number;
   frames: string[][];
+  /** Milliseconds per frame (Aseprite sheets only; plain PNG strips have none). */
+  durations?: number[];
 };
 
 /** Parses `32x64` into a frame size. */
@@ -46,6 +48,51 @@ export function parseFrameSize(text: string): FrameSize {
 
 const hex = (r: number, g: number, b: number) =>
   '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+
+/**
+ * Reads `count` frames of `fw`x`fh` laid out left to right from a decoded PNG
+ * and maps each pixel to its palette slot. `where(f)` names frame `f` (0-based)
+ * in error messages. Bad pixels become `?` and push an error.
+ */
+export function cutFrames(
+  img: PNG,
+  fw: number,
+  fh: number,
+  count: number,
+  where: (f: number) => string,
+  errors: string[],
+): string[][] {
+  const frames: string[][] = [];
+  for (let f = 0; f < count; f++) {
+    const rows: string[] = [];
+    for (let y = 0; y < fh; y++) {
+      let row = '';
+      for (let x = 0; x < fw; x++) {
+        const i = (y * img.width + f * fw + x) * 4;
+        const [r, g, b, a] = img.data.subarray(i, i + 4);
+        const at = `${where(f)} (${x},${y})`;
+        const color = hex(r, g, b);
+        if (a === 0) {
+          row += '.';
+        } else if (a !== 255) {
+          errors.push(`${at}: ${color} is semi-transparent (alpha ${a}), use 0 or 255`);
+          row += '?';
+        } else if (COLOR_TO_SLOT[color]) {
+          row += COLOR_TO_SLOT[color];
+        } else if (MARKERS[color]) {
+          errors.push(`${at}: ${color} is a marker (${MARKERS[color]}), not supported yet`);
+          row += '?';
+        } else {
+          errors.push(`${at}: ${color} is not in the palette`);
+          row += '?';
+        }
+      }
+      rows.push(row);
+    }
+    frames.push(rows);
+  }
+  return frames;
+}
 
 /**
  * Cuts a decoded PNG (horizontal strip) into frames of char rows.
@@ -70,34 +117,7 @@ export function pngToStrip(
     return { strip, errors };
   }
 
-  for (let f = 0; f < img.width / fw; f++) {
-    const rows: string[] = [];
-    for (let y = 0; y < fh; y++) {
-      let row = '';
-      for (let x = 0; x < fw; x++) {
-        const i = (y * img.width + f * fw + x) * 4;
-        const [r, g, b, a] = img.data.subarray(i, i + 4);
-        const at = `${label} frame ${f + 1} (${x},${y})`;
-        const color = hex(r, g, b);
-        if (a === 0) {
-          row += '.';
-        } else if (a !== 255) {
-          errors.push(`${at}: ${color} is semi-transparent (alpha ${a}), use 0 or 255`);
-          row += '?';
-        } else if (COLOR_TO_SLOT[color]) {
-          row += COLOR_TO_SLOT[color];
-        } else if (MARKERS[color]) {
-          errors.push(`${at}: ${color} is a marker (${MARKERS[color]}), not supported yet`);
-          row += '?';
-        } else {
-          errors.push(`${at}: ${color} is not in the palette`);
-          row += '?';
-        }
-      }
-      rows.push(row);
-    }
-    strip.frames.push(rows);
-  }
+  strip.frames = cutFrames(img, fw, fh, img.width / fw, (f) => `${label} frame ${f + 1}`, errors);
   return { strip, errors };
 }
 
@@ -116,6 +136,17 @@ export function checkSameSize(strips: Strip[]): string[] {
 export const exportName = (label: string) =>
   label.replace(/[-_]+([a-z0-9])/gi, (_, c: string) => c.toUpperCase());
 
+/**
+ * `fps` (average, so today's renderer plays the right total length) and the
+ * exact per-frame `durations` in ms. Nothing for strips without durations.
+ */
+function timing(s: Strip): string[] {
+  if (!s.durations) return [];
+  const total = s.durations.reduce((a, b) => a + b, 0);
+  const fps = Math.round(((1000 * s.durations.length) / total) * 100) / 100;
+  return [`  fps: ${fps},`, `  durations: [${s.durations.join(', ')}],`];
+}
+
 /** Generated TS module for one character (all its strips). */
 export function renderModule(strips: Strip[], sources: string[]): string {
   const out = [
@@ -130,6 +161,7 @@ export function renderModule(strips: Strip[], sources: string[]): string {
       `  name: '${s.label}',`,
       `  width: ${s.width},`,
       `  height: ${s.height},`,
+      ...timing(s),
       '  frames: [',
       ...s.frames.flatMap((f) => ['    [', ...f.map((row) => `      '${row}',`), '    ],']),
       '  ],',

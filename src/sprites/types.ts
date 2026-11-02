@@ -18,6 +18,11 @@ export type SpriteDef = {
   height: number;
   frames: string[][];
   fps?: number;
+  /**
+   * Milliseconds per frame, same length as `frames`. Set by the converter for
+   * Aseprite sheets (`fps` is then the average). Not used by the renderer yet.
+   */
+  durations?: number[];
 };
 
 /** Palette slots in index order (index 0 = transparent), e.g. for indexed PNG export. */
