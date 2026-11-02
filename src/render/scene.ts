@@ -1,17 +1,11 @@
 import { weaponAttack, windup } from '../game/attacks';
 import { DUEL, isBoss, MOB_KINDS, type MobKind } from '../game/balance';
 import { formatNumber } from '../game/format';
-import {
-  companionCooldown,
-  companionDef,
-  secToTicks,
-  type GameEvent,
-  type GameState,
-} from '../game/state';
+import { companionDef, secToTicks, type GameEvent, type GameState } from '../game/state';
 import { TICK_RATE } from '../loop';
 import {
   bossMushroomWalk,
-  crowPlaceholder,
+  companionSprites,
   heroAnimations,
   heroWeaponAnchors,
   mobs,
@@ -19,6 +13,8 @@ import {
   slashArcOffset,
   slashArcs,
   weapons,
+  type CompanionAnimation,
+  type CompanionSprites,
   type HeroAnimation,
   type SpriteDef,
 } from '../sprites';
@@ -41,11 +37,20 @@ const TEXT_LIFE = 0.9;
 const TEXT_RISE = 14;
 /** Companion damage numbers: an existing accent until the palette step picks a shade. */
 const COMPANION_DMG_COLOR: keyof Palette = 'blue';
-/** Companion flight after the peck lands: a short hold at the mob, then back to the perch. */
-const PECK_HOLD = 0.08;
-const PECK_BACK = 0.25;
-/** Companion sprite sets by `CompanionDef.sprites`. Placeholder until `art/crow` lands. */
-const COMPANION_SPRITES: Record<string, SpriteDef> = { crow: crowPlaceholder };
+/** Companion flight back to the perch after the peck's hit frame, in seconds. */
+const PECK_BACK = 0.23;
+/** Up-arc of the companion's flight, in art pixels. */
+const FLIGHT_ARC = 6;
+/**
+ * Where the companion's feet (bottom row, centre) rest, relative to the idle
+ * hero's top-left: on the left of the hat brim (hero.ts, row 13).
+ */
+const PERCH = { x: 10, y: 14 };
+/** Click feedback: a pixel burst at the pointer. */
+const CLICK_LIFE = 0.25;
+const CLICK_RADIUS = { from: 2, to: 7 };
+/** Companion sprite sets by `CompanionDef.sprites`. */
+const COMPANION_SPRITES: Record<string, CompanionSprites> = companionSprites;
 
 const MOB_SPRITES: Record<MobKind, SpriteDef> = { ...mobs, boss: bossMushroomWalk };
 const heroSprites = Object.values(heroAnimations);
@@ -72,12 +77,19 @@ export function sceneContent(compact = false): { width: number; height: number }
 }
 
 type FloatText = { text: string; color: keyof Palette; x: number; y: number; born: number };
+type ClickMark = { x: number; y: number; born: number };
 
 const seconds = (ticks: number) => ticks / TICK_RATE;
 
 export class SceneRenderer {
   private texts: FloatText[] = [];
+  private clicks: ClickMark[] = [];
   private nudge = 0;
+
+  /** A click or tap at device pixel (`px`, `py`) on the canvas: shows a short burst there. */
+  onClick(s: GameState, px: number, py: number, view: View): void {
+    this.clicks.push({ x: px / view.scale, y: (py - view.offsetY) / view.scale, born: s.ticks });
+  }
 
   /** Turns logic events into floating numbers. Positions are resolved at draw time. */
   onEvents(s: GameState, events: readonly GameEvent[], view: View): void {
@@ -123,11 +135,26 @@ export class SceneRenderer {
     drawHero(ctx, s, l, palette, sprites);
     drawMob(ctx, s, l, palette, sprites);
     drawCompanion(ctx, s, l, palette, sprites);
+    this.drawClicks(ctx, s, palette);
+    // After the burst and the crow, so neither covers it.
+    drawMobBar(ctx, s, l, palette);
 
     // Text in device pixels so it stays sharp at any scale.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.drawTexts(ctx, s, view, palette);
     drawIntro(ctx, s, view, palette);
+  }
+
+  private drawClicks(ctx: CanvasRenderingContext2D, s: GameState, p: Palette): void {
+    this.clicks = this.clicks.filter(
+      (c) => s.ticks >= c.born && seconds(s.ticks - c.born) < CLICK_LIFE,
+    );
+    ctx.fillStyle = p.fg;
+    for (const c of this.clicks) {
+      for (const dot of clickBurst(seconds(s.ticks - c.born) / CLICK_LIFE)) {
+        ctx.fillRect(Math.round(c.x + dot.x), Math.round(c.y + dot.y), 1, 1);
+      }
+    }
   }
 
   private drawTexts(ctx: CanvasRenderingContext2D, s: GameState, v: View, p: Palette): void {
@@ -143,7 +170,7 @@ export class SceneRenderer {
   }
 }
 
-type Layout = {
+export type Layout = {
   groundY: number;
   hero: SpriteDef;
   heroX: number;
@@ -153,7 +180,7 @@ type Layout = {
   mobY: number;
 };
 
-function layout(s: GameState, view: View): Layout {
+export function layout(s: GameState, view: View): Layout {
   const groundY = view.height - GROUND;
   const hero = heroAnimations.idle;
   const mob = MOB_SPRITES[s.duel.mob.kind];
@@ -266,8 +293,13 @@ function drawMob(
   const flash = d.mobHurtTick !== null && seconds(d.tick - d.mobHurtTick) < FLASH;
   if (flash) x += 2;
   ctx.drawImage(flash ? sprites.tint(def, frame, p.red) : sprites.frame(def, frame), x, l.mobY);
+}
 
-  // HP bar above the mob.
+/** HP bar above the mob, while it's alive. */
+function drawMobBar(ctx: CanvasRenderingContext2D, s: GameState, l: Layout, p: Palette): void {
+  const d = s.duel;
+  if (d.outcome === 'win' || d.phase === 'mobDying') return;
+  const def = l.mob;
   const barW = def.width;
   const barY = l.mobY - 6;
   const ratio = d.mob.maxHp > 0 ? d.mob.hp / d.mob.maxHp : 0;
@@ -279,6 +311,87 @@ function drawMob(
   ctx.fillRect(l.mobX + 1, barY + 1, Math.ceil((barW - 2) * ratio), 2);
 }
 
+/**
+ * Eight pixels on a ring that grows and thins out over `t` (0..1): the click
+ * burst, as offsets in art pixels from the pointer.
+ */
+export function clickBurst(t: number): { x: number; y: number }[] {
+  const r = CLICK_RADIUS.from + (CLICK_RADIUS.to - CLICK_RADIUS.from) * t;
+  // Diagonals drop out in the second half so the burst fades without alpha.
+  const count = t < 0.5 ? 8 : 4;
+  const dots = [];
+  for (let i = 0; i < count; i++) {
+    const a = (i * Math.PI * 2) / count;
+    dots.push({ x: Math.round(Math.cos(a) * r), y: Math.round(Math.sin(a) * r) });
+  }
+  return dots;
+}
+
+export type CompanionPose = {
+  anim: CompanionAnimation;
+  frame: number;
+  /** Top-left of the companion frame, in art pixels. */
+  x: number;
+  y: number;
+  /** Top-left of the hit effect and its frame, while it shows. */
+  effect: { x: number; y: number; frame: number } | null;
+};
+
+/**
+ * Companion pose: perched on the hero's hat, or the attack flight (fly out,
+ * peck so the hit frame lands with the damage, fly back). Pure, for tests.
+ */
+export function companionPose(s: GameState, l: Layout): CompanionPose | null {
+  const def = companionDef(s);
+  const set = def && COMPANION_SPRITES[def.sprites];
+  if (!def || !set) return null;
+  const { idle, flyOut, peck, flyBack } = set.animations;
+  const perchX = l.heroX + PERCH.x - Math.floor(idle.width / 2);
+  const perchY = l.heroY + PERCH.y - idle.height;
+  const perched: CompanionPose = {
+    anim: 'idle',
+    frame: frameAt(idle, seconds(s.ticks)),
+    x: perchX,
+    y: perchY,
+    effect: null,
+  };
+  const d = s.duel;
+  if (d.companionAttackTick === null) return perched;
+
+  const age = seconds(d.tick - d.companionAttackTick);
+  const peckFps = peck.fps ?? 1;
+  const out = windup(def.attack); // damage lands here
+  const peckStart = out - set.hitFrame / peckFps;
+  const backStart = out + 1 / peckFps; // the hit frame's length
+  if (age >= backStart + PECK_BACK) return perched;
+
+  // Beak tip on the mob's front, about a third down.
+  const targetX = l.mobX - set.hitPoint.x;
+  const targetY = Math.max(0, l.mobY + Math.round(l.mob.height * 0.3) - set.hitPoint.y);
+  const t = age < out ? age / out : age < backStart ? 1 : 1 - (age - backStart) / PECK_BACK;
+  const x = Math.round(perchX + (targetX - perchX) * t);
+  const y = Math.round(perchY + (targetY - perchY) * t - Math.sin(Math.PI * t) * FLIGHT_ARC);
+
+  const fx = set.hitEffect;
+  const fxAge = age - out;
+  const fxFrame = Math.floor(fxAge * (fx.fps ?? 1));
+  const effect =
+    fxAge >= 0 && fxFrame < fx.frames.length
+      ? {
+          x: targetX + set.hitPoint.x - Math.floor(fx.width / 2),
+          y: targetY + set.hitPoint.y - Math.floor(fx.height / 2),
+          frame: fxFrame,
+        }
+      : null;
+
+  if (age < peckStart) return { anim: 'flyOut', frame: frameAt(flyOut, age), x, y, effect };
+  if (age < backStart) {
+    const frame = Math.min(peck.frames.length - 1, Math.floor((age - peckStart) * peckFps));
+    return { anim: 'peck', frame, x, y, effect };
+  }
+  return { anim: 'flyBack', frame: frameAt(flyBack, age - backStart), x, y, effect };
+}
+
 function drawCompanion(
   ctx: CanvasRenderingContext2D,
   s: GameState,
@@ -286,42 +399,23 @@ function drawCompanion(
   p: Palette,
   sprites: SpriteCache,
 ): void {
-  const def = companionDef(s);
-  const sprite = def && COMPANION_SPRITES[def.sprites];
-  if (!def || !sprite) return;
-  const d = s.duel;
-  // Perched just behind the hero's shoulder.
-  const perchX = Math.max(0, l.heroX - sprite.width + 6);
-  const perchY = l.heroY + 16;
-  let x = perchX;
-  let y = perchY;
-  if (d.companionAttackTick !== null) {
-    const out = windup(def.attack);
-    const age = seconds(d.tick - d.companionAttackTick);
-    const targetX = l.mobX - sprite.width + 4;
-    const targetY = Math.max(0, l.mobY + Math.round(l.mob.height * 0.3));
-    const back = Math.max(0, 1 - (age - out - PECK_HOLD) / PECK_BACK);
-    const t = Math.min(1, age < out ? age / out : back);
-    // A small arc up on the way out and back.
-    x = Math.round(perchX + (targetX - perchX) * t);
-    y = Math.round(perchY + (targetY - perchY) * t - Math.sin(Math.PI * t) * 6);
+  const pose = companionPose(s, l);
+  const set = pose && COMPANION_SPRITES[companionDef(s)!.sprites];
+  if (!pose || !set) return;
+  const def = set.animations[pose.anim];
+  // A 1px bg outline so the ink crow reads against the ink hat (like the hero's arm).
+  const outline = sprites.tint(def, pose.frame, p.bg);
+  for (const [dx, dy] of [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ]) {
+    ctx.drawImage(outline, pose.x + dx, pose.y + dy);
   }
-  ctx.drawImage(sprites.frame(sprite, frameAt(sprite, seconds(s.ticks))), x, y);
-
-  // Click cooldown ring around the perch.
-  const cd = companionCooldown(s);
-  if (cd > 0) {
-    ctx.beginPath();
-    ctx.arc(
-      perchX + sprite.width / 2,
-      perchY + sprite.height / 2,
-      Math.max(sprite.width, sprite.height) / 2 + 2,
-      -Math.PI / 2,
-      -Math.PI / 2 + cd * Math.PI * 2,
-    );
-    ctx.strokeStyle = p[COMPANION_DMG_COLOR];
-    ctx.lineWidth = 1;
-    ctx.stroke();
+  ctx.drawImage(sprites.frame(def, pose.frame), pose.x, pose.y);
+  if (pose.effect) {
+    ctx.drawImage(sprites.frame(set.hitEffect, pose.effect.frame), pose.effect.x, pose.effect.y);
   }
 }
 
