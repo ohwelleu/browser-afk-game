@@ -21,15 +21,20 @@ export const FONT_GRID = 11;
 // ── Debug font picker (?afkdebug) ──────────────────────────────────────────
 // Candidates to compare against Pixelify Sans. Their files live in demo/fonts/
 // (with licences) and load by URL only when picked, so the bundle doesn't grow.
-// Every file was checked with fonttools: cmap has ą č ę ė į š ų ū ž + capitals;
-// `grid` = unitsPerEm / the outline step, `cap` = height of H / unitsPerEm.
+// Measured with fonttools on the shipped files: `grid` = pixels per em (every
+// letter/digit outline point sits on unitsPerEm / grid), `cap` = height of H /
+// unitsPerEm, and which of ą č ę ė į š ų ū ž (+ capitals) the cmap lacks.
 
 export type FontCandidate = {
   id: string;
   label: string;
+  /** "shortlist": every Lithuanian letter and usable sizes; "more": the rest, to compare. */
+  group: 'shortlist' | 'more';
   /** File under demo/fonts/; absent = the embedded Pixelify Sans. */
   file?: string;
-  /** Design grid, in pixels per em: crisp at whole multiples of it. */
+  /** Bold face under demo/fonts/, if the font has one. */
+  boldFile?: string;
+  /** Design grid, in pixels per em: crisp at whole multiples of it (1 = no pixel grid). */
   grid: number;
   /** Snap UI (CSS) sizes to the grid; false keeps today's sizes. */
   snapUi: boolean;
@@ -37,6 +42,8 @@ export type FontCandidate = {
   cap: number;
   /** Has a real bold face; without one, bold isn't faked (it smears). */
   bold: boolean;
+  /** Lithuanian letters the font lacks (they fall back to Pixelify). */
+  missing?: string;
   licence: string;
   source: string;
 };
@@ -44,61 +51,189 @@ export type FontCandidate = {
 /** Pixelify Sans' cap height / em (H is 631 of 1000 units). */
 const PIXELIFY_CAP = 0.631;
 const PIXELIFY = {
+  group: 'shortlist',
   grid: FONT_GRID,
   cap: PIXELIFY_CAP,
   bold: true,
   licence: 'OFL-1.1',
   source: 'https://github.com/google/fonts/tree/main/ofl/pixelifysans',
-};
+} as const;
+const GF = 'https://github.com/google/fonts/tree/main/ofl/';
+const GALMURI = 'https://github.com/quiple/galmuri';
+const ARK = 'https://github.com/TakWolf/ark-pixel-font';
+const PIXEL_OPERATOR = 'https://notabug.org/HarvettFox96/ttf-pixeloperator (via dafont.com)';
+
+/** A snapped candidate from demo/fonts/<dir>/<file>. */
+function candidate(
+  group: FontCandidate['group'],
+  id: string,
+  label: string,
+  file: string,
+  grid: number,
+  cap: number,
+  source: string,
+  extra: Partial<FontCandidate> = {},
+): FontCandidate {
+  return {
+    id,
+    label,
+    group,
+    file: `${id}/${file}`,
+    grid,
+    snapUi: true,
+    cap,
+    bold: false,
+    licence: 'OFL-1.1',
+    source,
+    ...extra,
+  };
+}
 
 export const FONT_CANDIDATES: readonly FontCandidate[] = [
   { id: 'pixelify', label: 'Pixelify Sans (current sizes)', snapUi: false, ...PIXELIFY },
   { id: 'pixelify-snap', label: 'Pixelify Sans (snapped to 11 px)', snapUi: true, ...PIXELIFY },
-  {
-    id: 'press-start-2p',
-    label: 'Press Start 2P (8 px grid)',
-    // Unmodified original: the licence reserves the name, so no subsetting.
-    file: 'press-start-2p/PressStart2P-Regular.ttf',
-    grid: 8,
-    snapUi: true,
-    cap: 1,
-    bold: false,
-    licence: 'OFL-1.1',
-    source: 'https://github.com/google/fonts/tree/main/ofl/pressstart2p',
-  },
-  {
-    id: 'tiny5',
-    label: 'Tiny5 (16 px grid)',
-    file: 'tiny5/Tiny5-Regular.subset.woff2',
-    grid: 16,
-    snapUi: true,
-    cap: 0.625,
-    bold: false,
-    licence: 'OFL-1.1',
-    source: 'https://github.com/google/fonts/tree/main/ofl/tiny5',
-  },
-  {
-    id: 'galmuri11',
-    label: 'Galmuri11 (12 px grid)',
-    file: 'galmuri11/Galmuri11.subset.woff2',
-    grid: 12,
-    snapUi: true,
-    cap: 0.9167,
-    bold: false,
-    licence: 'OFL-1.1',
-    source: 'https://github.com/quiple/galmuri',
-  },
-  {
-    id: 'ark-pixel-12',
-    label: 'Ark Pixel 12px (12 px grid)',
-    file: 'ark-pixel-12/ArkPixel12-latin.subset.woff2',
-    grid: 12,
-    snapUi: true,
-    cap: 0.75,
-    bold: false,
-    licence: 'OFL-1.1',
-    source: 'https://github.com/TakWolf/ark-pixel-font',
-  },
+  // Unmodified original: the licence reserves the name, so no subsetting.
+  candidate(
+    'shortlist',
+    'press-start-2p',
+    'Press Start 2P (8 px)',
+    'PressStart2P-Regular.ttf',
+    8,
+    1,
+    `${GF}pressstart2p`,
+  ),
+  candidate(
+    'shortlist',
+    'tiny5',
+    'Tiny5 (8 px)',
+    'Tiny5-Regular.subset.woff2',
+    8,
+    0.625,
+    `${GF}tiny5`,
+  ),
+  candidate(
+    'shortlist',
+    'galmuri11',
+    'Galmuri11 (12 px)',
+    'Galmuri11.subset.woff2',
+    12,
+    0.9167,
+    GALMURI,
+  ),
+  candidate(
+    'shortlist',
+    'ark-pixel-12',
+    'Ark Pixel 12px (12 px)',
+    'ArkPixel12-latin.subset.woff2',
+    12,
+    0.75,
+    ARK,
+  ),
+  candidate('more', 'galmuri7', 'Galmuri7 (8 px)', 'Galmuri7.subset.woff2', 8, 0.875, GALMURI),
+  candidate('more', 'galmuri9', 'Galmuri9 (10 px)', 'Galmuri9.subset.woff2', 10, 0.9, GALMURI),
+  candidate(
+    'more',
+    'ark-pixel-10',
+    'Ark Pixel 10px (10 px)',
+    'ArkPixel10-latin.subset.woff2',
+    10,
+    0.7,
+    ARK,
+  ),
+  candidate(
+    'more',
+    'pixel-operator',
+    'Pixel Operator (16 px)',
+    'PixelOperator.subset.woff2',
+    16,
+    0.5625,
+    PIXEL_OPERATOR,
+    {
+      boldFile: 'pixel-operator/PixelOperator-Bold.subset.woff2',
+      bold: true,
+      missing: 'ąęėįųū ĄĘĖĮŲŪ',
+      licence: 'CC0-1.0',
+    },
+  ),
+  candidate(
+    'more',
+    'pixel-operator-8',
+    'Pixel Operator 8 (8 px)',
+    'PixelOperator8.subset.woff2',
+    8,
+    0.875,
+    PIXEL_OPERATOR,
+    {
+      boldFile: 'pixel-operator-8/PixelOperator8-Bold.subset.woff2',
+      bold: true,
+      missing: 'ąęėįųū ĄĘĖĮŲŪ',
+      licence: 'CC0-1.0',
+    },
+  ),
+  candidate(
+    'more',
+    'silkscreen',
+    'Silkscreen (8 px)',
+    'Silkscreen-Regular.subset.woff2',
+    8,
+    0.625,
+    `${GF}silkscreen`,
+    {
+      boldFile: 'silkscreen/Silkscreen-Bold.subset.woff2',
+      bold: true,
+      missing: 'ąčęėįųū ĄČĘĖĮŲŪ',
+    },
+  ),
+  candidate(
+    'more',
+    'bytesized',
+    'Bytesized (8 px)',
+    'Bytesized-Regular.subset.woff2',
+    8,
+    0.375,
+    `${GF}bytesized`,
+  ),
+  candidate(
+    'more',
+    'micro5',
+    'Micro 5 (11 px)',
+    'Micro5-Regular.subset.woff2',
+    11,
+    0.4545,
+    `${GF}micro5`,
+  ),
+  // Pixels are 75 of 1400 units: crisp at 18.67 px steps.
+  candidate(
+    'more',
+    'jersey10',
+    'Jersey 10 (18.67 px)',
+    'Jersey10-Regular.subset.woff2',
+    1400 / 75,
+    0.5357,
+    `${GF}jersey10`,
+  ),
+  candidate(
+    'more',
+    'vt323',
+    'VT323 (no pixel grid)',
+    'VT323-Regular.subset.woff2',
+    1,
+    0.56,
+    `${GF}vt323`,
+  ),
+  // Round dots on a 16 px grid, slightly inset: never perfectly sharp.
+  candidate(
+    'more',
+    'dotgothic16',
+    'DotGothic16 (16 px, dotted)',
+    'DotGothic16-Regular.subset.woff2',
+    16,
+    0.787,
+    `${GF}dotgothic16`,
+    {
+      missing: 'ąčęėįųū ĄČĘĖĮŲŪ',
+    },
+  ),
 ];
 
 export const DEFAULT_FONT = FONT_CANDIDATES[0];
@@ -148,11 +283,13 @@ export const UI_FONT_SIZES: Readonly<Record<string, number>> = {
   '--afk-fs-popover': 16 * 1.1,
 };
 
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
 /** The size variables for `f`: crisp px values, or none (CSS fallbacks) if it doesn't snap. */
 export function uiFontVars(f: FontCandidate): Record<string, string> {
   if (!f.snapUi) return {};
   return Object.fromEntries(
-    Object.entries(UI_FONT_SIZES).map(([k, px]) => [k, `${crispSize(px, f)}px`]),
+    Object.entries(UI_FONT_SIZES).map(([k, px]) => [k, `${round2(crispSize(px, f))}px`]),
   );
 }
 
@@ -170,14 +307,19 @@ export function loadCandidate(
   if (!f.file || !doc?.fonts || typeof FontFace === 'undefined') return Promise.resolve();
   let load = candidateLoads.get(f.id);
   if (!load) {
-    const url = new URL(f.file, base).href;
-    const face = new FontFace(fontFamily(f), `url(${JSON.stringify(url)})`);
-    doc.fonts.add(face);
-    load = face.load().then(() => undefined);
+    const fonts = doc.fonts;
+    const faces = [[f.file, '400'], ...(f.boldFile ? [[f.boldFile, '700']] : [])].map(
+      ([file, weight]) => {
+        const src = `url(${JSON.stringify(new URL(file, base).href)})`;
+        return new FontFace(fontFamily(f), src, { weight });
+      },
+    );
+    for (const face of faces) fonts.add(face);
+    load = Promise.all(faces.map((face) => face.load())).then(() => undefined);
     candidateLoads.set(f.id, load);
     load.catch(() => {
       candidateLoads.delete(f.id);
-      doc.fonts.delete(face);
+      for (const face of faces) fonts.delete(face);
     });
   }
   return load;

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   activeFont,
@@ -43,20 +44,30 @@ describe('font candidates', () => {
   });
 
   it.each(FONT_CANDIDATES.filter((f) => f.file))(
-    '$id ships its file and licence in demo/fonts',
+    '$id ships its files and licence in demo/fonts',
     (f) => {
-      const file = new URL(f.file!, demoFonts);
-      expect(existsSync(file)).toBe(true);
-      expect(existsSync(join(dirname(file.pathname.replace(/^\/(\w:)/, '$1')), 'OFL.txt'))).toBe(
-        true,
-      );
+      for (const file of [f.file!, f.boldFile].filter((x) => x !== undefined)) {
+        expect(existsSync(fileURLToPath(new URL(file, demoFonts)))).toBe(true);
+      }
+      const dir = fileURLToPath(new URL(`${f.id}/`, demoFonts));
+      const licence = f.licence === 'CC0-1.0' ? 'LICENSE.txt' : 'OFL.txt';
+      expect(existsSync(join(dir, licence))).toBe(true);
     },
   );
 
   it.each(FONT_CANDIDATES.filter((f) => f.snapUi))('$id: every UI size is on its grid', (f) => {
     const vars = uiFontVars(f);
     expect(Object.keys(vars)).toEqual(Object.keys(UI_FONT_SIZES));
-    for (const v of Object.values(vars)) expect(parseInt(v) % f.grid).toBe(0);
+    for (const v of Object.values(vars)) {
+      const steps = parseFloat(v) / f.grid;
+      expect(Math.abs(steps - Math.round(steps))).toBeLessThan(0.01);
+    }
+  });
+
+  it('only the shortlist is promised every Lithuanian letter', () => {
+    for (const f of FONT_CANDIDATES.filter((c) => c.group === 'shortlist')) {
+      expect(f.missing).toBeUndefined();
+    }
   });
 
   it('scale sizes so caps roughly match Pixelify before snapping', () => {

@@ -173,9 +173,7 @@ export function createDebugPanel(
     <summary>Debug</summary>
     <div class="dbg-body">
       <pre class="dbg-stats dbg-live"></pre>
-      <label class="dbg-font">Font<select name="font">${FONT_CANDIDATES.map(
-        (f) => `<option value="${f.id}">${f.label}</option>`,
-      ).join('')}</select></label>
+      <label class="dbg-font">Font<select name="font">${fontOptionsHtml()}</select></label>
       <p class="dbg-sample">${FONT_SAMPLE}<br />${FONT_LETTERS}</p>
       <p class="dbg-stats dbg-font-info"></p>
       <details class="dbg-compare">
@@ -477,6 +475,15 @@ export function createDebugPanel(
   };
 }
 
+/** Picker options: the shortlist first, then the other fonts checked. */
+function fontOptionsHtml(): string {
+  const group = (g: FontCandidate['group'], label: string) =>
+    `<optgroup label="${label}">${FONT_CANDIDATES.filter((f) => f.group === g)
+      .map((f) => `<option value="${f.id}">${fontLabel(f)}</option>`)
+      .join('')}</optgroup>`;
+  return group('shortlist', 'Shortlist') + group('more', 'More (checked, not shortlisted)');
+}
+
 /** One "Compare all fonts" row: name, a Use button and the sample in that font. */
 function compareRowHtml(f: FontCandidate): string {
   const style =
@@ -484,7 +491,7 @@ function compareRowHtml(f: FontCandidate): string {
     (f.bold ? '' : ' font-synthesis: none;');
   return `<div class="dbg-compare-row">
     <div class="dbg-compare-head">
-      <span>${f.label} <span data-compare-status="${f.id}"></span></span>
+      <span>${fontLabel(f)} <span data-compare-status="${f.id}"></span></span>
       <button type="button" data-dbg="use-font" data-font="${f.id}">Use</button>
     </div>
     <p style="${style}">${FONT_SAMPLE}<br />${FONT_LETTERS}</p>
@@ -544,17 +551,23 @@ export function fontInfoText(f: FontCandidate): string {
     ? `UI ${[...new Set(Object.values(vars))].join(' ')}`
     : 'UI unchanged (16 px base)';
   // Same sizes as scene.ts at a typical desktop scale of 4.
-  const damage = crispSize(4 * 5, f);
-  const banner = crispSize(Math.max(22, 4 * 7), f);
-  return (
-    `grid ${f.grid} px · ${ui}
-` +
+  const damage = round2(crispSize(4 * 5, f));
+  const banner = round2(crispSize(Math.max(22, 4 * 7), f));
+  const grid = f.grid === 1 ? 'no pixel grid' : `grid ${round2(f.grid)} px`;
+  return [
+    `${grid} · ${ui}`,
     `canvas (scale 4) damage ${damage} px, banner ${banner} px · ` +
-    `${f.bold ? 'has bold' : 'no bold (not faked)'}
-` +
-    `${f.licence} · ${f.source}`
-  );
+      (f.bold ? 'has bold' : 'no bold (not faked)'),
+    f.missing ? `MISSING ${f.missing} (shown in Pixelify)` : 'all Lithuanian letters',
+    `${f.licence} · ${f.source}`,
+  ].join('\n');
 }
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Dropdown / compare label: name, grid, and a warning when letters are missing. */
+export const fontLabel = (f: FontCandidate): string =>
+  f.missing ? `${f.label} — no ${f.missing.split(' ')[0]}` : f.label;
 
 const percent = (f: number): string => `${Math.round(f * 1000) / 10}%`;
 
