@@ -3,7 +3,7 @@ import { DEFAULT_TRACK, TRACKS } from './tracks';
 import type { GameAudio, SfxName, TrackHandle } from './types';
 
 export type { GameAudio, SfxName, Track, TrackHandle } from './types';
-export { SFX_NAMES };
+export { DEFAULT_TRACK, SFX_NAMES };
 export const TRACK_IDS = Object.keys(TRACKS);
 
 /** Defaults for a fresh save. Low on purpose: this plays on a blog. */

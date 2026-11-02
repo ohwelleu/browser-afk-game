@@ -1,4 +1,4 @@
-import { AUDIO_DEFAULTS, createAudio, TRACK_IDS } from './audio';
+import { AUDIO_DEFAULTS, createAudio, DEFAULT_TRACK, TRACK_IDS } from './audio';
 import type { SfxName } from './audio/types';
 import { HERO_MAX_HP, isBoss } from './game/balance';
 import { formatNumber } from './game/format';
@@ -127,7 +127,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   const audioSettings: AudioSettings = {
     muted: saved?.audio.muted ?? AUDIO_DEFAULTS.muted,
-    track: TRACK_CYCLE.includes(saved?.audio.track ?? '-') ? saved!.audio.track! : TRACK_CYCLE[0],
+    track: TRACK_CYCLE.includes(saved?.audio.track ?? '-') ? saved!.audio.track! : DEFAULT_TRACK,
     musicVolume: saved?.audio.musicVolume ?? AUDIO_DEFAULTS.musicVolume,
     sfxVolume: saved?.audio.sfxVolume ?? AUDIO_DEFAULTS.sfxVolume,
   };
