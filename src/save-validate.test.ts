@@ -61,6 +61,20 @@ describe('validateSaveData', () => {
     expect(r.ok ? [] : r.errors).toHaveLength(2);
   });
 
+  it('checks revealedWeapons strictly', () => {
+    const ok = validateSaveData(
+      { ...valid(), revealedWeapons: [false, false, true, false, false] },
+      TRACKS,
+    );
+    // The owned stick always counts as revealed.
+    expect(ok.ok && ok.progress.revealedWeapons).toEqual([true, false, true, false, false]);
+    for (const revealedWeapons of [null, [], [true, false], [1, 0, 0, 0, 0], undefined]) {
+      const r = validateSaveData({ ...valid(), revealedWeapons }, TRACKS);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join(' ')).toContain('revealedWeapons');
+    }
+  });
+
   it('checks character.defenceLevel strictly', () => {
     const ok = validateSaveData({ ...valid(), character: { defenceLevel: 4 } }, TRACKS);
     expect(ok.ok && ok.progress.character).toEqual({ defenceLevel: 4 });

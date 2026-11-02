@@ -64,6 +64,11 @@ const FIELDS: Field[] = [
     label: `${w.name} level`,
     kind: 'int',
   })),
+  ...WEAPONS.map((w, i): Field => ({
+    key: `revealedWeapons.${i}`,
+    label: `${w.name} shown in shop`,
+    kind: 'bool',
+  })),
   { key: 'equipped', label: 'Equipped weapon (0–4)', kind: 'int' },
   { key: 'autoAdvance', label: 'Auto-advance', kind: 'bool' },
   { key: 'kills', label: 'Kills', kind: 'int' },
@@ -234,6 +239,7 @@ export function createDebugPanel(
     const data: Record<string, unknown> = {
       ...api.read(),
       weaponLevels: [],
+      revealedWeapons: [],
       audio: {},
       companion: {},
     };
