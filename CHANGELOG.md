@@ -12,8 +12,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Crow companion**: unlocks in the Weapons tab after 1.1 is cleared (25
   coins) and pecks the mob when you click or tap the game (0.5 s cooldown).
   Upgrades: damage, auto attack (150, every 3.0 s) and speed (down to
-  1.0 s). Crow damage numbers have their own colour. Placeholder sprite in
-  the game; the real crow sprites are in the sprite set.
+  1.0 s). Crow damage numbers have their own colour. It sits on the hero's
+  hat and uses its own sprites (idle, fly-out, peck with an impact spark,
+  fly-back).
+- Clicking or tapping the game shows a small pixel burst, even while the
+  crow is on cooldown.
 - **Rings and pendants** (tiers C/B/A/S) drop from monsters, with damage,
   defence, speed and item find. 20-slot bag, equip/unequip/sell in
   Inventory, a drop toast, and a sparkle for S items.
@@ -27,11 +30,22 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   `src/sprites/generated/`, with exact palette errors (frame, x, y,
   colour). Not used by the game yet.
 - Design doc `docs/design/active-play.md` (crow, items).
+- Debugger: crow fields, Give item (slot + tier), Force drop on next kill,
+  Clear bag; live crow DPS, item totals and drop chance; the save string
+  with a copy button, main/backup status and a "corrupt main save" button
+  to test the backup.
 
 ### Changed
 
 - Buying a weapon equips it right away if it hits at least as hard as the
-  current one. The Weapons tab can also equip owned weapons.
+  current one.
+- **Menu**: the Upgrades tab is gone; weapons and the crow are upgraded in
+  Inventory. The Weapons tab is now **Shop** with sub tabs Weapons ·
+  Companions · Ascend (coming soon), and shows when the crow unlocks.
+  Inventory has sub tabs Weapons · Companions · Accessories.
+- **Bigger swords**: about twice as long to match the 32×64 hero, each tier
+  with its own guard, grip and pommel. The wind-up raises the sword overhead,
+  and slash arcs grow with the tier.
 - **Save string**: saves are stored as a checksummed `AFK1.…` string with a
   backup slot (`<save-key>.bak`). A damaged save falls back to the backup,
   then to a new game, and never crashes. Old plain-JSON saves load as before

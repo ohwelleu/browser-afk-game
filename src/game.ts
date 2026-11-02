@@ -444,6 +444,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         reset: debugReset,
       },
       TRACK_CYCLE,
+      { saveKey: opts.saveKey },
     );
   }
   applyTheme();

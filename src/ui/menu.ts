@@ -28,7 +28,7 @@ import {
   nextWeapon,
   type GameState,
 } from '../game/state';
-import { coinSpin, crowPlaceholder, weapons as weaponSprites, type SpriteDef } from '../sprites';
+import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '../sprites';
 import { createShow, html, setClass, setFlag } from './dom';
 import { createGearView, GEAR_HTML } from './gear';
 import { dialogHtml } from './modal';
@@ -478,9 +478,9 @@ export function createMenu(deps: MenuDeps): Menu {
       setWeaponIcon(img, Number(img.dataset.tier));
     }
     for (const img of $$<HTMLImageElement>('img[data-icon="companion"]')) {
-      img.src = deps.iconUrl(crowPlaceholder);
-      img.width = crowPlaceholder.width * ICON_SCALE;
-      img.height = crowPlaceholder.height * ICON_SCALE;
+      img.src = deps.iconUrl(crowIcon);
+      img.width = crowIcon.width * ICON_SCALE;
+      img.height = crowIcon.height * ICON_SCALE;
     }
     gear.refreshIcons();
   }
