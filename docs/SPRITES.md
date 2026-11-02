@@ -43,6 +43,8 @@ In **dark mode** `#` and `o` swap: the ink becomes light and the cut-outs
 dark. Accents stay the same. Draw in the light version and the dark one
 comes for free.
 
+Every colour with both themes' hex values and pictures: [COLORS.md](COLORS.md).
+
 **Load it:** Aseprite / LibreSprite → Palette menu (☰ above the palette) →
 _Load Palette_ → `art/afk-palette.gpl`. Pixelorama: Palette → Import. In
 Piskel, add the hex codes by hand.
