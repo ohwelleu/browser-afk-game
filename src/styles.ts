@@ -1,8 +1,9 @@
-import { FONT_STACK } from './ui/font';
+import { defaultFontVarsCss, FONT_STACK } from './ui/font';
 
-// Pixel font: 16 px is the smallest size that reads well in menus. It is off
-// the 11 px design grid (11 px is too small, 22 px too big for menu text), so
-// edges are slightly soft; canvas text snaps to the grid instead.
+// Pixel font (Press Start 2P, 8 px grid): every font size is a --afk-fs*
+// variable set on .box to a crisp multiple of the grid (src/ui/font.ts), so
+// the debug font picker can swap fonts and sizes. The var() fallbacks are the
+// old Pixelify design sizes. No bold face, so bold is never faked.
 export const STYLES = `
 :host {
   display: block;
@@ -20,7 +21,9 @@ export const STYLES = `
   color: var(--_fg);
   border: 3px solid var(--_fg);
   container-type: inline-size;
-  font: 16px/1.35 ${FONT_STACK};
+  ${defaultFontVarsCss()}
+  font: var(--afk-fs, 16px)/1.35 ${FONT_STACK};
+  font-synthesis: none;
 }
 canvas {
   position: absolute;
@@ -56,7 +59,7 @@ img { image-rendering: pixelated; display: block; }
   z-index: 3;
 }
 .overlay[hidden] { display: none; }
-.start { font-size: 16px; padding: 8px 20px; }
+.start { font-size: var(--afk-fs, 16px); padding: 8px 20px; }
 
 /* HUD */
 .hud {
@@ -114,6 +117,13 @@ img { image-rendering: pixelated; display: block; }
   padding: 6px 10px;
 }
 
+
+/* Size variables for the em sizes in menu.ts, modal.ts and sound.ts. The .box
+   prefix outranks those rules; each fallback is the same em size. */
+.box .menu .panel { font-size: var(--afk-fs-menu, 1.15em); }
+.box .panel h2 { font-size: var(--afk-fs-title, 1.15em); }
+.box .menu-head h2 { font-size: var(--afk-fs-menu-title, 1.2em); }
+.box .popover .panel { font-size: var(--afk-fs-popover, 1.1em); }
 
 /* Menu → Help: save export/import (src/ui/save-panel.ts) */
 .save-panel textarea {

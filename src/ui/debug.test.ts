@@ -3,11 +3,16 @@ import { ITEMS } from '../game/balance';
 import { forceNextDrop, newGear, onKill, rollItem } from '../game/items';
 import { createState, newProgress } from '../game/state';
 import { backupKey, loadSave, toSaveData, validateSaveData, writeSave } from '../save';
+import { DEFAULT_FONT } from './font';
 import {
   clearBag,
   corruptSaveString,
   describeStored,
   extraStats,
+  findFont,
+  FONT_LETTERS,
+  FONT_SAMPLE,
+  fontInfoText,
   fromFormView,
   giveItem,
   saveStatus,
@@ -145,5 +150,27 @@ describe('save string and backup', () => {
   it('describes missing and old saves', () => {
     expect(describeStored(null)).toBe('missing');
     expect(describeStored('{"world":1}')).toBe('old JSON save');
+  });
+});
+
+describe('font picker', () => {
+  it('falls back to the default font for unknown or missing ids', () => {
+    expect(findFont(null)).toBe(DEFAULT_FONT);
+    expect(findFont('nope')).toBe(DEFAULT_FONT);
+    expect(findFont('tiny5').id).toBe('tiny5');
+  });
+
+  it('describes grid, sizes and licence', () => {
+    expect(fontInfoText(findFont('pixelify'))).toContain('not snapped');
+    const info = fontInfoText(findFont('press-start-2p'));
+    expect(info).toContain('grid 8 px');
+    expect(info).toContain('UI 8px 16px');
+    expect(info).toContain('OFL-1.1');
+  });
+
+  it('shows every Lithuanian letter, both cases', () => {
+    for (const c of 'ąčęėįšųūžĄČĘĖĮŠŲŪŽ') {
+      expect(FONT_SAMPLE + FONT_LETTERS).toContain(c);
+    }
   });
 });

@@ -15,6 +15,17 @@ import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
 import { heroDefence } from '../game/state';
 import {
+  crispSize,
+  DEFAULT_FONT,
+  FONT_CANDIDATES,
+  FONT_STACK,
+  fontFamily,
+  loadCandidate,
+  uiFontVars,
+  useFont,
+  type FontCandidate,
+} from './font';
+import {
   backupKey,
   decodeSave,
   DEFAULT_SAVE_KEY,
@@ -41,6 +52,8 @@ export type DebugOptions = {
   saveKey?: string;
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null;
   reload?: () => void;
+  /** Where the font picker's candidate files live (default: `fonts/` next to the page). */
+  fontBase?: string;
 };
 
 export type DebugPanel = {
@@ -99,7 +112,7 @@ const STYLES = `
   overflow: auto;
   background: var(--_bg);
   border: 3px solid var(--_fg);
-  font-size: 12px;
+  font-size: var(--afk-fs-small, 12px);
 }
 .dbg summary { cursor: pointer; padding: 4px 8px; font-weight: bold; }
 .dbg[open] summary { border-bottom: 3px solid var(--_fg); }
@@ -119,7 +132,17 @@ const STYLES = `
 .dbg textarea { width: 100%; height: 120px; resize: vertical; }
 .dbg textarea.dbg-str { height: 48px; word-break: break-all; }
 .dbg-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.dbg-row button { font-size: 12px; padding: 2px 8px; }
+.dbg-row button { font-size: var(--afk-fs-small, 12px); padding: 2px 8px; }
+.dbg-font { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
+.dbg-sample { margin: 0; font-size: var(--afk-fs, 16px); overflow-wrap: anywhere; }
+.dbg-font-info { overflow-wrap: anywhere; }
+.dbg-compare summary { padding: 0; font-weight: normal; }
+.dbg-compare[open] summary { border: 0; margin-bottom: 6px; }
+.dbg-compare-list { display: grid; gap: 8px; }
+.dbg-compare-row { display: grid; gap: 2px; border-top: 3px solid var(--_fg); padding-top: 6px; }
+.dbg-compare-head { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
+.dbg-compare-head button { font-size: var(--afk-fs-small, 12px); padding: 0 6px; }
+.dbg-compare-row p { margin: 0; overflow-wrap: anywhere; }
 .dbg-err { margin: 0; color: var(--_red); white-space: pre-wrap; }
 .dbg-ok { margin: 0; color: var(--_green); }
 .dbg [hidden] { display: none; }
@@ -154,6 +177,13 @@ export function createDebugPanel(
     <summary>Debug</summary>
     <div class="dbg-body">
       <pre class="dbg-stats dbg-live"></pre>
+      <label class="dbg-font">Font<select name="font">${fontOptionsHtml()}</select></label>
+      <p class="dbg-sample">${FONT_SAMPLE}<br />${FONT_LETTERS}</p>
+      <p class="dbg-stats dbg-font-info"></p>
+      <details class="dbg-compare">
+        <summary>Compare all fonts</summary>
+        <div class="dbg-compare-list">${FONT_CANDIDATES.map(compareRowHtml).join('')}</div>
+      </details>
       <div class="dbg-row">
         <button type="button" data-dbg="load">Load current</button>
         <button type="button" data-dbg="reset">Reset all progress</button>
@@ -199,6 +229,51 @@ export function createDebugPanel(
   const ask = $<HTMLSpanElement>('.dbg-ask');
   const err = $<HTMLParagraphElement>('.dbg-err');
   const ok = $<HTMLParagraphElement>('.dbg-ok');
+  const fontSelect = $<HTMLSelectElement>('[name="font"]');
+  const fontInfo = $<HTMLParagraphElement>('.dbg-font-info');
+  const fontBase = options.fontBase ?? new URL('fonts/', document.baseURI).href;
+
+  /** Loads `f`, then switches every text on this game (and canvas text) to it. */
+  function pickFont(f: FontCandidate, remember: boolean): void {
+    fontSelect.value = f.id;
+    fontInfo.textContent = `Loading ${f.label}…`;
+    useFont(f, fontBase).then(
+      () => {
+        if (fontSelect.value !== f.id) return; // another pick came after this one
+        styleFont(parent, f);
+        fontInfo.textContent = fontInfoText(f);
+        if (remember) {
+          try {
+            storage?.setItem(FONT_KEY, f.id);
+          } catch {
+            // storage blocked: the pick just isn't remembered
+          }
+        }
+      },
+      () => {
+        if (fontSelect.value === f.id) fontInfo.textContent = `Could not load ${f.file ?? f.id}.`;
+      },
+    );
+  }
+  fontSelect.addEventListener('change', () => pickFont(findFont(fontSelect.value), true));
+
+  // "Compare all fonts": loads every candidate the first time it opens; each
+  // row shows the sample in its font at its crisp body size.
+  const compare = $<HTMLDetailsElement>('.dbg-compare');
+  let compareLoaded = false;
+  compare.addEventListener('toggle', () => {
+    if (!compare.open || compareLoaded) return;
+    compareLoaded = true;
+    for (const f of FONT_CANDIDATES) {
+      const status = $<HTMLSpanElement>(`[data-compare-status="${f.id}"]`);
+      status.textContent = 'loading…';
+      loadCandidate(f, fontBase).then(
+        () => (status.textContent = ''),
+        () => (status.textContent = 'could not load'),
+      );
+    }
+  });
+  pickFont(findFont(storage?.getItem(FONT_KEY) ?? null), false);
 
   function fieldHtml(f: Field): string {
     const id = `dbg-${f.key.replace(/\./g, '-')}`;
@@ -311,6 +386,11 @@ export function createDebugPanel(
       case 'load':
         load();
         return;
+      case 'use-font': {
+        const id = (e.target as Element).closest<HTMLElement>('[data-font]')?.dataset.font;
+        pickFont(findFont(id ?? null), true);
+        return;
+      }
       case 'reset':
         confirm('Clear the save and restart from 1.1?', () => {
           api.reset();
@@ -400,6 +480,34 @@ export function createDebugPanel(
   };
 }
 
+/** Picker options: the shortlist first, then the other fonts checked. */
+function fontOptionsHtml(): string {
+  const group = (g: FontCandidate['group'], label: string) =>
+    `<optgroup label="${label}">${FONT_CANDIDATES.filter((f) => f.group === g)
+      .map((f) => `<option value="${f.id}">${fontLabel(f)}</option>`)
+      .join('')}</optgroup>`;
+  return group('shortlist', 'Shortlist') + group('more', 'More (checked, not shortlisted)');
+}
+
+/** One "Compare all fonts" row: name, a Use button and the sample in that font. */
+function compareRowHtml(f: FontCandidate): string {
+  const size = round2(f.snapUi ? crispSize(16, f) : 16);
+  const style = `font-family: ${fontFamily(f)}, ${FONT_STACK}; font-size: ${size}px;`;
+  return `<div class="dbg-compare-row">
+    <div class="dbg-compare-head">
+      <span>${fontLabel(f)} <span data-compare-status="${f.id}"></span></span>
+      <button type="button" data-dbg="use-font" data-font="${f.id}">Use</button>
+    </div>
+    <p style="${style}">${FONT_SAMPLE}<br />${FONT_LETTERS}</p>
+  </div>`;
+}
+
+/** Inline styles on the game box: family and crisp size variables. */
+function styleFont(box: HTMLElement, f: FontCandidate): void {
+  box.style.fontFamily = f.file ? `${fontFamily(f)}, ${FONT_STACK}` : '';
+  for (const [k, v] of Object.entries(uiFontVars(f))) box.style.setProperty(k, v);
+}
+
 function safeStorage(): Storage | null {
   try {
     return window.localStorage;
@@ -425,6 +533,42 @@ function set(obj: Record<string, unknown>, path: string, value: unknown): void {
 }
 
 // ── Pure helpers (exported for tests) ──────────────────────────────────────
+
+/** localStorage key of the font picker's choice (debug only). */
+export const FONT_KEY = 'afk-debug-font';
+/** Every Lithuanian letter, digits and the number suffixes. */
+export const FONT_SAMPLE = 'Ąžuolas čiulba: šešios ūsų ėdės — 1234567890 K M B';
+/** The sample has no ę or į: every Lithuanian letter, both cases. */
+export const FONT_LETTERS = 'ĄČĘĖĮŠŲŪŽ ąčęėįšųūž';
+
+/** The candidate with `id`, or the default for unknown or missing ids. */
+export const findFont = (id: string | null): FontCandidate =>
+  FONT_CANDIDATES.find((f) => f.id === id) ?? DEFAULT_FONT;
+
+/** Grid, licence and the px sizes the font gets, for the picker. */
+export function fontInfoText(f: FontCandidate): string {
+  const vars = uiFontVars(f);
+  const ui = f.snapUi
+    ? `UI ${[...new Set(Object.values(vars))].join(' ')}`
+    : `UI ${[...new Set(Object.values(vars))].join(' ')} (old Pixelify sizes, not snapped)`;
+  // Same sizes as scene.ts at a typical desktop scale of 4.
+  const damage = round2(crispSize(4 * 5, f));
+  const banner = round2(crispSize(Math.max(22, 4 * 7), f));
+  const grid = f.grid === 1 ? 'no pixel grid' : `grid ${round2(f.grid)} px`;
+  return [
+    `${grid} · ${ui}`,
+    `canvas (scale 4) damage ${damage} px, banner ${banner} px · ` +
+      (f.bold ? 'has bold' : 'no bold (not faked)'),
+    f.missing ? `MISSING ${f.missing} (shown in the game font)` : 'all Lithuanian letters',
+    `${f.licence} · ${f.source}`,
+  ].join('\n');
+}
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Dropdown / compare label: name, grid, and a warning when letters are missing. */
+export const fontLabel = (f: FontCandidate): string =>
+  f.missing ? `${f.label} — no ${f.missing.split(' ')[0]}` : f.label;
 
 const percent = (f: number): string => `${Math.round(f * 1000) / 10}%`;
 
