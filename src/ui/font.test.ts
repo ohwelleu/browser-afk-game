@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   activeFont,
   boldPrefix,
   crispSize,
+  defaultFontVarsCss,
   DEFAULT_FONT,
   FONT_CANDIDATES,
   fontStack,
@@ -22,18 +23,34 @@ const demoFonts = new URL('../../demo/fonts/', import.meta.url);
 
 afterEach(resetActiveFont);
 
-describe('default font (Pixelify Sans)', () => {
-  it('is active and snaps canvas text to the 11 px grid as before', () => {
+describe('default font (Press Start 2P, embedded)', () => {
+  it('is active and snaps canvas text to its 8 px grid', () => {
     expect(activeFont()).toBe(DEFAULT_FONT);
-    expect(snapFontSize(20)).toBe(22);
-    expect(snapFontSize(28)).toBe(33);
-    expect(snapFontSize(3)).toBe(11);
-    expect(boldPrefix()).toBe('bold ');
+    expect(DEFAULT_FONT.id).toBe('press-start-2p');
+    expect(DEFAULT_FONT.file).toBeUndefined();
+    // Damage numbers (scale × 5) and the banner (≥ 22) at scale 4 and 6.
+    expect(snapFontSize(20)).toBe(16);
+    expect(snapFontSize(30)).toBe(16);
+    expect(snapFontSize(42)).toBe(24);
+    expect(snapFontSize(3)).toBe(8);
+    expect(boldPrefix()).toBe('');
     expect(fontStack().startsWith('afk-pixel,')).toBe(true);
   });
 
-  it('keeps the shipped UI sizes', () => {
-    expect(uiFontVars(DEFAULT_FONT)).toEqual({});
+  it('gives the CSS crisp sizes: 8 px text, 16 px menu titles', () => {
+    expect(uiFontVars(DEFAULT_FONT)).toEqual({
+      '--afk-fs': '8px',
+      '--afk-fs-small': '8px',
+      '--afk-fs-menu': '8px',
+      '--afk-fs-menu-title': '16px',
+      '--afk-fs-title': '8px',
+      '--afk-fs-popover': '8px',
+    });
+    expect(defaultFontVarsCss()).toContain('--afk-fs: 8px;');
+  });
+
+  it('keeps Pixelify at its old sizes as a picker option', () => {
+    expect(uiFontVars(byId('pixelify'))['--afk-fs']).toBe('16px');
   });
 });
 
@@ -49,7 +66,7 @@ describe('font candidates', () => {
       for (const file of [f.file!, f.boldFile].filter((x) => x !== undefined)) {
         expect(existsSync(fileURLToPath(new URL(file, demoFonts)))).toBe(true);
       }
-      const dir = fileURLToPath(new URL(`${f.id}/`, demoFonts));
+      const dir = dirname(fileURLToPath(new URL(f.file!, demoFonts)));
       const licence = f.licence === 'CC0-1.0' ? 'LICENSE.txt' : 'OFL.txt';
       expect(existsSync(join(dir, licence))).toBe(true);
     },
@@ -79,12 +96,12 @@ describe('font candidates', () => {
     expect(uiFontVars(byId('pixelify-snap'))['--afk-fs-menu-title']).toBe('22px');
   });
 
-  it('switch canvas text once picked (no faked bold)', async () => {
+  it('switch canvas text once picked', async () => {
     // Node has no FontFace: useFont just switches.
-    await useFont(byId('press-start-2p'), 'http://x/fonts/');
-    expect(fontStack().startsWith('afk-font-press-start-2p,')).toBe(true);
-    expect(boldPrefix()).toBe('');
-    expect(snapFontSize(20)).toBe(16);
+    await useFont(byId('pixelify'), 'http://x/fonts/');
+    expect(fontStack().startsWith('afk-font-pixelify,')).toBe(true);
+    expect(boldPrefix()).toBe('bold ');
+    expect(snapFontSize(20)).toBe(22);
   });
 
   it('load for comparison without becoming active', async () => {

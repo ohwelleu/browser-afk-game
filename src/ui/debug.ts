@@ -21,7 +21,6 @@ import {
   FONT_STACK,
   fontFamily,
   loadCandidate,
-  UI_FONT_SIZES,
   uiFontVars,
   useFont,
   type FontCandidate,
@@ -486,9 +485,8 @@ function fontOptionsHtml(): string {
 
 /** One "Compare all fonts" row: name, a Use button and the sample in that font. */
 function compareRowHtml(f: FontCandidate): string {
-  const style =
-    `font-family: ${fontFamily(f)}, ${FONT_STACK}; font-size: ${f.snapUi ? crispSize(16, f) : 16}px;` +
-    (f.bold ? '' : ' font-synthesis: none;');
+  const size = round2(f.snapUi ? crispSize(16, f) : 16);
+  const style = `font-family: ${fontFamily(f)}, ${FONT_STACK}; font-size: ${size}px;`;
   return `<div class="dbg-compare-row">
     <div class="dbg-compare-head">
       <span>${fontLabel(f)} <span data-compare-status="${f.id}"></span></span>
@@ -498,12 +496,9 @@ function compareRowHtml(f: FontCandidate): string {
   </div>`;
 }
 
-/** Inline styles on the game box: family, no faked bold, crisp size variables. */
+/** Inline styles on the game box: family and crisp size variables. */
 function styleFont(box: HTMLElement, f: FontCandidate): void {
   box.style.fontFamily = f.file ? `${fontFamily(f)}, ${FONT_STACK}` : '';
-  if (f.bold) box.style.removeProperty('font-synthesis');
-  else box.style.setProperty('font-synthesis', 'none');
-  for (const k of Object.keys(UI_FONT_SIZES)) box.style.removeProperty(k);
   for (const [k, v] of Object.entries(uiFontVars(f))) box.style.setProperty(k, v);
 }
 
@@ -549,7 +544,7 @@ export function fontInfoText(f: FontCandidate): string {
   const vars = uiFontVars(f);
   const ui = f.snapUi
     ? `UI ${[...new Set(Object.values(vars))].join(' ')}`
-    : 'UI unchanged (16 px base)';
+    : `UI ${[...new Set(Object.values(vars))].join(' ')} (old Pixelify sizes, not snapped)`;
   // Same sizes as scene.ts at a typical desktop scale of 4.
   const damage = round2(crispSize(4 * 5, f));
   const banner = round2(crispSize(Math.max(22, 4 * 7), f));
@@ -558,7 +553,7 @@ export function fontInfoText(f: FontCandidate): string {
     `${grid} · ${ui}`,
     `canvas (scale 4) damage ${damage} px, banner ${banner} px · ` +
       (f.bold ? 'has bold' : 'no bold (not faked)'),
-    f.missing ? `MISSING ${f.missing} (shown in Pixelify)` : 'all Lithuanian letters',
+    f.missing ? `MISSING ${f.missing} (shown in the game font)` : 'all Lithuanian letters',
     `${f.licence} · ${f.source}`,
   ].join('\n');
 }

@@ -1,10 +1,9 @@
-import { FONT_STACK } from './ui/font';
+import { defaultFontVarsCss, FONT_STACK } from './ui/font';
 
-// Pixel font: 16 px is the smallest size that reads well in menus. It is off
-// the 11 px design grid (11 px is too small, 22 px too big for menu text), so
-// edges are slightly soft; canvas text snaps to the grid instead.
-// Font sizes read --afk-fs* variables (fallbacks = the shipped sizes) so the
-// debug font picker can set crisp sizes for another font (src/ui/font.ts).
+// Pixel font (Press Start 2P, 8 px grid): every font size is a --afk-fs*
+// variable set on .box to a crisp multiple of the grid (src/ui/font.ts), so
+// the debug font picker can swap fonts and sizes. The var() fallbacks are the
+// old Pixelify design sizes. No bold face, so bold is never faked.
 export const STYLES = `
 :host {
   display: block;
@@ -22,7 +21,9 @@ export const STYLES = `
   color: var(--_fg);
   border: 3px solid var(--_fg);
   container-type: inline-size;
+  ${defaultFontVarsCss()}
   font: var(--afk-fs, 16px)/1.35 ${FONT_STACK};
+  font-synthesis: none;
 }
 canvas {
   position: absolute;

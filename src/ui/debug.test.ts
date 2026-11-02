@@ -161,7 +161,7 @@ describe('font picker', () => {
   });
 
   it('describes grid, sizes and licence', () => {
-    expect(fontInfoText(findFont('pixelify'))).toContain('UI unchanged');
+    expect(fontInfoText(findFont('pixelify'))).toContain('not snapped');
     const info = fontInfoText(findFont('press-start-2p'));
     expect(info).toContain('grid 8 px');
     expect(info).toContain('UI 8px 16px');
