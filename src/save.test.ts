@@ -133,6 +133,7 @@ describe('writeSave / loadSave', () => {
       autoAdvance: false,
       coins: 123,
       weaponLevels: [7, 2, 0, 0, 0],
+      revealedWeapons: [true, true, false, false, false],
       equipped: 1,
       kills: 0,
       deaths: 0,
@@ -370,6 +371,7 @@ describe('save migration', () => {
       coins: 5,
       companion: null,
       character: { defenceLevel: 0 },
+      revealedWeapons: [true, false, false, false, false],
     };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
     expect(migrateSave({ version: 2, coins: 5 })).toEqual(want);
@@ -419,7 +421,7 @@ describe('character upgrades in the save (v4)', () => {
   it('keeps the defence level across a save round trip', () => {
     const st = createState({ ...newProgress(), character: { defenceLevel: 7 } });
     const data = toSaveData(st, audio, '0.4.0');
-    expect(data.version).toBe(4);
+    expect(data.version).toBe(SAVE_VERSION);
     expect(data.character).toEqual({ defenceLevel: 7 });
     const s = memory();
     writeSave(s, 'k', data);
@@ -428,7 +430,11 @@ describe('character upgrades in the save (v4)', () => {
 
   it('v3 → v4 adds character with defence level 0', () => {
     const v3 = { version: 3, coins: 5, companion: null };
-    expect(migrateSave(v3)).toEqual({ ...v3, version: 4, character: { defenceLevel: 0 } });
+    expect(migrateSave(v3)).toMatchObject({
+      ...v3,
+      version: SAVE_VERSION,
+      character: { defenceLevel: 0 },
+    });
   });
 
   it('repairs a missing or broken character in a plain JSON save', () => {
@@ -438,5 +444,71 @@ describe('character upgrades in the save (v4)', () => {
     expect(char(undefined)).toEqual({ defenceLevel: 0 });
     expect(char({ defenceLevel: -2 })).toEqual({ defenceLevel: 0 });
     expect(char({ defenceLevel: 3 })).toEqual({ defenceLevel: 3 });
+  });
+});
+
+describe('revealed weapons in the save (v5)', () => {
+  const v4 = (coins: number, weaponLevels = [3, 1, 0, 0, 0]) => ({
+    version: 4,
+    coins,
+    weaponLevels,
+    companion: null,
+    character: { defenceLevel: 0 },
+  });
+
+  it('v4 → v5 reveals owned weapons plus what the coins reach 90% of', () => {
+    expect(migrateSave(v4(0))).toEqual({
+      ...v4(0),
+      version: 5,
+      revealedWeapons: [true, true, false, false, false],
+    });
+    // 2,700 is 90% of the stone sword (3,000); not yet the iron sword.
+    expect(migrateSave(v4(2_700)).revealedWeapons).toEqual([true, true, true, false, false]);
+    // A long AFK: several at once.
+    expect(migrateSave(v4(2_430_000)).revealedWeapons).toEqual([true, true, true, true, true]);
+    // Owned is always revealed, even when broke.
+    expect(migrateSave(v4(0, [1, 1, 1, 1, 0])).revealedWeapons).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  it('a v4 save string loads with the migrated list', () => {
+    const st = createState({ ...newProgress(), coins: 2_800 });
+    const { revealedWeapons: _, ...old } = toSaveData(st, audio, '0.4.0');
+    const r = decodeSave(encodeSave({ ...old, version: 4 } as never));
+    expect(r.ok && r.progress.revealedWeapons).toEqual([true, true, true, false, false]);
+  });
+
+  it('keeps revealed weapons across a save round trip, even after spending', () => {
+    const st = createState({ ...newProgress(), coins: 2_800 });
+    expect(st.revealedWeapons).toEqual([true, true, true, false, false]);
+    const s = memory();
+    writeSave(s, 'k', toSaveData({ ...st, coins: 0 }, audio, '0.5.0'));
+    const loaded = loadSave(s, 'k').saved!.progress;
+    expect(loaded.coins).toBe(0);
+    expect(loaded.revealedWeapons).toEqual([true, true, true, false, false]);
+    expect(createState(loaded).revealedWeapons).toEqual([true, true, true, false, false]);
+  });
+
+  it('repairs a missing or broken list in a plain JSON save', () => {
+    const rev = (revealedWeapons: unknown) =>
+      loadSave(
+        memory({
+          k: JSON.stringify({
+            version: 5,
+            coins: 95,
+            weaponLevels: [1, 0, 0, 0, 0],
+            revealedWeapons,
+          }),
+        }),
+        'k',
+      ).saved!.progress.revealedWeapons;
+    expect(rev(undefined)).toEqual([true, true, false, false, false]);
+    expect(rev('x')).toEqual([true, true, false, false, false]);
+    expect(rev([false, false, false, true])).toEqual([true, true, false, true, false]);
   });
 });

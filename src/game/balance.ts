@@ -56,6 +56,12 @@ export const WEAPONS: readonly WeaponStats[] = [
   { name: 'Gold sword', baseDmg: 1_296, price: 2_700_000, upgradeBase: 1_600_000 },
 ];
 
+/**
+ * Shop → Weapons shows a weapon once coins reach this share of its price
+ * (game/reveal.ts). Once shown it stays shown.
+ */
+export const WEAPON_REVEAL_FRACTION = 0.9;
+
 export const UPGRADE_GROWTH = 1.15;
 
 const MOB_HP = { base: 10, growth: 1.28, boss: 5 };

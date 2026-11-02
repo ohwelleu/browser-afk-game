@@ -17,6 +17,7 @@ import {
   type ItemStat,
   type ItemTier,
 } from './balance';
+import { revealWeapons } from './reveal';
 import { nextFloat, pickWeighted, randomSeed, type Rng } from './rng';
 import type { GameState } from './state';
 
@@ -136,7 +137,9 @@ export const mobHitDamage = defendedDamage;
 // ── Actions (same contract as state.ts: unchanged state = not allowed) ─────
 
 function withGear(s: GameState, items: Gear, coins = s.coins): GameState {
-  return { ...s, items, coins, events: [{ type: 'save' }] };
+  const next = { ...s, items, coins, events: [{ type: 'save' }] as GameState['events'] };
+  revealWeapons(next); // selling an item can bring a weapon within reach
+  return next;
 }
 
 /** Equips an item from the bag; the item already in that slot goes back to the bag. */

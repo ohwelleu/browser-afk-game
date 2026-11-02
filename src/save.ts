@@ -13,6 +13,7 @@ import {
   type GameState,
   type Progress,
 } from './game/state';
+import { revealedWeapons } from './game/reveal';
 import { loadGear, saveGear, validateGear } from './save-items';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
@@ -23,8 +24,10 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  * 2. + `items` (ring, pendant, bag, drop RNG); old saves load with empty gear
  * 3. + `companion` (the crow); old saves load with an empty slot
  * 4. + `character: { defenceLevel }` (coin upgrades); old saves start at 0
+ * 5. + `revealedWeapons` (weapons shown in Shop → Weapons); old saves reveal
+ *    owned weapons and any the current coins reach 90% of
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -38,6 +41,10 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   },
   3: (d) => {
     d.character = { defenceLevel: 0 };
+  },
+  4: (d) => {
+    const levels = Array.isArray(d.weaponLevels) ? d.weaponLevels : [];
+    d.revealedWeapons = revealedWeapons(levels, isInt(d.coins, 0) ? d.coins : 0);
   },
 };
 
@@ -124,6 +131,7 @@ function repairV1(data: Record<string, unknown>): Loaded {
     return isInt(v, 0) ? v : fresh.weaponLevels[i];
   });
   weaponLevels[0] = Math.max(1, weaponLevels[0]);
+  const coins = isInt(data.coins, 0) ? data.coins : fresh.coins;
   const equipped =
     isInt(data.equipped, 0) && (weaponLevels[data.equipped] ?? 0) >= 1 ? data.equipped : 0;
   const stageOk = isInt(data.stage, 1) && data.stage <= STAGES_PER_WORLD && isInt(data.world, 1);
@@ -139,8 +147,14 @@ function repairV1(data: Record<string, unknown>): Loaded {
       stage,
       best: Math.max(isInt(data.best, 1) ? data.best : 1, stageLevel(world, stage)),
       autoAdvance: typeof data.autoAdvance === 'boolean' ? data.autoAdvance : fresh.autoAdvance,
-      coins: isInt(data.coins, 0) ? data.coins : fresh.coins,
+      coins,
       weaponLevels,
+      // No list (v1–v4) or a broken one: owned weapons plus the 90% rule.
+      revealedWeapons: revealedWeapons(
+        weaponLevels,
+        coins,
+        Array.isArray(data.revealedWeapons) ? data.revealedWeapons : [],
+      ),
       equipped,
       kills: isInt(data.kills, 0) ? data.kills : 0,
       deaths: isInt(data.deaths, 0) ? data.deaths : 0,
@@ -233,6 +247,15 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     }
   }
 
+  const revealed = d.revealedWeapons;
+  if (
+    !Array.isArray(revealed) ||
+    revealed.length !== WEAPONS.length ||
+    !revealed.every((v) => typeof v === 'boolean')
+  ) {
+    errors.push(`revealedWeapons must be a list of ${WEAPONS.length} true/false values.`);
+  }
+
   const c = d.companion;
   if (c !== null) {
     if (!c || typeof c !== 'object' || Array.isArray(c)) {
@@ -289,6 +312,12 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       autoAdvance: d.autoAdvance as boolean,
       coins: d.coins as number,
       weaponLevels: [...(levels as number[])],
+      // Owned or affordable weapons count as revealed even if the list says otherwise.
+      revealedWeapons: revealedWeapons(
+        levels as number[],
+        d.coins as number,
+        revealed as boolean[],
+      ),
       equipped: d.equipped as number,
       kills: d.kills as number,
       deaths: d.deaths as number,
@@ -323,6 +352,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     autoAdvance: s.autoAdvance,
     coins: s.coins,
     weaponLevels: [...s.weaponLevels],
+    revealedWeapons: [...s.revealedWeapons],
     equipped: s.equipped,
     kills: s.kills,
     deaths: s.deaths,

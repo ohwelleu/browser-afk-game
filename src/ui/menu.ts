@@ -34,6 +34,7 @@ import {
   nextWeapon,
   type GameState,
 } from '../game/state';
+import { hiddenWeaponCount } from '../game/reveal';
 import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '../sprites';
 import { createShow, html, setClass, setFlag } from './dom';
 import { createGearView, GEAR_HTML } from './gear';
@@ -304,7 +305,7 @@ const SHOP = {
       </li>`,
     ).join('')}</ul>
     <p class="note">Defence from rings and pendants counts too. A hit always does at least 1.</p>`,
-  weapons: weaponRows(
+  weapons: `${weaponRows(
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>`,
     (i) =>
@@ -312,7 +313,8 @@ const SHOP = {
       `<span class="tag on shop-owned">Owned</span>` +
       `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
       `<span class="tag shop-locked">Locked</span>`,
-  ),
+  )}
+    <p class="note shop-more" hidden>More weapons appear as you earn coins.</p>`,
   companions: `
     <ul class="list"><li class="item comp-shop">
       ${companionIcon}
@@ -609,6 +611,8 @@ export function createMenu(deps: MenuDeps): Menu {
       const owned = state.weaponLevels[i] >= 1;
       const isNext = i === next;
       const locked = !owned && !isNext;
+      // Weapons only show up near their price (game/reveal.ts); hidden ones say nothing.
+      setFlag(li, 'hidden', state.revealedWeapons[i] !== true);
       setClass(li, 'locked', locked);
       show(li.querySelector('.shop-dmg')!, `${formatNumber(w.baseDmg)} base dmg`);
       // The next weapon shows its price on the Buy button, the others as text.
@@ -627,6 +631,7 @@ export function createMenu(deps: MenuDeps): Menu {
       setFlag(buy, 'disabled', isNext && !affordable);
       show(buy, isNext && !affordable ? 'Not enough coins' : '', 'title');
     }
+    setFlag($('.shop-more'), 'hidden', hiddenWeaponCount(state) === 0);
   }
 
   function refreshShopCompanions(state: GameState): void {

@@ -35,6 +35,7 @@ import {
   type MobKind,
 } from './balance';
 import { gearTotals, mobHitDamage, newGear, onKill, type Gear, type Item } from './items';
+import { revealedWeapons, revealWeapons } from './reveal';
 
 export type Phase = 'intro' | 'fighting' | 'mobDying' | 'heroDying' | 'transition';
 
@@ -95,6 +96,8 @@ export type GameState = {
   coins: number;
   /** Level per weapon tier; 0 = not owned. The stick is always owned. */
   weaponLevels: number[];
+  /** Per weapon tier: shown in Shop → Weapons (game/reveal.ts). Never goes back to false. */
+  revealedWeapons: boolean[];
   equipped: number;
   kills: number;
   deaths: number;
@@ -121,6 +124,7 @@ export type Progress = Pick<
   | 'autoAdvance'
   | 'coins'
   | 'weaponLevels'
+  | 'revealedWeapons'
   | 'equipped'
   | 'kills'
   | 'deaths'
@@ -140,6 +144,7 @@ export function newProgress(): Progress {
     autoAdvance: true,
     coins: 0,
     weaponLevels: WEAPONS.map((_, i) => (i === 0 ? 1 : 0)),
+    revealedWeapons: revealedWeapons([1], 0),
     equipped: 0,
     kills: 0,
     deaths: 0,
@@ -156,6 +161,11 @@ export function createState(progress: Progress = newProgress()): GameState {
     ...progress,
     best: Math.max(progress.best, stageLevel(progress.world, progress.stage)),
     weaponLevels: [...progress.weaponLevels],
+    revealedWeapons: revealedWeapons(
+      progress.weaponLevels,
+      progress.coins,
+      progress.revealedWeapons,
+    ),
     // Old saves have no maxDps (0): start from what the hero does right now.
     maxDps: Math.max(progress.maxDps, heroDps(progress)),
     companion: progress.companion ? { ...progress.companion } : null,
@@ -231,6 +241,8 @@ export function update(state: GameState, dt: number): GameState {
   const n = Math.max(1, Math.round(dt * TICK_RATE));
   const s = draft(state);
   for (let i = 0; i < n; i++) step(s);
+  // Coins only go up while fighting (kills, auto-sold drops): an open shop updates.
+  if (revealWeapons(s)) s.events.push({ type: 'save' });
   return s;
 }
 
