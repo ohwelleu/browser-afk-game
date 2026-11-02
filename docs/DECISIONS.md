@@ -201,3 +201,16 @@ bump in `package.json`, `[Unreleased]` becomes the new version's update
 notes in `CHANGELOG.md`, tag `vX.Y.Z`, GitHub Release. `main` (the live
 site) always equals the last release. Replaces the `integrate/wave*`
 branches. Steps in [WORKFLOW.md](WORKFLOW.md#branches-and-releases).
+
+## 2026-11-02: Owner decisions (hand, defence, upgrades, shop tab, branches)
+
+- **White hand:** leave it as it is. The hero animations will be redrawn
+  later, with normal attack animations per weapon, so the hand question goes
+  away then.
+- **Item defence:** decide after the simulator shows how it plays.
+- **Unequipped weapons can be upgraded.**
+- **Third Shop tab is Ascend.** Accessories (rings, pendants) are never
+  sold, they only drop from monsters.
+- **Branch cleanup:** merged branches and all `pr-assets/*` branches are
+  deleted (old PR images go with them). One shared `pr-assets` branch from
+  now on.
