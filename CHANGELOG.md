@@ -38,6 +38,15 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   Clear bag; live crow DPS, item totals and drop chance; the save string
   with a copy button, main/backup status and a "corrupt main save" button
   to test the backup.
+- Debug: font picker (`?afkdebug` → Font, and Compare all fonts) to try
+  17 pixel fonts live; candidates load from `demo/fonts/`, not the bundle.
+- Sprite converter reads Aseprite sprite sheets (PNG + JSON, Array or Hash):
+  each tag becomes an animation, frame durations are kept.
+- Palette: new brown accent (slot `N`, `--afk-brown`), also in the PNG
+  converter and `art/afk-palette.gpl`.
+- Docs: `docs/COLORS.md` lists every colour in both themes, with swatches
+  and sprite pictures. `npm run colors-doc` regenerates the colour images
+  and table from the code.
 
 ### Fixed
 
@@ -64,8 +73,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   `character.defenceLevel`). Old saves load with an empty bag, an empty
   companion slot and defence level 0.
 - **Pixel font**: all UI text (HUD, menus, buttons, damage numbers, stage
-  banner) uses Pixelify Sans, embedded as a 12.6 KB WOFF2 subset (Latin +
-  Lithuanian). Bundle +18 kB (+15 kB gzip).
+  banner) uses Press Start 2P (for now; the debug font picker compares
+  others), embedded as a 4 KB WOFF2 subset (Latin + Lithuanian) renamed
+  "AFK Start" as its licence requires. Sizes snap to its 8 px grid (8 px
+  text, 16 px menu titles), so text is crisp. No bold face, so bold is
+  never faked.
+- **Synthwave** is now the default music for new players; the music switch
+  cycles Synthwave → Medieval → Off. Existing saves keep their chosen track.
+- Shop → Weapons shows a weapon only when you have 90 % of its price. Once
+  shown it stays, and a long AFK can reveal several at once.
+- Save data version 5 adds `revealedWeapons`. Old saves keep every weapon
+  you own plus anything you can nearly afford.
+- Wooden sword and its slash arc are now brown wood instead of orange.
 - `art/hero-idle.png` re-exported in the exact palette colours, feet on the
   bottom row.
 - Plan and backlog updated: milestones marked done; new items for the sprite
