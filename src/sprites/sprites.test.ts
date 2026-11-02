@@ -51,6 +51,25 @@ describe('sprites', () => {
     }
   });
 
+  it('every weapon anchor sits in the hero hand (the bg cut-out)', () => {
+    for (const [anim, list] of Object.entries(S.heroWeaponAnchors)) {
+      const frames = S.heroAnimations[anim as S.HeroAnimation].frames;
+      list.forEach((a, f) => {
+        if (a) expect([anim, f, frames[f][a.y][a.x]]).toEqual([anim, f, 'o']);
+      });
+    }
+  });
+
+  it('swords are sized for the 32×64 hero and grow with the tier', () => {
+    const lengths = S.weapons.map((w) => w.poses.fwd.sprite.width);
+    for (const len of lengths) expect(len).toBeGreaterThanOrEqual(22);
+    for (let i = 1; i < lengths.length; i++) expect(lengths[i]).toBeGreaterThan(lengths[i - 1]);
+  });
+
+  it('slash arcs stay above the ground', () => {
+    expect(S.slashArcOffset.y + S.slashArcs[0].height).toBeLessThanOrEqual(S.heroSlash.height);
+  });
+
   it('hero holds the weapon in front on every frame', () => {
     for (const list of Object.values(S.heroWeaponAnchors)) {
       for (const a of list) expect(a?.behind ?? false).toBe(false);
