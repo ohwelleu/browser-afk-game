@@ -17,6 +17,7 @@ export const COLOR_TO_SLOT: Readonly<Record<string, string>> = {
   '#16a34a': 'G',
   '#2563eb': 'B',
   '#db2777': 'K',
+  '#8b5a2b': 'N',
 };
 
 /** Marker colours from the palette. Recognised, but markers come in a later step. */

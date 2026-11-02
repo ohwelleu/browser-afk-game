@@ -51,17 +51,19 @@ describe('sprite converter', () => {
       ['G', [0x16, 0xa3, 0x4a, 255]],
       ['B', [0x25, 0x63, 0xeb, 255]],
       ['K', [0xdb, 0x27, 0x77, 255]],
+      ['N', [0x8b, 0x5a, 0x2b, 255]],
       ['.', [0x12, 0x34, 0x56, 0]], // any colour with alpha 0 is transparent
+      ['.', [0x00, 0x00, 0x00, 0]],
     ];
     const png = makePng(
-      10,
+      12,
       1,
       CLEAR,
       colors.map(([, px], x) => [x, 0, px]),
     );
-    const { strip, errors } = pngToStrip(png, 't', { width: 5, height: 1 });
+    const { strip, errors } = pngToStrip(png, 't', { width: 6, height: 1 });
     expect(errors).toEqual([]);
-    expect(strip.frames).toEqual([['#oOYR'], ['PGBK.']]);
+    expect(strip.frames).toEqual([['#oOYRP'], ['GBKN..']]);
   });
 
   it('reports colours not in the palette with frame and position', () => {

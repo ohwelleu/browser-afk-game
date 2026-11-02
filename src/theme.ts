@@ -1,7 +1,16 @@
 export type ThemeMode = 'dark' | 'light' | 'auto';
 export type Theme = 'dark' | 'light';
 
-export const COLOR_NAMES = ['orange', 'yellow', 'red', 'purple', 'green', 'blue', 'pink'] as const;
+export const COLOR_NAMES = [
+  'orange',
+  'yellow',
+  'red',
+  'purple',
+  'green',
+  'blue',
+  'pink',
+  'brown',
+] as const;
 export type ColorName = (typeof COLOR_NAMES)[number];
 
 export type Palette = { bg: string; fg: string } & Record<ColorName, string>;
@@ -17,6 +26,7 @@ export const DEFAULT_PALETTES: Record<Theme, Palette> = {
     green: '#22c55e',
     blue: '#4f8bff',
     pink: '#f472b6',
+    brown: '#c08552',
   },
   light: {
     bg: '#ece9e2',
@@ -28,6 +38,7 @@ export const DEFAULT_PALETTES: Record<Theme, Palette> = {
     green: '#16a34a',
     blue: '#2563eb',
     pink: '#db2777',
+    brown: '#8b5a2b',
   },
 };
 

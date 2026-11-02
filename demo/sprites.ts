@@ -3,40 +3,18 @@
 import * as S from '../src/sprites/index';
 import type { Point, SpriteDef, WeaponAnchor, WeaponDef } from '../src/sprites/types';
 import { validateAnchors, validateSprite, validateWeapon } from '../src/sprites/validate';
+import { SLOTS } from '../src/render/sprites';
+import { DEFAULT_PALETTES } from '../src/theme';
 
 type Theme = { name: string; bg: string; fg: string; colours: Record<string, string> };
 
-// From docs/PLAN.md "Pixel art › Colours".
-const THEMES: Theme[] = [
-  {
-    name: 'dark',
-    bg: '#1f1f1f',
-    fg: '#ece9e2',
-    colours: {
-      O: '#ff7a1a',
-      P: '#9b6bff',
-      G: '#22c55e',
-      B: '#4f8bff',
-      Y: '#facc15',
-      R: '#ef4444',
-      K: '#f472b6',
-    },
-  },
-  {
-    name: 'light',
-    bg: '#ece9e2',
-    fg: '#1f1f1f',
-    colours: {
-      O: '#ff6b00',
-      P: '#7c3aed',
-      G: '#16a34a',
-      B: '#2563eb',
-      Y: '#eab308',
-      R: '#dc2626',
-      K: '#db2777',
-    },
-  },
-];
+// Straight from the game's theme, so new palette slots show up here too.
+const THEMES: Theme[] = (['dark', 'light'] as const).map((name) => {
+  const p = DEFAULT_PALETTES[name];
+  const colours: Record<string, string> = {};
+  for (const [ch, key] of Object.entries(SLOTS)) if (key) colours[ch] = p[key];
+  return { name, bg: p.bg, fg: p.fg, colours };
+});
 
 const SCALES = [1, 3, 6];
 

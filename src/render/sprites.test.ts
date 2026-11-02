@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { SpriteDef } from '../sprites/types';
-import { DEFAULT_PALETTES } from '../theme';
+import { PALETTE_SLOTS, type SpriteDef } from '../sprites/types';
+import { COLOR_NAMES, DEFAULT_PALETTES } from '../theme';
 import { bossMushroomWalk, heroSlash, slashArcs } from '../sprites';
-import { frameAt, framePixels, validateSprite } from './sprites';
+import { frameAt, framePixels, SLOTS, validateSprite } from './sprites';
 
 const sprite = (frames: string[][], fps?: number): SpriteDef => ({
   name: 'test',
@@ -16,7 +16,7 @@ const BLANK = ['...', '...'];
 describe('validateSprite', () => {
   it('accepts every palette slot', () => {
     expect(() => validateSprite(sprite([['.#o', 'OYR']]))).not.toThrow();
-    expect(() => validateSprite(sprite([['PGB', 'K..']]))).not.toThrow();
+    expect(() => validateSprite(sprite([['PGB', 'KN.']]))).not.toThrow();
   });
 
   it('rejects wrong sizes and unknown chars', () => {
@@ -24,6 +24,12 @@ describe('validateSprite', () => {
     expect(() => validateSprite(sprite([['...', '..']]))).toThrow(/row 1/);
     expect(() => validateSprite(sprite([['..x', '...']]))).toThrow(/unknown slot "x"/);
     expect(() => validateSprite(sprite([]))).toThrow(/no frames/);
+  });
+
+  it('has a slot for every theme colour', () => {
+    const used = Object.values(SLOTS).filter(Boolean).sort();
+    expect(used).toEqual(['bg', 'fg', ...COLOR_NAMES].sort());
+    expect(new Set(Object.keys(SLOTS))).toEqual(new Set(PALETTE_SLOTS));
   });
 
   it('accepts the real sprites', () => {
@@ -44,6 +50,7 @@ describe('framePixels', () => {
       p.pink,
       p.blue,
     ]);
+    expect(framePixels(sprite([['N..', '...']]), 0, p)[0]).toBe(p.brown);
   });
 });
 
