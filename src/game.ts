@@ -24,6 +24,7 @@ import {
   validateSaveData,
   writeSave,
   type AudioSettings,
+  type SaveData,
 } from './save';
 import { SfxMixer } from './sfx-mixer';
 import { coinSpin, icons, type SpriteDef } from './sprites';
@@ -141,7 +142,15 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   // ── Dialogs (menu modal, sound popover): one open at a time ──────────────
 
   const dialogs = new Dialogs(root, box);
-  const menu = createMenu({ act, iconUrl });
+  const menu = createMenu({
+    act,
+    iconUrl,
+    save: {
+      read: () => toSaveData(state, audioSettings, __VERSION__),
+      apply: importSave,
+      tracks: TRACK_CYCLE,
+    },
+  });
   const sound = createSoundPanel(
     {
       toggleMute() {
@@ -316,6 +325,12 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     refreshUi();
     if (!loop.running) draw();
     return null;
+  }
+
+  /** Help → Load: the current game becomes the backup, then `data` replaces it. */
+  function importSave(data: SaveData): string[] | null {
+    writeSave(storage, opts.saveKey, toSaveData(state, audioSettings, __VERSION__));
+    return debugApply(data);
   }
 
   function debugReset(): void {

@@ -114,4 +114,21 @@ img { image-rendering: pixelated; display: block; }
   padding: 6px 10px;
 }
 
+
+/* Menu → Help: save export/import (src/ui/save-panel.ts) */
+.save-panel textarea {
+  display: block;
+  width: 100%;
+  font: 14px/1.3 monospace;
+  color: var(--_fg);
+  background: var(--_bg);
+  border: 3px solid var(--_fg);
+  border-radius: 0;
+  padding: 6px;
+  resize: vertical;
+  word-break: break-all;
+}
+.save-panel textarea:focus-visible { outline: 3px solid var(--_fg); outline-offset: 2px; }
+.save-msg { min-height: 1.35em; margin: 8px 0; }
+.save-msg.error { color: var(--_red); }
 `;

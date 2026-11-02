@@ -32,6 +32,7 @@ import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '..
 import { createShow, html, setClass, setFlag } from './dom';
 import { createGearView, GEAR_HTML } from './gear';
 import { dialogHtml } from './modal';
+import { createSavePanel, type SavePanelDeps } from './save-panel';
 
 // Sizes are in em so a future pixel font can change the metrics in one place.
 export const MENU_STYLES = `
@@ -176,6 +177,8 @@ export type MenuDeps = {
   act(fn: (s: GameState) => GameState): void;
   /** Data URL of a sprite's first frame in the current palette. */
   iconUrl(def: SpriteDef): string;
+  /** Save export/import in Help. */
+  save: SavePanelDeps;
 };
 
 export type Menu = {
@@ -305,6 +308,7 @@ const HELP = `
       <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A or the rare S). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed or item find.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. Click or tap anywhere on the game to make it peck the monster.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
+      <div class="save-slot"></div>
       <h3>Credits</h3>
       <p>Sound effects: ZzFX by Frank Force (MIT licence).<br />Music: original chiptune, synthesized in the browser.<br />Sprites: original pixel art, drawn in code.</p>
       <p class="note">browser-afk-game v${__VERSION__}</p>
@@ -364,6 +368,9 @@ export function createMenu(deps: MenuDeps): Menu {
     coinUrl: () => deps.iconUrl(coinSpin),
   });
 
+  const savePanel = createSavePanel(deps.save);
+  $('.save-slot').replaceWith(savePanel.el);
+
   const subTabsOf = (tab: string) => $$<HTMLButtonElement>(`[data-subtabs="${tab}"] [role="tab"]`);
 
   function selectSub(tab: string, sub: string, focus = false): void {
@@ -387,6 +394,7 @@ export function createMenu(deps: MenuDeps): Menu {
       setFlag($(`#${t.getAttribute('aria-controls')}`), 'hidden', !on);
     }
     if (focus) selectedTab().focus({ preventScroll: true });
+    if (tab === 'help') savePanel.refresh();
     if (last) refresh(last);
   }
 
