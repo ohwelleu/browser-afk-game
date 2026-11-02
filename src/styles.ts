@@ -3,6 +3,8 @@ import { FONT_STACK } from './ui/font';
 // Pixel font: 16 px is the smallest size that reads well in menus. It is off
 // the 11 px design grid (11 px is too small, 22 px too big for menu text), so
 // edges are slightly soft; canvas text snaps to the grid instead.
+// Font sizes read --afk-fs* variables (fallbacks = the shipped sizes) so the
+// debug font picker can set crisp sizes for another font (src/ui/font.ts).
 export const STYLES = `
 :host {
   display: block;
@@ -20,7 +22,7 @@ export const STYLES = `
   color: var(--_fg);
   border: 3px solid var(--_fg);
   container-type: inline-size;
-  font: 16px/1.35 ${FONT_STACK};
+  font: var(--afk-fs, 16px)/1.35 ${FONT_STACK};
 }
 canvas {
   position: absolute;
@@ -56,7 +58,7 @@ img { image-rendering: pixelated; display: block; }
   z-index: 3;
 }
 .overlay[hidden] { display: none; }
-.start { font-size: 16px; padding: 8px 20px; }
+.start { font-size: var(--afk-fs, 16px); padding: 8px 20px; }
 
 /* HUD */
 .hud {
@@ -114,6 +116,13 @@ img { image-rendering: pixelated; display: block; }
   padding: 6px 10px;
 }
 
+
+/* Size variables for the em sizes in menu.ts, modal.ts and sound.ts. The .box
+   prefix outranks those rules; each fallback is the same em size. */
+.box .menu .panel { font-size: var(--afk-fs-menu, 1.15em); }
+.box .panel h2 { font-size: var(--afk-fs-title, 1.15em); }
+.box .menu-head h2 { font-size: var(--afk-fs-menu-title, 1.2em); }
+.box .popover .panel { font-size: var(--afk-fs-popover, 1.1em); }
 
 /* Menu → Help: save export/import (src/ui/save-panel.ts) */
 .save-panel textarea {

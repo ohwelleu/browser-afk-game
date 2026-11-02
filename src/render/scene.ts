@@ -19,7 +19,7 @@ import {
   type SpriteDef,
 } from '../sprites';
 import type { Palette } from '../theme';
-import { FONT_STACK, snapFontSize } from '../ui/font';
+import { boldPrefix, fontStack, snapFontSize } from '../ui/font';
 import { frameAt, type SpriteCache } from './sprites';
 import type { View } from './view';
 
@@ -440,7 +440,7 @@ function text(
   color: string,
   outline: string,
 ): void {
-  ctx.font = `bold ${size}px ${FONT_STACK}`;
+  ctx.font = `${boldPrefix()}${size}px ${fontStack()}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
