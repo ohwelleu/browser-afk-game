@@ -7,7 +7,7 @@ import type { SpriteDef } from '../sprites';
 import { createShow, setFlag } from './dom';
 
 /**
- * Ring & pendant UI: the slots and the bag (in the menu's Inventory tab) and
+ * Ring & pendant UI: the slots and the bag (menu → Inventory → Accessories) and
  * the drop toast. Tier frames use existing accents until the palette step
  * picks the C/B/A/S colours.
  */
@@ -76,7 +76,7 @@ function frame(deps: GearDeps, slot: ItemSlot, it: Item | null): string {
 const coinPrice = (coin: string, n: number) =>
   `<span class="price"><img alt="" src="${coin}" /><span>${formatNumber(n)}</span></span>`;
 
-/** Inventory-tab markup; `createGearView` fills it. */
+/** Inventory → Accessories markup; `createGearView` fills it. */
 export const GEAR_HTML = `
   <h3 class="gear-head">Ring &amp; pendant</h3>
   <ul class="list gear-list gear-slots"></ul>
