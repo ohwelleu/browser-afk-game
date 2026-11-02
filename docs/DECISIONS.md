@@ -180,3 +180,14 @@ time. Trustworthy rankings need a server: Firebase is the first candidate
 Firebase leaderboard + anonymous unique sessions, research only. Open:
 what's ranked (highest stage? ascends?), how much cheating we accept, and
 a privacy note on the site.
+
+## 2026-11-01: Keep the sword, make it bigger
+
+The owner chose to keep swords as the weapon (not the slap) and to redraw
+them about 2× bigger for the 32×64 hero.
+
+## 2026-11-01: Save string format vs data version
+
+`AFK1` is the save string format (checksum, base64url). `version` inside is
+the data version: 1 first demo, 2 adds `items`, 3 adds `companion`. Older
+saves are migrated on load; plain-JSON saves from 0.2.0 still load.

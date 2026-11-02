@@ -11,8 +11,8 @@ The owner draws all sprites and animations in Aseprite/LibreSprite. A
 converter brings them into the game. Full guide: [SPRITES.md](SPRITES.md).
 Each line below is its own thread, in this order.
 
-- [ ] palette file (`art/afk-palette.gpl`, exists) + PNG → sprite, with
-      palette checks
+- [x] palette file (`art/afk-palette.gpl`, exists) + PNG → sprite, with
+      palette checks (`npm run sprites`, PR #10)
 - [ ] Aseprite JSON: tags = animations, per-frame durations
 - [ ] marker layers: `hit` (damage frame), `anchor` (weapon grip),
       `fx` (effect origin)
@@ -24,9 +24,10 @@ Each line below is its own thread, in this order.
 
 - [x] **Hero v2**: the owner's own 32×64 assassin sprite. Idle copied 1:1,
       the other frames derived, the attack is a slap with the white hand.
-- [ ] **Bigger, better swords**: the weapons were drawn for the old 32×32
-      hero and look tiny now. Redraw all tiers about 2× longer with more
-      detail, then re-place the grip anchors and slash arcs.
+- [ ] **Bigger, better swords** (owner, 2026-11-01: "enlarge swords"): the
+      weapons were drawn for the old 32×32 hero and look tiny now. Redraw all
+      tiers about 2× longer with more detail, then re-place the grip anchors
+      and slash arcs.
 - [ ] **Bigger mobs and boss** to match the hero (mobs 32–48 tall, boss
       64–96).
 - [ ] Owner draws the hero animations (idle, slap, hurt, death), then mobs.
@@ -37,18 +38,29 @@ Each line below is its own thread, in this order.
       damage number style.
 - [ ] Decide: is the white hand always white (new palette slot) or does it
       swap with the theme?
-- [ ] Decide: keep the sword, or make the slap itself the attack?
+- [x] Decide: keep the sword, or make the slap the attack? → **Keep the
+      sword, make it bigger** (2026-11-01).
 
 ## Character
 
-- [ ] **Equip a bought weapon**: buying a new weapon doesn't equip it today
-      (you have to go to Inventory). Proposal: auto-equip on buy when it hits
-      harder than the current one, and add an "Equip" button right in the shop.
-- [ ] **Defence upgrade**: reduces mob damage. Proposal:
+- [x] **Equip a bought weapon**: auto-equip when it hits at least as hard,
+      plus Equip in the shop (PR #9).
+- [ ] **Defence upgrade** (owner: "I don't see it"): items give defence
+      (PR #17), but there's no coin upgrade yet. Add a Character upgrade:
       `taken = dmg × 100 / (100 + defence)`, so it never reaches zero.
 - [ ] Hero HP upgrades (then revisit mob damage growth).
 - [ ] **Speed upgrade** (attack speed), after ascend lands, because it
       multiplies everything.
+
+## Crow (companion)
+
+- [x] Crow companion: click to peck, auto attack, upgrades (PR #18).
+- [ ] **Move the crow** further left, perched on top of the hero.
+- [ ] **Click animation**: visible feedback where you click/tap.
+- [ ] **Remove the cooldown ring** ("loader") around the crow.
+- [ ] Use the real crow sprites (PR #16) instead of the placeholder.
+- [ ] **Show when the crow becomes buyable** in the shop ("Unlocks after
+      clearing 1.1") instead of hiding it.
 
 ## Weapons & items
 
@@ -81,16 +93,24 @@ Each line below is its own thread, in this order.
 
 ## Shop & UI
 
-- [ ] **Shop with tabs**: Character (HP, defence, speed) · Weapons · Ascend
-      · Other (items, cosmetics).
+- [ ] **Menu restructure** (owner, 2026-11-01):
+  - remove the **Upgrades** tab; weapon upgrades move into **Inventory**
+  - rename **Weapons** to **Shop**, with sub tabs **Weapons · Companions ·
+    Accessories/Ascend** (to confirm which one the owner meant)
+  - **Inventory** gets the same sub tabs (Weapons · Companions · Accessories)
+  - later: a Character sub tab (HP, defence, speed)
 - [ ] **Help behind a small ⓘ icon** instead of a menu tab.
-- [ ] Pixel font (Pixelify Sans / Silkscreen / Press Start 2P, with
-      Lithuanian letters).
+- [x] Pixel font: Pixelify Sans, with Lithuanian letters (PR #12).
+- [ ] **Debugger: new features**: edit the crow and items (give an item of
+      any tier, force a drop), max DPS.
 
 ## Save & sharing
 
-- [ ] **Save v2**: `AFK1.<base64url(JSON)>.<checksum>`, backup slot, `.txt`
-      export/import, one-tab guard.
+- [x] **Save string** `AFK1.<base64url(JSON)>.<checksum>` + backup slot
+      (PR #11).
+- [ ] **Save and load in Help**: copy/paste the save string and
+      download/upload a `.txt`, with a preview and a confirm.
+- [ ] One-tab guard.
 - [ ] **Share progress**: a "Copy save" link like
       `…/en/game#save=AFK1…` that loads the save on another device.
 - [ ] Be honest in the UI: the checksum stops typos and casual edits.
