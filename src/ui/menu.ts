@@ -88,7 +88,7 @@ export const MENU_STYLES = `
   min-height: 64px;
 }
 .item.locked { opacity: 0.5; }
-.icon { flex: none; width: 48px; height: 48px; display: grid; place-items: center; }
+.icon { flex: none; width: 56px; height: 56px; display: grid; place-items: center; }
 .item-body { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .item-name { font-weight: bold; }
 .item-stats { display: flex; flex-wrap: wrap; gap: 0 14px; }
@@ -190,6 +190,12 @@ export type Menu = {
 
 /** Icons are drawn at a whole-number scale only (pixel art). */
 const ICON_SCALE = 3;
+/** Icon box size in CSS px (`.icon`). Sprites are scaled by whole numbers to fit it. */
+const ICON_BOX = 56;
+
+/** Largest whole-number scale (≤ ICON_SCALE, ≥ 1) at which the sprite fits the icon box. */
+export const iconScale = (def: Pick<SpriteDef, 'width' | 'height'>): number =>
+  Math.max(1, Math.min(ICON_SCALE, Math.floor(ICON_BOX / Math.max(def.width, def.height))));
 
 const price = (cls: string) =>
   `<span class="price"><img alt="" data-icon="coin" /><span class="${cls}"></span></span>`;
@@ -467,8 +473,9 @@ export function createMenu(deps: MenuDeps): Menu {
     const def = weaponSprites.find((w) => w.tier === tier)?.poses.upFwd.sprite;
     if (!def) return;
     img.src = deps.iconUrl(def);
-    img.width = def.width * ICON_SCALE;
-    img.height = def.height * ICON_SCALE;
+    const scale = iconScale(def);
+    img.width = def.width * scale;
+    img.height = def.height * scale;
   }
 
   function refreshIcons(): void {
@@ -479,8 +486,8 @@ export function createMenu(deps: MenuDeps): Menu {
     }
     for (const img of $$<HTMLImageElement>('img[data-icon="companion"]')) {
       img.src = deps.iconUrl(crowIcon);
-      img.width = crowIcon.width * ICON_SCALE;
-      img.height = crowIcon.height * ICON_SCALE;
+      img.width = crowIcon.width * iconScale(crowIcon);
+      img.height = crowIcon.height * iconScale(crowIcon);
     }
     gear.refreshIcons();
   }
