@@ -1,5 +1,28 @@
-import { WEAPONS } from '../game/balance';
-import type { SaveData } from '../save';
+import {
+  COMPANIONS,
+  companionAutoInterval,
+  companionDamage,
+  companionMaxSpeedLevel,
+  isBoss,
+  ITEM_SLOTS,
+  ITEM_TIERS,
+  ITEMS,
+  WEAPONS,
+  type ItemSlot,
+  type ItemTier,
+} from '../game/balance';
+import { formatNumber } from '../game/format';
+import { forceNextDrop, gearTotals, rollItem } from '../game/items';
+import {
+  backupKey,
+  decodeSave,
+  DEFAULT_SAVE_KEY,
+  encodeSave,
+  loadSave,
+  SAVE_PREFIX,
+  type LoadStatus,
+  type SaveData,
+} from '../save';
 
 /** What the debugger needs from the running game. */
 export type DebugApi = {
@@ -9,6 +32,14 @@ export type DebugApi = {
   apply(data: unknown): string[] | null;
   /** Clears the save and restarts from 1.1. */
   reset(): void;
+};
+
+/** Optional wiring; the defaults fit the demo page. */
+export type DebugOptions = {
+  /** localStorage key of the save (the game's `save-key`). */
+  saveKey?: string;
+  storage?: Pick<Storage, 'getItem' | 'setItem'> | null;
+  reload?: () => void;
 };
 
 export type DebugPanel = {
@@ -37,6 +68,14 @@ const FIELDS: Field[] = [
   { key: 'kills', label: 'Kills', kind: 'int' },
   { key: 'deaths', label: 'Deaths', kind: 'int' },
   { key: 'maxDps', label: 'Max DPS', kind: 'int' },
+  { key: 'companion.owned', label: 'Crow owned', kind: 'bool' },
+  { key: 'companion.dmgLevel', label: 'Crow damage level', kind: 'int' },
+  { key: 'companion.autoUnlocked', label: 'Crow auto attack', kind: 'bool' },
+  {
+    key: 'companion.speedLevel',
+    label: `Crow speed level (1–${companionMaxSpeedLevel(COMPANIONS.crow)})`,
+    kind: 'int',
+  },
   { key: 'audio.muted', label: 'Muted', kind: 'bool' },
   { key: 'audio.track', label: 'Music track', kind: 'track' },
   { key: 'audio.musicVolume', label: 'Music volume (0–1)', kind: 'volume' },
@@ -61,7 +100,7 @@ const STYLES = `
 .dbg-body { padding: 6px 8px 8px; display: grid; gap: 6px; }
 .dbg-stats { margin: 0; white-space: pre-wrap; opacity: 0.8; }
 .dbg-form { display: grid; grid-template-columns: 1fr 96px; gap: 3px 8px; align-items: center; }
-.dbg-form input, .dbg-form select, .dbg textarea {
+.dbg-form input, .dbg select, .dbg textarea {
   font: inherit;
   color: var(--_fg);
   background: var(--_bg);
@@ -72,7 +111,8 @@ const STYLES = `
 }
 .dbg-form input[type='checkbox'] { justify-self: start; accent-color: var(--_fg); }
 .dbg textarea { width: 100%; height: 120px; resize: vertical; }
-.dbg-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.dbg textarea.dbg-str { height: 48px; word-break: break-all; }
+.dbg-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .dbg-row button { font-size: 12px; padding: 2px 8px; }
 .dbg-err { margin: 0; color: var(--_red); white-space: pre-wrap; }
 .dbg-ok { margin: 0; color: var(--_green); }
@@ -80,15 +120,26 @@ const STYLES = `
 `;
 
 /**
- * Bottom-left debugger: live stats, reset, and an editor for every saved
- * value (form + raw JSON). Collapsed by default so it doesn't cover the
- * fight. All changes go through `api.apply`, which validates first.
+ * Bottom-left debugger: live stats, reset, an editor for every saved value
+ * (form + raw JSON), item tools, and the save string with its backup.
+ * Collapsed by default so it doesn't cover the fight. Every change goes
+ * through `api.apply`, which validates first.
  */
 export function createDebugPanel(
   parent: HTMLElement,
   api: DebugApi,
   tracks: readonly string[],
+  options: DebugOptions = {},
 ): DebugPanel {
+  const key = options.saveKey ?? DEFAULT_SAVE_KEY;
+  const storage = options.storage !== undefined ? options.storage : safeStorage();
+  const reload = options.reload ?? (() => location.reload());
+  /** How the game loaded this page (it hasn't written since). */
+  const pageLoad = loadSave(storage ?? undefined, key).status;
+  /** `items.nextId` when "force drop" was armed; null when not armed. */
+  let forcedAt: number | null = null;
+  let pending: (() => void) | null = null;
+
   const style = document.createElement('style');
   style.textContent = STYLES;
   const el = document.createElement('details');
@@ -96,30 +147,50 @@ export function createDebugPanel(
   el.innerHTML = `
     <summary>Debug</summary>
     <div class="dbg-body">
-      <pre class="dbg-stats"></pre>
+      <pre class="dbg-stats dbg-live"></pre>
       <div class="dbg-row">
         <button type="button" data-dbg="load">Load current</button>
         <button type="button" data-dbg="reset">Reset all progress</button>
       </div>
       <div class="dbg-row dbg-confirm" hidden>
-        <span>Clear the save and restart from 1.1?</span>
-        <button type="button" data-dbg="reset-yes">Yes, reset</button>
-        <button type="button" data-dbg="reset-no">Cancel</button>
+        <span class="dbg-ask"></span>
+        <button type="button" data-dbg="confirm-yes">Yes</button>
+        <button type="button" data-dbg="confirm-no">Cancel</button>
       </div>
       <form class="dbg-form">${FIELDS.map(fieldHtml).join('')}</form>
       <div class="dbg-row"><button type="button" data-dbg="apply-form">Apply fields</button></div>
-      <label>Raw save JSON<textarea spellcheck="false" aria-label="Raw save JSON"></textarea></label>
+      <div class="dbg-row">
+        <select name="slot" aria-label="Item slot">${ITEM_SLOTS.map((s) => `<option>${s}</option>`).join('')}</select>
+        <select name="tier" aria-label="Item tier">${ITEM_TIERS.map((t) => `<option>${t}</option>`).join('')}</select>
+        <button type="button" data-dbg="give">Give item</button>
+      </div>
+      <div class="dbg-row">
+        <button type="button" data-dbg="force">Force drop on next kill</button>
+        <button type="button" data-dbg="clear-bag">Clear bag</button>
+      </div>
+      <label>Raw save JSON<textarea class="dbg-json" spellcheck="false" aria-label="Raw save JSON"></textarea></label>
       <div class="dbg-row"><button type="button" data-dbg="apply-json">Apply JSON</button></div>
+      <label>Save string<textarea class="dbg-str" readonly spellcheck="false" aria-label="Save string"></textarea></label>
+      <pre class="dbg-stats dbg-backup"></pre>
+      <div class="dbg-row">
+        <button type="button" data-dbg="copy">Copy save string</button>
+        <button type="button" data-dbg="corrupt">Corrupt main save + reload</button>
+      </div>
       <p class="dbg-err" role="alert" hidden></p>
       <p class="dbg-ok" role="status" hidden></p>
     </div>`;
   parent.append(style, el);
 
   const $ = <T extends Element>(sel: string) => el.querySelector<T>(sel)!;
-  const stats = $<HTMLPreElement>('.dbg-stats');
+  const stats = $<HTMLPreElement>('.dbg-live');
   const form = $<HTMLFormElement>('.dbg-form');
-  const textarea = $<HTMLTextAreaElement>('textarea');
+  const textarea = $<HTMLTextAreaElement>('.dbg-json');
+  const saveString = $<HTMLTextAreaElement>('.dbg-str');
+  const backup = $<HTMLPreElement>('.dbg-backup');
+  const slotSelect = $<HTMLSelectElement>('[name="slot"]');
+  const tierSelect = $<HTMLSelectElement>('[name="tier"]');
   const confirmRow = $<HTMLDivElement>('.dbg-confirm');
+  const ask = $<HTMLSpanElement>('.dbg-ask');
   const err = $<HTMLParagraphElement>('.dbg-err');
   const ok = $<HTMLParagraphElement>('.dbg-ok');
 
@@ -142,19 +213,29 @@ export function createDebugPanel(
 
   function load(): void {
     const data = api.read();
+    const view = toFormView(data);
     for (const f of FIELDS) {
-      const value = get(data, f.key);
+      const value = get(view, f.key);
       const c = control(f.key);
       if (f.kind === 'bool') (c as HTMLInputElement).checked = value === true;
       else c.value = String(value);
     }
     textarea.value = JSON.stringify(data, null, 2);
+    saveString.value = encodeSave(data);
+    backup.textContent = storage
+      ? saveStatus(storage, key, pageLoad, tracks)
+      : 'Storage is blocked: nothing is saved.';
     message(null);
   }
 
   /** Form → save object. Empty or non-numeric fields become NaN so validation rejects them. */
   function fromForm(): unknown {
-    const data: Record<string, unknown> = { ...api.read(), weaponLevels: [], audio: {} };
+    const data: Record<string, unknown> = {
+      ...api.read(),
+      weaponLevels: [],
+      audio: {},
+      companion: {},
+    };
     for (const f of FIELDS) {
       const c = control(f.key);
       const raw = c.value.trim();
@@ -168,16 +249,16 @@ export function createDebugPanel(
               : Number(raw);
       set(data, f.key, value);
     }
-    return data;
+    return fromFormView(data);
   }
 
-  function apply(data: unknown): void {
+  function apply(data: unknown, success = 'Applied.'): void {
     const errors = api.apply(data);
     if (errors) {
       message(errors);
     } else {
       load();
-      message(null, 'Applied.');
+      message(null, success);
     }
   }
 
@@ -186,6 +267,31 @@ export function createDebugPanel(
     err.textContent = errors ? `Not applied:\n${errors.map((e) => `• ${e}`).join('\n')}` : '';
     ok.hidden = !success;
     ok.textContent = success ?? '';
+  }
+
+  function confirm(question: string, action: () => void): void {
+    ask.textContent = question;
+    pending = action;
+    confirmRow.hidden = false;
+  }
+
+  /** Damages the main save, keeps it damaged through the game's unload save, reloads. */
+  function corruptAndReload(): void {
+    const raw = storage?.getItem(key);
+    if (!storage || !raw) return message(['There is no main save yet.']);
+    const bad = corruptSaveString(raw);
+    const keep = () => {
+      try {
+        storage.setItem(key, bad);
+      } catch {
+        // storage blocked: nothing to do
+      }
+    };
+    keep();
+    // Added after the game's own listeners, so these run after its last save.
+    window.addEventListener('pagehide', keep);
+    document.addEventListener('visibilitychange', keep);
+    reload();
   }
 
   el.addEventListener('toggle', () => {
@@ -199,17 +305,23 @@ export function createDebugPanel(
         load();
         return;
       case 'reset':
-        confirmRow.hidden = false;
+        confirm('Clear the save and restart from 1.1?', () => {
+          api.reset();
+          load();
+          message(null, 'Progress reset to 1.1.');
+        });
         return;
-      case 'reset-no':
+      case 'confirm-no':
         confirmRow.hidden = true;
+        pending = null;
         return;
-      case 'reset-yes':
+      case 'confirm-yes': {
         confirmRow.hidden = true;
-        api.reset();
-        load();
-        message(null, 'Progress reset to 1.1.');
+        const action = pending;
+        pending = null;
+        action?.();
         return;
+      }
       case 'apply-form':
         apply(fromForm());
         return;
@@ -224,6 +336,41 @@ export function createDebugPanel(
         apply(data);
         return;
       }
+      case 'give': {
+        const slot = slotSelect.value as ItemSlot;
+        const tier = tierSelect.value as ItemTier;
+        const data = giveItem(api.read(), slot, tier);
+        if (typeof data === 'string') message([data]);
+        else apply(data, `Gave a tier ${tier} ${slot}.`);
+        return;
+      }
+      case 'force':
+        forceNextDrop();
+        forcedAt = api.read().items.nextId;
+        message(null, 'The next kill drops an item.');
+        return;
+      case 'clear-bag':
+        apply(clearBag(api.read()), 'Bag cleared.');
+        return;
+      case 'copy':
+        saveString.value = encodeSave(api.read());
+        saveString.select();
+        if (!navigator.clipboard) return message(null, 'Selected: press Ctrl+C to copy.');
+        navigator.clipboard.writeText(saveString.value).then(
+          () => message(null, 'Save string copied.'),
+          () => message(null, 'Selected: press Ctrl+C to copy.'),
+        );
+        return;
+      case 'corrupt': {
+        const bak = storage ? describeStored(storage.getItem(backupKey(key)), tracks) : 'missing';
+        confirm(
+          bak.startsWith('ok')
+            ? `Damage the main save and reload? The backup (${bak}) should load.`
+            : `Damage the main save and reload? The backup is ${bak}, so the game starts over.`,
+          corruptAndReload,
+        );
+        return;
+      }
     }
   });
   form.addEventListener('submit', (e) => {
@@ -233,13 +380,25 @@ export function createDebugPanel(
 
   return {
     setStats(text) {
-      if (el.open && stats.textContent !== text) stats.textContent = text;
+      if (!el.open) return;
+      const data = api.read();
+      if (forcedAt !== null && data.items.nextId !== forcedAt) forcedAt = null;
+      const full = `${text}\n${extraStats(data, forcedAt !== null)}`;
+      if (stats.textContent !== full) stats.textContent = full;
     },
     destroy() {
       el.remove();
       style.remove();
     },
   };
+}
+
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 function get(obj: unknown, path: string): unknown {
@@ -256,4 +415,101 @@ function set(obj: Record<string, unknown>, path: string, value: unknown): void {
   let o: Record<string, unknown> = obj;
   for (const k of keys.slice(0, -1)) o = o[k] as Record<string, unknown>;
   o[keys[keys.length - 1]] = value;
+}
+
+// ── Pure helpers (exported for tests) ──────────────────────────────────────
+
+const percent = (f: number): string => `${Math.round(f * 1000) / 10}%`;
+
+/** Save → form values: the crow always has fields; `owned` says whether it exists. */
+export function toFormView(data: SaveData): Record<string, unknown> {
+  const c = data.companion;
+  return {
+    ...data,
+    companion: {
+      owned: c !== null,
+      dmgLevel: c?.dmgLevel ?? 1,
+      autoUnlocked: c?.autoUnlocked ?? false,
+      speedLevel: c?.speedLevel ?? 1,
+    },
+  };
+}
+
+/** Form values → save object (the inverse of `toFormView`). */
+export function fromFormView(view: Record<string, unknown>): Record<string, unknown> {
+  const { owned, ...crow } = view.companion as Record<string, unknown>;
+  return { ...view, companion: owned ? { id: 'crow', ...crow } : null };
+}
+
+/** Adds an item of `slot` and `tier`, rolled for the current stage, to the bag. */
+export function giveItem(data: SaveData, slot: ItemSlot, tier: ItemTier): SaveData | string {
+  const g = data.items;
+  if (g.bag.length >= ITEMS.inventorySize) return `The bag is full (${ITEMS.inventorySize}).`;
+  const rng = { state: g.rng };
+  const item = rollItem(rng, g.nextId, data.world, data.stage, gearTotals(g).itemFind, {
+    slot,
+    tier,
+  });
+  return { ...data, items: { ...g, bag: [...g.bag, item], rng: rng.state, nextId: g.nextId + 1 } };
+}
+
+export const clearBag = (data: SaveData): SaveData => ({
+  ...data,
+  items: { ...data.items, bag: [] },
+});
+
+/** Live stat lines for the crow, the items and drops. */
+export function extraStats(data: SaveData, dropForced = false): string {
+  const c = data.companion;
+  let crow = 'crow none';
+  if (c) {
+    const def = COMPANIONS[c.id];
+    const dmg = companionDamage(def, c.dmgLevel);
+    const every = companionAutoInterval(def, c.speedLevel);
+    crow = c.autoUnlocked
+      ? `crow dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`
+      : `crow dmg ${formatNumber(dmg)} dps 0 (no auto attack)`;
+  }
+  const t = gearTotals(data.items);
+  const chance = isBoss(data.stage) ? ITEMS.dropChance.boss : ITEMS.dropChance.mob;
+  const drop = dropForced ? '100% (forced)' : percent(chance);
+  return (
+    `${crow}\n` +
+    `items dmg +${formatNumber(t.damage)} def +${formatNumber(t.defence)} ` +
+    `spd +${percent(t.speed)} find +${percent(t.itemFind)}\n` +
+    `drop ${drop} bag ${data.items.bag.length}/${ITEMS.inventorySize}`
+  );
+}
+
+/** A damaged copy of a stored save: the checksum (or the JSON) no longer matches. */
+export const corruptSaveString = (raw: string): string => `${raw}!`;
+
+/** One stored save value, described for the backup status. */
+export function describeStored(raw: string | null, tracks?: readonly string[]): string {
+  if (!raw) return 'missing';
+  if (!raw.startsWith(`${SAVE_PREFIX}.`)) return 'old JSON save';
+  const r = decodeSave(raw, tracks);
+  if (!r.ok) return `broken (${r.errors[0]})`;
+  return `ok ${String(r.data.world)}.${String(r.data.stage)} v${String(r.data.gameVersion)}`;
+}
+
+const LOAD_LABELS: Record<LoadStatus, string> = {
+  none: 'no save, new game',
+  ok: 'main save',
+  backup: 'BACKUP (main save was damaged)',
+  reset: 'new game (main and backup damaged)',
+};
+
+/** Main save, backup and how this page loaded, one per line. */
+export function saveStatus(
+  storage: Pick<Storage, 'getItem'>,
+  key: string,
+  pageLoad: LoadStatus,
+  tracks?: readonly string[],
+): string {
+  return (
+    `main: ${describeStored(storage.getItem(key), tracks)}\n` +
+    `backup: ${describeStored(storage.getItem(backupKey(key)), tracks)}\n` +
+    `page loaded: ${LOAD_LABELS[pageLoad]}`
+  );
 }
