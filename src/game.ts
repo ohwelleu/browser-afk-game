@@ -390,6 +390,13 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     ) {
       return;
     }
+    // Feedback on every click, even on cooldown, so the player sees it registered.
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      const px = ((e.clientX - rect.left) * canvas.width) / rect.width;
+      const py = ((e.clientY - rect.top) * canvas.height) / rect.height;
+      scene.onClick(state, px, py, view);
+    }
     act(companionClick);
   });
 
