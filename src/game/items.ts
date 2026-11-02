@@ -59,16 +59,20 @@ export function gearTotals(g: Gear | undefined): GearTotals {
   return t;
 }
 
-/** Rolls a new item (tier, slot, stats) dropped on `world.stage`. */
+/**
+ * Rolls a new item (tier, slot, stats) dropped on `world.stage`. `pick`
+ * fixes the slot and/or tier (debugger "Give item"); the stats still roll.
+ */
 export function rollItem(
   rng: Rng,
   id: number,
   world: number,
   stage: number,
   itemFind: number,
+  pick: { slot?: ItemSlot; tier?: ItemTier } = {},
 ): Item {
-  const tier = pickWeighted(rng, itemRarityWeights(itemFind));
-  const slot: ItemSlot = nextFloat(rng) < 0.5 ? 'ring' : 'pendant';
+  const tier = pick.tier ?? pickWeighted(rng, itemRarityWeights(itemFind));
+  const slot: ItemSlot = pick.slot ?? (nextFloat(rng) < 0.5 ? 'ring' : 'pendant');
   // Draw `statCount` stats without replacement.
   const pool = [...ITEM_STATS];
   const L = stageLevel(world, stage);
@@ -87,10 +91,11 @@ export type DropResult = { gear: Gear; item: Item | null; soldFor: number };
  * Drop roll for one kill on `world.stage`. A full bag sells the new item at
  * once (`soldFor` > 0). The RNG always advances, even when nothing drops.
  */
-export function rollDrop(g: Gear, world: number, stage: number): DropResult {
+export function rollDrop(g: Gear, world: number, stage: number, force = false): DropResult {
   const rng: Rng = { state: g.rng };
   const chance = isBoss(stage) ? ITEMS.dropChance.boss : ITEMS.dropChance.mob;
-  if (nextFloat(rng) >= chance) return { gear: { ...g, rng: rng.state }, item: null, soldFor: 0 };
+  if (nextFloat(rng) >= chance && !force)
+    return { gear: { ...g, rng: rng.state }, item: null, soldFor: 0 };
   const item = rollItem(rng, g.nextId, world, stage, gearTotals(g).itemFind);
   const base = { ...g, rng: rng.state, nextId: g.nextId + 1 };
   if (g.bag.length >= ITEMS.inventorySize) {
@@ -103,9 +108,17 @@ export const sellPrice = (item: Item): number => itemSellPrice(item.world, item.
 
 // ── Game state hooks ───────────────────────────────────────────────────────
 
+let forcedDrop = false;
+
+/** Debugger hook: the next kill always drops an item. */
+export function forceNextDrop(on = true): void {
+  forcedDrop = on;
+}
+
 /** Called by `combat` on a kill: rolls the drop and reports it as an event. */
 export function onKill(s: GameState, world: number, stage: number): void {
-  const r = rollDrop(s.items, world, stage);
+  const r = rollDrop(s.items, world, stage, forcedDrop);
+  forcedDrop = false;
   s.items = r.gear;
   if (!r.item) return;
   if (r.soldFor) s.coins = safeInt(s.coins + r.soldFor);
