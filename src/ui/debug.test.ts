@@ -117,7 +117,7 @@ describe('extraStats', () => {
     );
     // dmg 4, auto every 3.0 − 0.1 × 10 = 2.0 s → 2 DPS.
     expect(text).toContain('crow dmg 4 every 2.0s dps 2');
-    expect(text).toContain('items dmg +5 def +0 spd +10% find +0%');
+    expect(text).toContain('items dmg +5 def +0 (total 0) spd +10% find +0%');
     expect(text).toContain(`drop ${ITEMS.dropChance.boss * 100}% bag 0/`);
     expect(extraStats(save(), true)).toContain('crow none');
     expect(extraStats(save(), true)).toContain('drop 100% (forced)');

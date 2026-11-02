@@ -166,7 +166,7 @@ describe('gearTotals', () => {
   });
 
   it('a mob hit never goes below 1', () => {
-    expect(mobHitDamage(5, 2)).toBe(3);
+    expect(mobHitDamage(100, 25)).toBe(80);
     expect(mobHitDamage(2, 9)).toBe(1);
   });
 });
@@ -234,7 +234,8 @@ describe('items in combat', () => {
     const plain = run({}, 2.6).events;
     const def = run({ pendant: item({ slot: 'pendant', stats: { defence: 3 } }) }, 2.6).events;
     const amount = (ev: typeof plain) => (hits(ev, 'hero')[0].e as { amount: number }).amount;
-    expect(amount(def)).toBe(amount(plain) - 3);
+    expect(amount(def)).toBe(Math.floor((amount(plain) * 100) / 103));
+    expect(amount(def)).toBeLessThan(amount(plain));
   });
 
   it('speed shortens the hero attack interval', () => {

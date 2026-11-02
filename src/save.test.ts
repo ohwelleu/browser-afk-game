@@ -139,6 +139,7 @@ describe('writeSave / loadSave', () => {
       maxDps: 42,
       items: st.items,
       companion: null,
+      character: { defenceLevel: 0 },
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -364,7 +365,12 @@ describe('companion in the save (v3)', () => {
 
 describe('save migration', () => {
   it('v1/v2 saves (and saves without a version) get an empty companion slot', () => {
-    const want = { version: SAVE_VERSION, coins: 5, companion: null };
+    const want = {
+      version: SAVE_VERSION,
+      coins: 5,
+      companion: null,
+      character: { defenceLevel: 0 },
+    };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
     expect(migrateSave({ version: 2, coins: 5 })).toEqual(want);
     expect(migrateSave({ coins: 5 })).toEqual(want);
@@ -406,5 +412,31 @@ describe('save migration', () => {
       items: { ...newGear(), rng: expect.any(Number) },
       companion: null,
     });
+  });
+});
+
+describe('character upgrades in the save (v4)', () => {
+  it('keeps the defence level across a save round trip', () => {
+    const st = createState({ ...newProgress(), character: { defenceLevel: 7 } });
+    const data = toSaveData(st, audio, '0.4.0');
+    expect(data.version).toBe(4);
+    expect(data.character).toEqual({ defenceLevel: 7 });
+    const s = memory();
+    writeSave(s, 'k', data);
+    expect(loadSave(s, 'k').saved!.progress.character).toEqual({ defenceLevel: 7 });
+  });
+
+  it('v3 → v4 adds character with defence level 0', () => {
+    const v3 = { version: 3, coins: 5, companion: null };
+    expect(migrateSave(v3)).toEqual({ ...v3, version: 4, character: { defenceLevel: 0 } });
+  });
+
+  it('repairs a missing or broken character in a plain JSON save', () => {
+    const char = (character: unknown) =>
+      loadSave(memory({ k: JSON.stringify({ version: 3, character }) }), 'k').saved!.progress
+        .character;
+    expect(char(undefined)).toEqual({ defenceLevel: 0 });
+    expect(char({ defenceLevel: -2 })).toEqual({ defenceLevel: 0 });
+    expect(char({ defenceLevel: 3 })).toEqual({ defenceLevel: 3 });
   });
 });

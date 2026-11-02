@@ -61,6 +61,16 @@ describe('validateSaveData', () => {
     expect(r.ok ? [] : r.errors).toHaveLength(2);
   });
 
+  it('checks character.defenceLevel strictly', () => {
+    const ok = validateSaveData({ ...valid(), character: { defenceLevel: 4 } }, TRACKS);
+    expect(ok.ok && ok.progress.character).toEqual({ defenceLevel: 4 });
+    for (const character of [null, [], { defenceLevel: -1 }, { defenceLevel: 1.5 }, {}]) {
+      const r = validateSaveData({ ...valid(), character }, TRACKS);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join(' ')).toContain('character');
+    }
+  });
+
   it('rejects non-objects', () => {
     expect(validateSaveData(null, TRACKS).ok).toBe(false);
     expect(validateSaveData([1, 2], TRACKS).ok).toBe(false);

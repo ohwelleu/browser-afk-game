@@ -4,6 +4,7 @@
  * comes from the seeded RNG stored in `Gear.rng`.
  */
 import {
+  defendedDamage,
   isBoss,
   ITEM_STATS,
   ITEMS,
@@ -129,9 +130,8 @@ export function onKill(s: GameState, world: number, stage: number): void {
   );
 }
 
-/** Mob hit after the hero's defence: never below 1. */
-export const mobHitDamage = (raw: number, defence: number): number =>
-  Math.max(1, safeInt(raw - defence));
+/** Mob hit after the hero's defence: see `defendedDamage` (never below 1). */
+export const mobHitDamage = defendedDamage;
 
 // ── Actions (same contract as state.ts: unchanged state = not allowed) ─────
 
