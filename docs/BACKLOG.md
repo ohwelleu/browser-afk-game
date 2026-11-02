@@ -24,10 +24,11 @@ Each line below is its own thread, in this order.
 
 - [x] **Hero v2**: the owner's own 32×64 assassin sprite. Idle copied 1:1,
       the other frames derived, the attack is a slap with the white hand.
-- [ ] **Bigger, better swords** (owner, 2026-11-01: "enlarge swords"): the
-      weapons were drawn for the old 32×32 hero and look tiny now. Redraw all
-      tiers about 2× longer with more detail, then re-place the grip anchors
-      and slash arcs.
+- [x] **Bigger, better swords**: about 2× longer, own guard/grip/pommel per
+      tier, bigger slash arcs (PR #22). Menu icons fit their box (PR #24).
+- [ ] **Brown colour** + brown Wooden sword (thread `art/brown-wooden-sword`).
+- [ ] **Colours doc**: every colour used in the game, with images (after
+      brown lands).
 - [ ] **Bigger mobs and boss** to match the hero (mobs 32–48 tall, boss
       64–96).
 - [ ] Owner draws the hero animations (idle, slap, hurt, death), then mobs.
@@ -45,9 +46,8 @@ Each line below is its own thread, in this order.
 
 - [x] **Equip a bought weapon**: auto-equip when it hits at least as hard,
       plus Equip in the shop (PR #9).
-- [ ] **Defence upgrade** (owner: "I don't see it"): items give defence
-      (PR #17), but there's no coin upgrade yet. Add a Character upgrade:
-      `taken = dmg × 100 / (100 + defence)`, so it never reaches zero.
+- [x] **Defence upgrade** in Shop → Character:
+      `taken = dmg × 100 / (100 + defence)`, at least 1 (PR #26).
 - [ ] Hero HP upgrades (then revisit mob damage growth).
 - [ ] **Speed upgrade** (attack speed), after ascend lands, because it
       multiplies everything.
@@ -55,22 +55,23 @@ Each line below is its own thread, in this order.
 ## Crow (companion)
 
 - [x] Crow companion: click to peck, auto attack, upgrades (PR #18).
-- [ ] **Move the crow** further left, perched on top of the hero.
-- [ ] **Click animation**: visible feedback where you click/tap.
-- [ ] **Remove the cooldown ring** ("loader") around the crow.
-- [ ] Use the real crow sprites (PR #16) instead of the placeholder.
-- [ ] **Show when the crow becomes buyable** in the shop ("Unlocks after
-      clearing 1.1") instead of hiding it.
+- [x] **Move the crow** onto the hero's hat (PR #20).
+- [x] **Click animation**: a pixel burst where you click/tap (PR #20).
+- [x] **Remove the cooldown ring** ("loader") around the crow (PR #20).
+- [x] Real crow sprites instead of the placeholder (PR #16, #20).
+- [x] **Show when the crow becomes buyable** in the shop (PR #23).
 
 ## Weapons & items
 
 - [ ] **Crossbow**: the first new weapon type (ranged, bolts). The hero needs
       an aiming pose, plus bolt and impact sprites. `AttackDef` already allows it.
 - [ ] **More weapons**: tiers after gold (and later the large sword).
-- [ ] **More items**: non-weapon items (rings, amulets, potions) with small
-      bonuses.
-- [ ] **Rarity tiers** C / B / A / **S**: each tier gets its own frame
-      colour; S-tier items glow or sparkle so they look special.
+- [x] Rings and pendants with small bonuses (PR #15, #17).
+- [ ] **More items**: more slots and types (e.g. potions).
+- [x] **Rarity tiers** C / B / A / **S** with own frame colours; S glows and
+      sparkles (PR #15, #17).
+- [ ] Item defence is weak under the % formula (1–4 % per item): raise
+      `ITEMS.stats.defence.base`? (owner to decide)
 - [ ] Mana bar and **auras** (passive bonuses with a visible effect around
       the hero).
 
@@ -83,33 +84,38 @@ Each line below is its own thread, in this order.
 - [ ] **Ascend** (prestige): reset stage and weapons for a permanent bonus.
       Ascend points are spent on upgrades in the Ascend shop tab.
 - [ ] Bulk buy ×10 / ×100 / MAX.
+- [ ] **Shop reveal**: a weapon appears once you have 90 % of its price and
+      stays shown (thread `code/shop-reveal`, save data version 5).
+- [ ] Upgrade weapons that aren't equipped? (owner to decide)
 
 ## Active play
 
-- [ ] **Clicker**: click the mob for bonus damage (cap clicks per second so
+- [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
+      (PR #20). Still open: click the mob for bonus damage (cap clicks per second so
       autoclickers don't break the balance).
 - [ ] **Skills**: big effects on long cooldowns (e.g. 60 s), activated by
       clicking their icon. Unlocked or upgraded in the shop.
 
 ## Shop & UI
 
-- [ ] **Menu restructure** (owner, 2026-11-01):
-  - remove the **Upgrades** tab; weapon upgrades move into **Inventory**
-  - rename **Weapons** to **Shop**, with sub tabs **Weapons · Companions ·
-    Accessories/Ascend** (to confirm which one the owner meant)
-  - **Inventory** gets the same sub tabs (Weapons · Companions · Accessories)
-  - later: a Character sub tab (HP, defence, speed)
+- [x] **Menu restructure**: Shop (Character · Weapons · Companions · Ascend
+      soon), Inventory (Weapons · Companions · Accessories) with upgrades,
+      no Upgrades tab (PR #23, #26). Third Shop tab is "Ascend" for now;
+      owner to confirm vs Accessories.
 - [ ] **Help behind a small ⓘ icon** instead of a menu tab.
 - [x] Pixel font: Pixelify Sans, with Lithuanian letters (PR #12).
-- [ ] **Debugger: new features**: edit the crow and items (give an item of
-      any tier, force a drop), max DPS.
+- [ ] **Sharper font**: Pixelify is crisp only at 11/22 px, menus use 16 px
+      and look blurry. Font picker in the debugger first (thread
+      `ui/font-picker`), the owner picks, then a PR makes it the default.
+- [x] **Debugger: new features**: crow, give item by tier, force drop, max
+      DPS, save string and backup tools (PR #13, #21).
 
 ## Save & sharing
 
 - [x] **Save string** `AFK1.<base64url(JSON)>.<checksum>` + backup slot
       (PR #11).
-- [ ] **Save and load in Help**: copy/paste the save string and
-      download/upload a `.txt`, with a preview and a confirm.
+- [x] **Save and load in Help**: copy/paste and download/upload, with a
+      preview and a confirm (PR #25).
 - [ ] One-tab guard.
 - [ ] **Share progress**: a "Copy save" link like
       `…/en/game#save=AFK1…` that loads the save on another device.
@@ -133,8 +139,11 @@ Each line below is its own thread, in this order.
 ## Music & sound
 
 - [ ] **New music**: an original **8-bit synthwave** track (in the feel of the
-      owner's YouTube example, but our own; no ripping).
-- [ ] Pick the default style: Medieval / Synthwave / 8-bit.
+      owner's YouTube example, but our own; no ripping). Or a licensed track:
+      the owner is asking the creator of one song for permission
+      (2026-11-02). Only add it with written permission.
+- [ ] **Synthwave plays first** by default (thread
+      `audio/synthwave-default`); players can still switch.
 - [ ] Per-world tracks and a boss theme.
 
 ## Blog & side projects
@@ -145,6 +154,7 @@ Each line below is its own thread, in this order.
 
 ## Docs & housekeeping
 
-- [ ] Tag `v0.2.0` (package.json is already `0.2.0`).
+- [ ] Tag `v0.2.0` and release the current work as `v0.3.0`? (owner to
+      decide)
 - [ ] Delete merged branches and `pr-assets/*` once old PR images aren't
       needed. Future PRs: use one shared `pr-assets` branch.
