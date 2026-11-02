@@ -53,12 +53,59 @@ When the owner says `staging` is good:
 Hotfix: a `fix/*` branch from `main` gets its own PATCH release straight to
 `main`, then `main` is merged back into `staging`.
 
+### Branch types
+
+- **Long-lived, never deleted:** `main`, `staging`, `pr-assets` (one shared
+  branch for PR screenshots, no `pr-assets/*` branches).
+- **Short-lived, one per task:** `<area>/<task>` in lowercase with dashes,
+  e.g. `code/defence-upgrade`, `ui/save-in-help`, `fix/crow-cooldown`.
+  Areas: `code`, `art`, `audio`, `ui`, `docs`, `fix`.
+- Start from the latest `staging` (`fix/*` from `main`). If `staging` moves
+  on while the PR is open, update the branch from `staging` before review,
+  not at merge time.
+
+### Deleting branches
+
+- Delete a task branch **as soon as its PR is merged**. The commits live on
+  in `staging`/`main` and the PR keeps the history. GitHub's "Automatically
+  delete head branches" setting does this.
+- Delete abandoned branches: no commits for ~2 weeks and no open PR. Keep
+  the idea in `BACKLOG.md`, not as a branch.
+- Clean up locally with `git fetch --prune` and `git branch -d <name>`.
+  `git branch -r --merged origin/staging` lists merged remote branches.
+- Never delete `main`, `staging`, `pr-assets` or any tag.
+
+### Branch protection (GitHub settings)
+
+- `main`: changes only via PR, CI must pass, no force-push, no deletion.
+  Merge commits only.
+- `staging`: changes only via PR, CI must pass, no force-push. Feature PRs
+  are **squash-merged** (one feature = one commit on `staging`). The owner
+  can bypass to push the release commit and the fast-forward after a
+  release.
+
+### Tags
+
+- Every release has a `vX.Y.Z` tag on its `main` merge commit.
+- Tags are permanent: never move, delete or reuse one. A broken release is
+  fixed by a new PATCH release.
+
+## Commits
+
+- Small, one thing per commit. Imperative message with an area prefix:
+  `Crow: add peck cooldown`, `Docs: staging rule`.
+- Never commit secrets or private references (those stay in gitignored
+  `references/**/_private/`).
+
 ## Pull requests
 
 - Use the [PR template](../.github/pull_request_template.md). Every PR has a
   **How to review locally** section.
 - Feature PRs target `staging`. Only release PRs (and hotfixes) target
   `main`.
+- Keep PRs small (aim for under ~400 changed lines). Open a **draft** PR
+  early if useful and mark it ready when done.
+- CI (format, tests, build) must be green before merging.
 - The owner reviews and approves. Nothing is merged to `main`, and nothing
   touches the live site, without the owner's OK.
 - Screenshots go on one shared `pr-assets` branch.
