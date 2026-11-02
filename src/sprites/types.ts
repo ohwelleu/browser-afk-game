@@ -6,7 +6,7 @@
  *   .  transparent
  *   #  fg (theme foreground)
  *   o  bg (theme background: eyes, cut-outs, highlights inside a silhouette)
- *   O Y R P G B K  orange, yellow, red, purple, green, blue, pink
+ *   O Y R P G B K N  orange, yellow, red, purple, green, blue, pink, brown
  *
  * Every row is exactly `width` chars and every frame has exactly `height`
  * rows. The same slots map 1:1 to an indexed PNG palette (Piskel/Aseprite),
@@ -21,7 +21,7 @@ export type SpriteDef = {
 };
 
 /** Palette slots in index order (index 0 = transparent), e.g. for indexed PNG export. */
-export const PALETTE_SLOTS = ['.', '#', 'o', 'O', 'Y', 'R', 'P', 'G', 'B', 'K'] as const;
+export const PALETTE_SLOTS = ['.', '#', 'o', 'O', 'Y', 'R', 'P', 'G', 'B', 'K', 'N'] as const;
 export type PaletteSlot = (typeof PALETTE_SLOTS)[number];
 
 export type Point = { x: number; y: number };

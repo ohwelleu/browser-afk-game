@@ -1,7 +1,8 @@
 import type { SpriteDef } from '../sprites/types';
 import type { Palette } from '../theme';
 
-const SLOTS: Record<string, keyof Palette | null> = {
+/** Sprite slot char → palette key (`.` = transparent). */
+export const SLOTS: Readonly<Record<string, keyof Palette | null>> = {
   '.': null,
   '#': 'fg',
   o: 'bg',
@@ -12,6 +13,7 @@ const SLOTS: Record<string, keyof Palette | null> = {
   G: 'green',
   B: 'blue',
   K: 'pink',
+  N: 'brown',
 };
 
 /** Checks a sprite against its declared size and the palette slots. Throws on the first problem. */

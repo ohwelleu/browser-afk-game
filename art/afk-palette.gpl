@@ -11,6 +11,7 @@ Columns: 4
  22 163  74	G green
  37  99 235	B blue
 219  39 119	K pink
+139  90  43	N brown
 255   0 255	marker: anchor
   0 255 255	marker: hit
   0 255   0	marker: fx
