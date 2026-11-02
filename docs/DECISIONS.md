@@ -189,5 +189,6 @@ them about 2× bigger for the 32×64 hero.
 ## 2026-11-01: Save string format vs data version
 
 `AFK1` is the save string format (checksum, base64url). `version` inside is
-the data version: 1 first demo, 2 adds `items`, 3 adds `companion`. Older
+the data version: 1 first demo, 2 adds `items`, 3 adds `companion`, 4 adds
+`character`. Older
 saves are migrated on load; plain-JSON saves from 0.2.0 still load.

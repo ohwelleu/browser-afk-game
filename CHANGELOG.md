@@ -20,7 +20,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Rings and pendants** (tiers C/B/A/S) drop from monsters, with damage,
   defence, speed and item find. 20-slot bag, equip/unequip/sell in
   Inventory, a drop toast, and a sparkle for S items.
-- **Defence** (from items): each mob hit is lowered, never below 1.
+- **Shop → Character** with a **Defence** upgrade bought with coins. Each
+  level makes mob hits weaker.
+- **Save and load in Menu → Help**: copy or download the save string, paste
+  or upload one to continue elsewhere. A preview and a confirm come first,
+  and the replaced game is kept as the backup.
 - Item sprites: ring and pendant icons, tier frames C/B/A/S (S glows and
   sparkles), empty slot frame. Crow sprites (idle, fly-out, peck, fly-back),
   shop icon and peck effect.
@@ -34,6 +38,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   Clear bag; live crow DPS, item totals and drop chance; the save string
   with a copy button, main/backup status and a "corrupt main save" button
   to test the backup.
+
+### Fixed
+
+- Sword icons in the menu no longer spill out of their box.
 
 ### Changed
 
@@ -50,8 +58,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   backup slot (`<save-key>.bak`). A damaged save falls back to the backup,
   then to a new game, and never crashes. Old plain-JSON saves load as before
   and are converted on the next save.
-- Save data version 3 (2 adds `items`, 3 adds `companion`). Old saves load
-  with an empty bag and an empty companion slot.
+- **Defence** (upgrade and rings/pendants) cuts mob hits by a percentage:
+  `dmg × 100 / (100 + defence)`, at least 1.
+- Save data version 4 (2 adds `items`, 3 `companion`, 4
+  `character.defenceLevel`). Old saves load with an empty bag, an empty
+  companion slot and defence level 0.
 - **Pixel font**: all UI text (HUD, menus, buttons, damage numbers, stage
   banner) uses Pixelify Sans, embedded as a 12.6 KB WOFF2 subset (Latin +
   Lithuanian). Bundle +18 kB (+15 kB gzip).
