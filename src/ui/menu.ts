@@ -64,9 +64,9 @@ export const MENU_STYLES = `
 .menu-head h2 { margin: 0; font-size: 1.2em; }
 .menu .close { top: 6px; right: 6px; width: 38px; height: 38px; }
 .wallet { margin-left: auto; }
-/* Help: a pixel (i) toggle next to [X]. 44 px so it is a touch target everywhere. */
-.help-btn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; }
-.help-btn svg { width: 22px; height: 22px; shape-rendering: crispEdges; }
+/* Help: a pixel (i) toggle next to [X], same size as [X], 44 px on phones. */
+.help-btn { flex: none; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; }
+.help-btn svg { width: 16px; height: 16px; shape-rendering: crispEdges; }
 .help-btn[aria-pressed='true'] { color: var(--_bg); background: var(--_fg); }
 .help-btn:focus-visible { outline: 3px solid var(--_yellow); outline-offset: 2px; }
 .price { display: inline-flex; align-items: center; gap: 0.35em; color: var(--_yellow); font-weight: bold; white-space: nowrap; }
@@ -131,6 +131,7 @@ export const MENU_STYLES = `
   .menu { padding: 0; }
   .menu .panel { width: 100%; height: 100%; border: 0; }
   .menu .close { width: 44px; height: 44px; top: 4px; right: 4px; }
+  .help-btn { width: 44px; height: 44px; }
   .menu-head { min-height: 52px; padding-right: 60px; }
   .tab, .subtab, .item button, .buy-row button { min-height: 44px; min-width: 44px; }
   .tab-panels { padding: 10px; }
