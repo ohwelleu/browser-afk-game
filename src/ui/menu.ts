@@ -63,6 +63,11 @@ export const MENU_STYLES = `
 .menu-head h2 { margin: 0; font-size: 1.2em; }
 .menu .close { top: 6px; right: 6px; width: 38px; height: 38px; }
 .wallet { margin-left: auto; }
+/* Help: a pixel (i) toggle next to [X], same size as [X], 44 px on phones. */
+.help-btn { flex: none; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; }
+.help-btn svg { width: 16px; height: 16px; shape-rendering: crispEdges; }
+.help-btn[aria-pressed='true'] { color: var(--_bg); background: var(--_fg); }
+.help-btn:focus-visible { outline: 3px solid var(--_yellow); outline-offset: 2px; }
 .price { display: inline-flex; align-items: center; gap: 0.35em; color: var(--_yellow); font-weight: bold; white-space: nowrap; }
 .price img { width: 16px; height: 16px; flex: none; }
 .tabs { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; border-bottom: 3px solid var(--_fg); }
@@ -129,6 +134,7 @@ export const MENU_STYLES = `
   .menu { padding: 0; }
   .menu .panel { width: 100%; height: 100%; border: 0; }
   .menu .close { width: 44px; height: 44px; top: 4px; right: 4px; }
+  .help-btn { width: 44px; height: 44px; }
   .menu-head { min-height: 52px; padding-right: 60px; }
   .tab, .subtab, .item button, .buy-row button { min-height: 44px; min-width: 44px; }
   .tab-panels { padding: 10px; }
@@ -162,9 +168,35 @@ const TABS = [
       { id: 'accessories', label: 'Accessories' },
     ],
   },
-  { id: 'help', label: 'Help', subs: [] },
 ] as const;
-export type MenuTab = (typeof TABS)[number]['id'];
+export const MENU_TABS: readonly string[] = TABS.map((t) => t.id);
+/** A tab, or the Help view (opened with the (i) button, not a tab). */
+export type MenuTab = (typeof TABS)[number]['id'] | 'help';
+type TabId = (typeof TABS)[number]['id'];
+
+/** The Help icon: a pixel circle with an "i", 11×11, one string per row. */
+export const HELP_ICON = [
+  '...#####...',
+  '.##.....##.',
+  '.#...#...#.',
+  '#.........#',
+  '#...##....#',
+  '#....#....#',
+  '#....#....#',
+  '#...###...#',
+  '.#.......#.',
+  '.##.....##.',
+  '...#####...',
+];
+
+/** An SVG of 1×1 squares for each '#', drawn in the text colour. */
+export function pixelSvg(rows: readonly string[]): string {
+  const rects = rows.flatMap((row, y) =>
+    [...row].flatMap((c, x) => (c === '#' ? [`M${x} ${y}h1v1h-1z`] : [])),
+  );
+  const w = Math.max(...rows.map((r) => r.length));
+  return `<svg viewBox="0 0 ${w} ${rows.length}" aria-hidden="true" focusable="false"><path fill="currentColor" d="${rects.join('')}"/></svg>`;
+}
 
 const amountLabel = (a: BuyAmount) => (a === 'max' ? 'MAX' : `×${a}`);
 
@@ -382,7 +414,7 @@ export const INVENTORY = {
 };
 
 const HELP = `
-    <section role="tabpanel" id="afk-panel-help" aria-labelledby="afk-tab-help" tabindex="0" hidden>
+    <section role="region" id="afk-panel-help" aria-label="Help" tabindex="0" hidden>
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
@@ -399,6 +431,7 @@ const BODY = `
   <div class="menu-head">
     <h2 id="afk-menu-title">Menu</h2>
     <span class="wallet" title="Coins">${price('wallet-coins')}</span>
+    <button class="help-btn" type="button" data-act="help" aria-label="Help" aria-controls="afk-panel-help" aria-pressed="false">${pixelSvg(HELP_ICON)}</button>
   </div>
   <div class="tabs" role="tablist" aria-label="Menu sections">${TABS.map(
     (t) =>
@@ -420,7 +453,7 @@ const KEY_STEP: Record<string, (i: number, n: number) => number> = {
   End: (_, n) => n - 1,
 };
 
-/** The ☰ menu modal: shop (with upgrades), inventory, help & credits. */
+/** The ☰ menu modal: shop (with upgrades), inventory; the (i) button shows help & credits. */
 export function createMenu(deps: MenuDeps): Menu {
   const el = html(
     dialogHtml({ kind: 'modal', id: 'afk-menu', title: '', closeLabel: 'Close menu', body: '' }),
@@ -437,8 +470,12 @@ export function createMenu(deps: MenuDeps): Menu {
   ];
   const show = createShow();
   const tabs = $$<HTMLButtonElement>('.tabs [role="tab"]');
-  const selectedTab = () => tabs.find((t) => t.dataset.tab === current)!;
+  const helpBtn = $<HTMLButtonElement>('.help-btn');
+  const helpPanel = $('#afk-panel-help');
   let current: MenuTab = 'shop';
+  /** The last selected tab; it keeps the roving tabindex while Help is shown. */
+  let lastTab: TabId = 'shop';
+  const selectedTab = () => tabs.find((t) => t.dataset.tab === lastTab)!;
   /** Selected sub tab per tab (kept while switching tabs). */
   const currentSub: Record<string, string> = Object.fromEntries(
     TABS.flatMap((t) => (t.subs.length ? [[t.id, t.subs[0]!.id]] : [])),
@@ -468,16 +505,20 @@ export function createMenu(deps: MenuDeps): Menu {
     if (last) refresh(last);
   }
 
-  function select(tab: MenuTab, focus = false): void {
-    current = tab;
+  function select(view: MenuTab, focus = false): void {
+    current = view;
+    const help = view === 'help';
+    if (!help) lastTab = view;
     for (const t of tabs) {
-      const on = t.dataset.tab === tab;
+      const on = t.dataset.tab === view;
       t.setAttribute('aria-selected', String(on));
-      t.tabIndex = on ? 0 : -1;
+      t.tabIndex = t.dataset.tab === lastTab ? 0 : -1;
       setFlag($(`#${t.getAttribute('aria-controls')}`), 'hidden', !on);
     }
+    setFlag(helpPanel, 'hidden', !help);
+    helpBtn.setAttribute('aria-pressed', String(help));
     if (focus) selectedTab().focus({ preventScroll: true });
-    if (tab === 'help') savePanel.refresh();
+    if (help) savePanel.refresh();
     if (last) refresh(last);
   }
 
@@ -522,6 +563,10 @@ export function createMenu(deps: MenuDeps): Menu {
       return;
     }
     switch (target.dataset.act) {
+      case 'help':
+        // Toggles: a second press goes back to the last tab.
+        select(current === 'help' ? lastTab : 'help');
+        return;
       case 'amount': {
         const a = target.dataset.amount;
         amount = a === 'max' ? 'max' : (Number(a) as BuyAmount);
@@ -791,7 +836,7 @@ export function createMenu(deps: MenuDeps): Menu {
   return {
     el,
     get focusTarget() {
-      return selectedTab();
+      return current === 'help' ? helpBtn : selectedTab();
     },
     refresh,
     refreshIcons,
