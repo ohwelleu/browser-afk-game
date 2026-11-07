@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { COMPANIONS } from '../game/balance';
+import { BUY_AMOUNTS, COMPANIONS, WEAPONS } from '../game/balance';
 import { weapons } from '../sprites';
-import { companionUnlockText, HELP_ICON, iconScale, MENU_TABS, pixelSvg, stageName } from './menu';
+import {
+  companionUnlockText,
+  HELP_ICON,
+  iconScale,
+  INVENTORY,
+  MENU_TABS,
+  pixelSvg,
+  SHOP,
+  stageName,
+} from './menu';
 
 describe('stageName', () => {
   it('turns a stage level into world.stage', () => {
@@ -58,5 +67,30 @@ describe('help icon', () => {
     expect(svg).toContain('viewBox="0 0 2 2"');
     expect(svg).toContain('aria-hidden="true"');
     expect(svg).toContain('d="M0 0h1v1h-1zM1 1h1v1h-1z"');
+  });
+});
+
+describe('upgrade buttons live in the Shop', () => {
+  const count = (s: string, re: RegExp) => s.match(new RegExp(re.source, 'g'))?.length ?? 0;
+
+  it('gives every weapon row in Shop → Weapons an Upgrade button and the amount toggle', () => {
+    for (let i = 0; i < WEAPONS.length; i++) {
+      expect(SHOP.weapons).toContain(`data-act="upgrade" data-tier="${i}"`);
+    }
+    expect(count(SHOP.weapons, /data-act="upgrade"/)).toBe(WEAPONS.length);
+    expect(count(SHOP.weapons, /data-act="amount"/)).toBe(BUY_AMOUNTS.length);
+  });
+
+  it('puts the crow upgrades and the amount toggle in Shop → Companions', () => {
+    for (const kind of ['dmg', 'auto', 'speed']) {
+      expect(SHOP.companions).toContain(`data-act="comp-up" data-kind="${kind}"`);
+    }
+    expect(count(SHOP.companions, /data-act="amount"/)).toBe(BUY_AMOUNTS.length);
+  });
+
+  it('leaves Inventory without upgrade buttons or amount toggle, but keeps Equip', () => {
+    const inv = Object.values(INVENTORY).join('');
+    expect(inv).not.toMatch(/data-act="(upgrade|comp-up|amount)"/);
+    expect(count(INVENTORY.weapons, /data-act="equip"/)).toBe(WEAPONS.length);
   });
 });

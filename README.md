@@ -53,6 +53,12 @@ const game = mount(element, { saveKey: "afk-game", debug: false });
 game.destroy();
 ```
 
+## Credits
+
+- Music: [Gaming Time by Otrebil](https://www.youtube.com/watch?v=qx7avPhISBo),
+  used with the author's permission.
+- Sound effects: ZzFX by Frank Force (MIT licence).
+
 ## Docs
 
 - [docs/PLAN.md](docs/PLAN.md): v1 scope, mechanics, numbers, milestones

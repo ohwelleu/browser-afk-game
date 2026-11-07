@@ -313,3 +313,42 @@ export function defendedDamage(raw: number, defence: number): number {
 
 /** Share of each mob hit removed by `defence` (0.2 = −20 %), before rounding. */
 export const defenceReduction = (defence: number): number => 1 - 100 / (100 + Math.max(0, defence));
+
+// ── Bulk buy (×1 / ×10 / ×100 / MAX) ───────────────────────────────────────
+
+export type BuyAmount = 1 | 10 | 100 | 'max';
+export const BUY_AMOUNTS: readonly BuyAmount[] = [1, 10, 100, 'max'];
+
+/** Backstop for MAX: never more levels than this in one buy. */
+export const MAX_BULK_LEVELS = 10_000;
+
+/** Levels a bulk buy gets and its total price. `levels` 0 = nothing to buy. */
+export type BulkQuote = { levels: number; cost: number };
+
+/**
+ * Sums the same rounded per-level prices as single buys (so ×10 costs exactly
+ * ten ×1 buys). `costAt(l)` is the price from level `l` to `l + 1`, and
+ * `MAX_SAFE_INTEGER` there means "can't buy" (capped). Stops early at a cap or
+ * before the total leaves the safe-integer range. MAX buys as many as `coins`
+ * pays for. Prices grow geometrically, so the loop ends after a few hundred
+ * steps at most; `MAX_BULK_LEVELS` is a backstop.
+ */
+export function bulkQuote(
+  costAt: (level: number) => number,
+  level: number,
+  amount: BuyAmount,
+  coins: number,
+): BulkQuote {
+  const limit = amount === 'max' ? MAX_BULK_LEVELS : amount;
+  let levels = 0;
+  let cost = 0;
+  while (levels < limit) {
+    const c = costAt(level + levels);
+    if (!(c >= 0) || c >= Number.MAX_SAFE_INTEGER) break;
+    const total = cost + c;
+    if (total > Number.MAX_SAFE_INTEGER || (amount === 'max' && total > coins)) break;
+    cost = total;
+    levels++;
+  }
+  return { levels, cost };
+}

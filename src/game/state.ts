@@ -8,6 +8,7 @@ import type { SfxName } from '../audio/types';
 import { TICK_RATE } from '../loop';
 import { weaponAttack, windup } from './attacks';
 import {
+  bulkQuote,
   companionAutoInterval,
   companionDamage,
   companionDmgCost,
@@ -30,6 +31,8 @@ import {
   upgradeCost,
   weaponDamage,
   WEAPONS,
+  type BulkQuote,
+  type BuyAmount,
   type CompanionDef,
   type CompanionId,
   type MobKind,
@@ -443,19 +446,89 @@ function rollbackStage(s: GameState): void {
 // caller can tell nothing happened (and a double click can't double-buy).
 
 export function canUpgrade(s: GameState): boolean {
-  const level = s.weaponLevels[s.equipped] ?? 0;
-  return level >= 1 && s.coins >= upgradeCost(s.equipped, level);
+  return canBuyUpgrades(s, { type: 'weapon', tier: s.equipped }, 1);
 }
 
-export function buyUpgrade(s: GameState): GameState {
-  if (!canUpgrade(s)) return s;
-  const level = s.weaponLevels[s.equipped];
-  const next = draft(s);
-  next.coins = safeInt(s.coins - upgradeCost(s.equipped, level));
-  next.weaponLevels[s.equipped] = level + 1;
-  trackMaxDps(next);
-  next.events.push({ type: 'sfx', name: 'purchase' }, { type: 'save' });
-  return next;
+/** One level for the equipped weapon. */
+export const buyUpgrade = (s: GameState): GameState =>
+  buyUpgrades(s, { type: 'weapon', tier: s.equipped }, 1);
+
+// ── Levelled upgrades, bought ×1 / ×10 / ×100 / MAX ─────────────────────────
+
+/** Anything bought level by level. Weapons don't have to be equipped (only owned). */
+export type UpgradeTarget =
+  | { type: 'weapon'; tier: number }
+  | { type: 'defence' }
+  | { type: 'companion'; kind: 'dmg' | 'speed' };
+
+type Track = {
+  level: number;
+  costAt(level: number): number;
+  set(n: GameState, level: number): void;
+};
+
+function track(
+  s: Pick<GameState, 'weaponLevels' | 'character' | 'companion'>,
+  t: UpgradeTarget,
+): Track | null {
+  switch (t.type) {
+    case 'weapon': {
+      const level = s.weaponLevels[t.tier] ?? 0;
+      if (!(level >= 1)) return null;
+      return {
+        level,
+        costAt: (l) => upgradeCost(t.tier, l),
+        set: (n, l) => {
+          n.weaponLevels[t.tier] = l;
+          trackMaxDps(n);
+        },
+      };
+    }
+    case 'defence':
+      return {
+        level: s.character.defenceLevel,
+        costAt: (l) => characterCost('defence', l),
+        set: (n, l) => {
+          n.character = { ...n.character, defenceLevel: l };
+        },
+      };
+    case 'companion': {
+      const c = s.companion;
+      const def = companionDef(s);
+      if (!c || !def || (t.kind === 'speed' && !c.autoUnlocked)) return null;
+      const dmg = t.kind === 'dmg';
+      return {
+        level: dmg ? c.dmgLevel : c.speedLevel,
+        costAt: (l) => (dmg ? companionDmgCost(def, l) : companionSpeedCost(def, l)),
+        set: (n, l) => {
+          n.companion = { ...n.companion!, [dmg ? 'dmgLevel' : 'speedLevel']: l };
+        },
+      };
+    }
+  }
+}
+
+/** Levels and total price of buying `amount` of `t` now (`levels` 0 = nothing to buy). */
+export function upgradeQuote(
+  s: Pick<GameState, 'coins' | 'weaponLevels' | 'character' | 'companion'>,
+  t: UpgradeTarget,
+  amount: BuyAmount,
+): BulkQuote {
+  const tr = track(s, t);
+  return tr ? bulkQuote(tr.costAt, tr.level, amount, s.coins) : { levels: 0, cost: 0 };
+}
+
+export function canBuyUpgrades(s: GameState, t: UpgradeTarget, amount: BuyAmount): boolean {
+  const q = upgradeQuote(s, t, amount);
+  return q.levels > 0 && s.coins >= q.cost;
+}
+
+/** Buys all the quoted levels at once, or nothing (same object back). */
+export function buyUpgrades(s: GameState, t: UpgradeTarget, amount: BuyAmount): GameState {
+  const tr = track(s, t);
+  const q = upgradeQuote(s, t, amount);
+  if (!tr || q.levels < 1 || s.coins < q.cost) return s;
+  return purchase(s, q.cost, (n) => tr.set(n, tr.level + q.levels));
 }
 
 /** Tier of the next weapon in the shop, or null when all are owned. */
@@ -562,15 +635,11 @@ export function canUpgradeCompanion(s: GameState, kind: CompanionUpgrade): boole
 
 export function upgradeCompanion(s: GameState, kind: CompanionUpgrade): GameState {
   const cost = companionUpgradeCost(s, kind);
+  if (kind !== 'auto') return buyUpgrades(s, { type: 'companion', kind }, 1);
   if (cost === null || s.coins < cost) return s;
   return purchase(s, cost, (n) => {
-    const c = n.companion!;
-    if (kind === 'dmg') c.dmgLevel++;
-    else if (kind === 'speed') c.speedLevel++;
-    else {
-      c.autoUnlocked = true;
-      n.companionAutoCharge = 0;
-    }
+    n.companion!.autoUnlocked = true;
+    n.companionAutoCharge = 0;
   });
 }
 
@@ -584,12 +653,7 @@ export function canBuyDefence(s: GameState): boolean {
 }
 
 /** Buys one defence level. */
-export function buyDefence(s: GameState): GameState {
-  if (!canBuyDefence(s)) return s;
-  return purchase(s, defenceCost(s), (n) => {
-    n.character = { ...n.character, defenceLevel: n.character.defenceLevel + 1 };
-  });
-}
+export const buyDefence = (s: GameState): GameState => buyUpgrades(s, { type: 'defence' }, 1);
 
 function purchase(s: GameState, cost: number, apply: (next: GameState) => void): GameState {
   const next = draft(s);

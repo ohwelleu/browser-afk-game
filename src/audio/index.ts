@@ -1,10 +1,13 @@
 import { createSfx, SFX_NAMES } from './sfx';
 import { DEFAULT_TRACK, TRACKS } from './tracks';
-import type { GameAudio, SfxName, TrackHandle } from './types';
+import type { GameAudio, SfxName, TrackCredit, TrackHandle } from './types';
 
-export type { GameAudio, SfxName, Track, TrackHandle } from './types';
+export type { GameAudio, SfxName, Track, TrackCredit, TrackHandle } from './types';
 export { DEFAULT_TRACK, SFX_NAMES };
 export const TRACK_IDS = Object.keys(TRACKS);
+
+/** The credit line for a track, if it has one. */
+export const trackCredit = (id: string): TrackCredit | undefined => TRACKS[id]?.credit;
 
 /** Defaults for a fresh save. Low on purpose: this plays on a blog. */
 export const AUDIO_DEFAULTS = { musicVolume: 0.5, sfxVolume: 0.6, muted: false } as const;
