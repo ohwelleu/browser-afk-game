@@ -27,6 +27,9 @@ export const MODAL_STYLES = `
   width: min(300px, calc(100% - 24px));
 }
 .popover .panel { width: 100%; }
+/* Header row: always as tall as the [X] zone (8px + 34px - 14px panel padding),
+   whatever the font size, so the rows below never slide under the [X]. */
+.popover .panel h2 { box-sizing: border-box; min-height: 28px; display: flex; align-items: center; }
 /* Compact boxes: the icon column runs down the right edge, so open to its left. */
 @container (max-width: 767px) {
   .popover { top: 12px; right: 68px; width: min(300px, calc(100% - 80px)); }
