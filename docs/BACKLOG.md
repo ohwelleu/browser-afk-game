@@ -48,7 +48,13 @@ Each line below is its own thread, in this order.
       plus Equip in the shop (PR #9).
 - [x] **Defence upgrade** in Shop → Character:
       `taken = dmg × 100 / (100 + defence)`, at least 1 (PR #26).
-- [ ] Hero HP upgrades (then revisit mob damage growth).
+- [ ] **HP and mob damage grow**: the hero's max HP grows (per stage
+      and/or an HP upgrade) and mob damage scales with the stage. Today it's
+      almost flat (stage 5 mobs still hit for ~12). Bigger numbers on both
+      sides feel better. Tune with the simulator.
+- [ ] **Critical chance**: a crit chance stat (and crit damage ×), bought
+      in Shop → Character and found on items. Crits get their own damage
+      number style.
 - [ ] **Speed upgrade** (attack speed), after ascend lands, because it
       multiplies everything.
 
@@ -60,6 +66,12 @@ Each line below is its own thread, in this order.
 - [x] **Remove the cooldown ring** ("loader") around the crow (PR #20).
 - [x] Real crow sprites instead of the placeholder (PR #16, #20).
 - [x] **Show when the crow becomes buyable** in the shop (PR #23).
+- [ ] **Companion damage scales with the hero's damage** (e.g. a % of the
+      hero's hit, raised by crow upgrades), so the crow stays useful later
+      on.
+- [ ] **Companion upgrades in Shop and Inventory**: crow upgrades can be
+      bought from Shop → Companions too, not only from Inventory (same as
+      weapons).
 - [ ] **More companions**: other animals with their own attack and upgrades
       (e.g. bat, cat), each its own sprite set. One active or several?
       (owner to decide).
@@ -77,6 +89,10 @@ Each line below is its own thread, in this order.
       sparkles (PR #15, #17).
 - [ ] Item defence is weak under the % formula (1–4 % per item): raise
       `ITEMS.stats.defence.base`? → **decide after the simulator**.
+- [ ] **Item names that say what they do**: name parts from the stats,
+      e.g. "Lucky Ring" = more item find, "Ring of Haste" = speed, "Sharp
+      Pendant of Fortune" = damage + item find. Tier in the name or frame
+      colour. Easy to tell what you got from the drop toast.
 - [ ] Mana bar and **auras** (passive bonuses with a visible effect around
       the hero).
 
@@ -94,11 +110,14 @@ Each line below is its own thread, in this order.
       simulator. Then implement in small PRs (state + save, shop tab, UI).
 - [x] **Shop reveal**: a weapon appears once you have 90 % of its price and
       stays shown.
-- [x] Upgrade weapons that aren't equipped? → **Yes** (2026-11-02, done in
-      the bulk buy thread).
+- [x] Upgrade weapons that aren't equipped? → **Yes** (2026-11-02; PR #38,
+      bulk buy: every owned weapon has its own Upgrade button).
 
 ## Active play
 
+- [ ] **Starter quest: buy the companion**. At the start, a small quest
+      ("Buy the crow to start clicking") points to Shop → Companions, so new
+      players learn clicking early. Reward or highlight when done.
 - [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
       (PR #20). Still open: click the mob for bonus damage (cap clicks per second so
       autoclickers don't break the balance).
@@ -114,6 +133,14 @@ Each line below is its own thread, in this order.
 - [ ] **Help behind a small ⓘ icon** instead of a menu tab (thread
       `ui/help-icon`).
 - [ ] **Bulk buy** ×10 / ×100 / MAX (thread `code/bulk-buy`).
+- [ ] **Compare before buying a weapon**: the shop shows the current
+      damage vs. the new weapon's damage (e.g. `12 → 30 (+18)`).
+- [ ] **Equipped first**: equipped weapons (and items) are listed at the
+      top in Inventory.
+- [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
+      on top while scrolling, like the main tabs.
+- [ ] **Fix: sound settings**: the [X] close button overlaps the on/off
+      button in the sound settings popover. Move it so both are usable.
 - [ ] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
       defence, crit/speed, crow DPS, item totals, kills, deaths).
 - [x] Pixel font: Pixelify Sans, with Lithuanian letters (PR #12).

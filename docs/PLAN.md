@@ -452,12 +452,17 @@ no one-tab guard, no bulk buy.
 7. **Simulator first, then balance**: headless sim + `npm run sim` + debug
    panel UI. Use it to slow progress down on purpose (see
    [Pacing](#pacing-to-do)) before adding new upgrades.
+   Balance work includes hero HP growth, mob damage growth (bigger
+   numbers), crit chance, and crow damage scaling with the hero.
 8. **Character & weapons**: defence upgrade, buy → equip, bigger swords,
    crossbow, more weapon tiers.
 9. **Save v2**: checksummed string, backup slot, `.txt` export/import,
    share link, one-tab guard.
-10. **Shop & UI**: help behind a small ⓘ icon, bulk buy, and a **stats
-    panel** (tap the HP bar area to see max DPS and other stats).
+10. **Shop & UI**: help behind a small ⓘ icon, bulk buy, a **stats panel**
+    (tap the HP bar area to see max DPS and other stats), weapon damage
+    compare in the shop, equipped items on top, sticky sub tabs, crow
+    upgrades in the shop too, sound popover [X] fix, a starter quest (buy
+    the crow to start clicking).
 11. **Ascend (prestige)**: design the logic first (gate, reset, points,
     Ascend shop), then build it. Then the speed upgrade.
 12. **Active play**: clicking, skills with long cooldowns, auras, items
