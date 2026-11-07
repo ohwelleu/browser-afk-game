@@ -26,6 +26,7 @@ import {
   type AudioSettings,
   type SaveData,
 } from './save';
+import { takeSaveLink } from './save-link';
 import { SfxMixer } from './sfx-mixer';
 import { coinSpin, icons, type SpriteDef } from './sprites';
 import { STYLES } from './styles';
@@ -148,6 +149,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   // ── Dialogs (menu modal, sound popover): one open at a time ──────────────
 
   const dialogs = new Dialogs(root, box);
+  const saveLink = takeSaveLink(location, history);
   const menu = createMenu({
     act,
     iconUrl,
@@ -155,6 +157,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       read: () => toSaveData(state, audioSettings, __VERSION__),
       apply: importSave,
       tracks: TRACK_CYCLE,
+      link: saveLink,
     },
   });
   const sound = createSoundPanel(
@@ -177,6 +180,14 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   );
   autoButton.before(menu.el, sound.el);
   const toast = createToast(box, { iconUrl });
+  if (saveLink) {
+    // A `#save=` link: open Help on the import preview, above the Start overlay.
+    menu.el.style.zIndex = '4';
+    menu.select('help');
+    menu.refresh(state);
+    dialogs.open(menu.el, menuButton, menu.focusTarget);
+    menu.el.querySelector('.save-msg')?.scrollIntoView({ block: 'center' });
+  }
 
   const loop = new Loop((dt) => {
     state = update(state, dt);

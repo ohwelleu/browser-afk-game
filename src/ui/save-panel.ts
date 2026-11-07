@@ -8,6 +8,7 @@ import {
   type AudioSettings,
   type SaveData,
 } from '../save';
+import { buildSaveLink } from '../save-link';
 import { html, setFlag } from './dom';
 
 // ── Pure parts ───────────────────────────────────────────────────────────────
@@ -76,6 +77,9 @@ export function toImport(current: SaveData, parsed: Extract<Parsed, { ok: true }
   return { ...current, ...parsed.progress, audio: { ...current.audio, ...parsed.audio } };
 }
 
+/** Error for a `#save=` link that doesn't hold a valid save. */
+export const linkError = (error: string) => `This save link doesn't work. ${error}`;
+
 // ── DOM ──────────────────────────────────────────────────────────────────────
 
 export type SavePanelDeps = {
@@ -84,6 +88,11 @@ export type SavePanelDeps = {
   /** Backs up the current save, writes `data` and restarts from it. Errors, or null. */
   apply(data: SaveData): string[] | null;
   tracks?: readonly string[];
+  /**
+   * A save string from a `#save=` link: offered for loading as soon as the
+   * panel exists. `done` runs once it is loaded, cancelled or rejected.
+   */
+  link?: { save: string; done(): void } | null;
 };
 
 export type SavePanel = { el: HTMLElement; refresh(): void };
@@ -91,11 +100,12 @@ export type SavePanel = { el: HTMLElement; refresh(): void };
 const MARKUP = `
   <div class="save-panel">
     <h3>Save</h3>
-    <p class="note">Anyone can decode a save string, so it is for moving progress, not for proving it.</p>
+    <p class="note">The checksum only catches typos. Saves aren't secret: anyone can read or edit them.</p>
     <textarea class="save-out" readonly rows="3" spellcheck="false" aria-label="Your save string"></textarea>
     <div class="buy-row">
       <button type="button" data-save="copy">Copy</button>
       <button type="button" data-save="download">Download</button>
+      <button type="button" data-save="link">Copy link</button>
     </div>
     <h3>Load</h3>
     <textarea class="save-in" rows="3" spellcheck="false" placeholder="Paste a save string" aria-label="Save string to load"></textarea>
@@ -120,6 +130,7 @@ export function createSavePanel(deps: SavePanelDeps): SavePanel {
   const msg = $('.save-msg');
   const confirmRow = $('.save-confirm');
   let pending: SaveData | null = null;
+  let linkDone: (() => void) | null = null;
 
   function refresh(): string {
     out.value = encodeSave(deps.read());
@@ -131,24 +142,38 @@ export function createSavePanel(deps: SavePanelDeps): SavePanel {
     msg.classList.toggle('error', error);
   }
 
-  function check(): void {
+  /** Previews the pasted save and asks to confirm. Returns the error, if any. */
+  function check(): string | null {
     pending = null;
     setFlag(confirmRow, 'hidden', true);
-    if (!input.value.trim()) return say('');
+    if (!input.value.trim()) {
+      say('');
+      return null;
+    }
     const r = parseSaveText(input.value, deps.tracks);
-    if (!r.ok) return say(r.error, true);
+    if (!r.ok) {
+      say(r.error, true);
+      return r.error;
+    }
     pending = toImport(deps.read(), r);
     say(`${savePreviewText(r.progress)}. Load it? It replaces your current game.`);
     setFlag(confirmRow, 'hidden', false);
+    return null;
   }
 
-  async function copy(): Promise<void> {
-    const text = refresh();
+  function finishLink(): void {
+    const done = linkDone;
+    linkDone = null;
+    done?.();
+  }
+
+  async function copy(text: string, what: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
+      out.value = text;
       out.select(); // no clipboard access: select it for Ctrl+C
-      return say('Select the text and copy it.');
+      return say(`Select the ${what} and copy it.`);
     }
     say('Copied.');
   }
@@ -173,6 +198,18 @@ export function createSavePanel(deps: SavePanelDeps): SavePanel {
     setFlag(confirmRow, 'hidden', true);
     refresh();
     say('Loaded. Your previous save is kept as the backup.');
+    finishLink();
+  }
+
+  if (deps.link) {
+    linkDone = deps.link.done;
+    input.value = deps.link.save;
+    const error = check();
+    if (error) {
+      input.value = '';
+      say(linkError(error), true);
+      finishLink();
+    }
   }
 
   input.addEventListener('input', check);
@@ -189,13 +226,15 @@ export function createSavePanel(deps: SavePanelDeps): SavePanel {
   });
   el.addEventListener('click', (e) => {
     const act = (e.target as Element).closest<HTMLElement>('[data-save]')?.dataset.save;
-    if (act === 'copy') void copy();
+    if (act === 'copy') void copy(refresh(), 'text');
+    else if (act === 'link') void copy(buildSaveLink(location.href, refresh()), 'link');
     else if (act === 'download') download();
     else if (act === 'upload') file.click();
     else if (act === 'confirm') load();
     else if (act === 'cancel') {
       input.value = '';
       check();
+      finishLink();
     }
   });
 
