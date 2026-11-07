@@ -6,10 +6,14 @@ import gamingTimeUrl from './gaming-time.ogg?inline';
 import { medieval } from './medieval';
 import { synthwave } from './synthwave';
 
-// Gaming Time by Otrebil, used with the author's written permission. A 96 s (48 bar, 120 BPM)
-// loop of the original, with the tail cross-faded into the head so it repeats without a seam.
+// Gaming Time by Otrebil, used with the author's written permission. The whole song (2:56, 120 BPM):
+// the intro (0:00-0:16) plays once, then the track loops from the drop (bar 8, 16 s) to the end of the
+// finale (bar 88, 176 s). The last 0.25 s of the file is cross-faded into the bar before the drop,
+// so the jump back has no gap or click. Both loop points are whole samples at 44.1 and 48 kHz.
 const gamingTime = fileTrack('gaming-time', gamingTimeUrl, {
-  gain: 0.4,
+  gain: 0.41,
+  loopStart: 16,
+  loopEnd: 176,
   credit: {
     text: 'Music: Gaming Time by Otrebil',
     url: 'https://www.youtube.com/watch?v=qx7avPhISBo',
