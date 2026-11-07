@@ -1,6 +1,6 @@
 import { createSfx, SFX_NAMES } from './sfx';
 import { DEFAULT_TRACK, TRACKS } from './tracks';
-import type { GameAudio, SfxName, TrackCredit, TrackHandle } from './types';
+import type { GameAudio, SfxName, Track, TrackCredit, TrackHandle } from './types';
 
 export type { GameAudio, SfxName, Track, TrackCredit, TrackHandle } from './types';
 export { DEFAULT_TRACK, SFX_NAMES };
@@ -8,6 +8,33 @@ export const TRACK_IDS = Object.keys(TRACKS);
 
 /** The credit line for a track, if it has one. */
 export const trackCredit = (id: string): TrackCredit | undefined => TRACKS[id]?.credit;
+
+/** HUD / help name of a track id: `gaming-time` → `Gaming Time`; `''` (music off) → `Off`. */
+export const trackName = (id: string): string =>
+  id
+    ? id
+        .split('-')
+        .map((w) => w[0].toUpperCase() + w.slice(1))
+        .join(' ')
+    : 'Off';
+
+/** Every track's credit, split into those with a credit line and the names of those without. */
+export interface TrackCredits {
+  credited: TrackCredit[];
+  uncredited: string[];
+}
+
+export function splitCredits(tracks: Record<string, Pick<Track, 'credit'>>): TrackCredits {
+  const credits: TrackCredits = { credited: [], uncredited: [] };
+  for (const [id, track] of Object.entries(tracks)) {
+    if (track.credit) credits.credited.push(track.credit);
+    else credits.uncredited.push(trackName(id));
+  }
+  return credits;
+}
+
+/** The credits of all tracks, in HUD order (for the Help panel). */
+export const trackCredits = (): TrackCredits => splitCredits(TRACKS);
 
 /** Defaults for a fresh save. Low on purpose: this plays on a blog. */
 export const AUDIO_DEFAULTS = { musicVolume: 0.5, sfxVolume: 0.6, muted: false } as const;
