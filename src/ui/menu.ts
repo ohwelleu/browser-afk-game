@@ -5,7 +5,6 @@ import {
   COMPANIONS,
   defenceFromLevel,
   defenceReduction,
-  BUY_AMOUNTS,
   STAGES_PER_WORLD,
   weaponDamage,
   WEAPONS,
@@ -37,6 +36,14 @@ import { hiddenWeaponCount } from '../game/reveal';
 import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '../sprites';
 import { createShow, html, setClass, setFlag } from './dom';
 import { createGearView, GEAR_HTML } from './gear';
+import {
+  AMOUNT_BUTTON,
+  AMOUNT_POPOVER,
+  AMOUNT_STYLES,
+  amountLabel,
+  createAmountPopover,
+  parseAmount,
+} from './amount-popover';
 import { dialogHtml } from './modal';
 import { createSavePanel, type SavePanelDeps } from './save-panel';
 
@@ -119,11 +126,7 @@ export const MENU_STYLES = `
 .tag.on { color: var(--_green); }
 .dmg-next { color: var(--_green); font-weight: bold; }
 .buy-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-/* Buy amount toggle (x1 x10 x100 MAX), shared by all upgrade rows. */
-.amounts { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
-.amounts button { min-width: 3.4em; min-height: 36px; padding: 4px 8px; }
-.amounts button[aria-pressed='true'] { color: var(--_bg); background: var(--_fg); font-weight: bold; }
-.menu button:hover:not(:disabled) .price,
+${AMOUNT_STYLES}.menu button:hover:not(:disabled) .price,
 .menu button:focus-visible .price { color: inherit; }
 .note { opacity: 0.75; }
 .list + .note { margin-top: 10px; }
@@ -197,14 +200,6 @@ export function pixelSvg(rows: readonly string[]): string {
   const w = Math.max(...rows.map((r) => r.length));
   return `<svg viewBox="0 0 ${w} ${rows.length}" aria-hidden="true" focusable="false"><path fill="currentColor" d="${rects.join('')}"/></svg>`;
 }
-
-const amountLabel = (a: BuyAmount) => (a === 'max' ? 'MAX' : `×${a}`);
-
-/** The buy amount toggle. Every copy shows the one shared choice. */
-const AMOUNTS = `<div class="amounts" role="group" aria-label="Buy amount"><span class="note">Buy</span>${BUY_AMOUNTS.map(
-  (a) =>
-    `<button type="button" data-act="amount" data-amount="${a}" aria-pressed="false">${amountLabel(a)}</button>`,
-).join('')}</div>`;
 
 /** A bulk buy button: label, level count (`.buy-n`) and total price (`.buy-cost`). */
 const bulkButton = (label: string, attrs: string) =>
@@ -328,7 +323,7 @@ const companionStats = (next: boolean) =>
   `<span>Damage <span class="comp-dmg"></span>${next ? ' → <span class="dmg-next comp-next"></span>' : ''}</span><span class="comp-auto"></span>`;
 
 export const SHOP = {
-  character: `${AMOUNTS}
+  character: `
     <ul class="list">${CHARACTER_ROWS.map(
       (r) => `
       <li class="item" data-char="${r.id}">
@@ -340,12 +335,12 @@ export const SHOP = {
           </span>
         </div>
         <div class="action">
-          ${bulkButton('Buy', `data-act="buy-char" data-char="${r.id}"`)}
+          ${AMOUNT_BUTTON}${bulkButton('Buy', `data-act="buy-char" data-char="${r.id}"`)}
         </div>
       </li>`,
     ).join('')}</ul>
     <p class="note">Defence from rings and pendants counts too. A hit always does at least 1.</p>`,
-  weapons: `${AMOUNTS}${weaponRows(
+  weapons: `${weaponRows(
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
       `<span class="shop-lv">Lv <span class="shop-level"></span></span>` +
@@ -353,6 +348,7 @@ export const SHOP = {
     (i) =>
       `<span class="tag on shop-equipped">Equipped</span>` +
       `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
+      AMOUNT_BUTTON +
       bulkButton('Upgrade', `data-act="upgrade" data-tier="${i}" class="shop-upgrade"`) +
       `<span class="tag shop-locked">Locked</span>`,
   )}
@@ -375,11 +371,10 @@ export const SHOP = {
     </li></ul>
     <div class="comp-up" hidden>
       <h3>Upgrades</h3>
-      ${AMOUNTS}
       <div class="buy-row">
-        ${bulkButton('Damage', 'data-act="comp-up" data-kind="dmg"')}
+        <span class="bulk">${AMOUNT_BUTTON}${bulkButton('Damage', 'data-act="comp-up" data-kind="dmg"')}</span>
         <button type="button" data-act="comp-up" data-kind="auto">Auto attack ${price('comp-cost-auto')}</button>
-        ${bulkButton('<span class="comp-speed-label">Faster</span>', 'data-act="comp-up" data-kind="speed"')}
+        <span class="bulk">${AMOUNT_BUTTON}${bulkButton('<span class="comp-speed-label">Faster</span>', 'data-act="comp-up" data-kind="speed"')}</span>
       </div>
     </div>`,
   ascend: `
@@ -441,7 +436,8 @@ const BODY = `
     ${panelWithSubs(TABS[0], SHOP)}
     ${panelWithSubs(TABS[1], INVENTORY)}
     ${HELP}
-  </div>`;
+  </div>
+  ${AMOUNT_POPOVER}`;
 
 /** Roving-tabindex steps for a tab row: ←/→ (and ↑/↓), Home/End. */
 const KEY_STEP: Record<string, (i: number, n: number) => number> = {
@@ -488,12 +484,15 @@ export function createMenu(deps: MenuDeps): Menu {
     coinUrl: () => deps.iconUrl(coinSpin),
   });
 
+  const amountPop = createAmountPopover({ menu: el, panel, pop: $('.amount-pop') });
+
   const savePanel = createSavePanel(deps.save);
   $('.save-slot').replaceWith(savePanel.el);
 
   const subTabsOf = (tab: string) => $$<HTMLButtonElement>(`[data-subtabs="${tab}"] [role="tab"]`);
 
   function selectSub(tab: string, sub: string, focus = false): void {
+    amountPop.close(false);
     currentSub[tab] = sub;
     for (const t of subTabsOf(tab)) {
       const on = t.dataset.sub === sub;
@@ -506,6 +505,7 @@ export function createMenu(deps: MenuDeps): Menu {
   }
 
   function select(view: MenuTab, focus = false): void {
+    amountPop.close(false);
     current = view;
     const help = view === 'help';
     if (!help) lastTab = view;
@@ -567,12 +567,15 @@ export function createMenu(deps: MenuDeps): Menu {
         // Toggles: a second press goes back to the last tab.
         select(current === 'help' ? lastTab : 'help');
         return;
-      case 'amount': {
-        const a = target.dataset.amount;
-        amount = a === 'max' ? 'max' : (Number(a) as BuyAmount);
+      case 'amount-menu':
+        amountPop.toggle(target);
+        return;
+      case 'amount':
+        // Picking closes the popover (focus goes back to the button) and updates every row.
+        amount = parseAmount(target.dataset.amount);
+        amountPop.close();
         if (last) refresh(last);
-        break;
-      }
+        return;
       case 'upgrade': {
         const a = amount;
         deps.act((s) => buyUpgrades(s, { type: 'weapon', tier: Number(target.dataset.tier) }, a));
@@ -664,9 +667,6 @@ export function createMenu(deps: MenuDeps): Menu {
 
   function refresh(state: GameState): void {
     last = state;
-    for (const b of $$('[data-act="amount"]')) {
-      b.setAttribute('aria-pressed', String(b.dataset.amount === String(amount)));
-    }
     show($('.wallet-coins'), formatNumber(state.coins));
     const sub = currentSub[current];
     if (current === 'shop') {
@@ -678,6 +678,17 @@ export function createMenu(deps: MenuDeps): Menu {
       else if (sub === 'companions') refreshInventoryCompanion(state);
       else if (sub === 'accessories') gear.refresh(state);
     }
+    syncAmountButtons();
+    amountPop.sync(amount);
+  }
+
+  /** An amount button shows only while the bulk button next to it does. */
+  function syncAmountButtons(): void {
+    for (const b of $$('.amount-btn')) {
+      const gone = !!((b.nextElementSibling as HTMLElement | null)?.hidden ?? true);
+      setFlag(b, 'hidden', gone);
+      if (b.parentElement?.classList.contains('bulk')) setFlag(b.parentElement, 'hidden', gone);
+    }
   }
 
   function refreshShopCharacter(state: GameState): void {
@@ -688,7 +699,7 @@ export function createMenu(deps: MenuDeps): Menu {
       show(li.querySelector('.char-now')!, st.now);
       show(li.querySelector('.char-next')!, st.next);
       show(li.querySelector('.char-effect')!, st.effect);
-      setBulkButton(li.querySelector<HTMLButtonElement>('button')!, state, r.target);
+      setBulkButton(li.querySelector<HTMLButtonElement>('[data-act="buy-char"]')!, state, r.target);
     }
   }
 
