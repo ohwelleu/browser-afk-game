@@ -1,10 +1,13 @@
+import type { TrackCredit } from '../audio';
 import type { AudioSettings } from '../save';
-import { createShow, html } from './dom';
+import { createShow, html, setFlag } from './dom';
 import { dialogHtml } from './modal';
 
 export const SOUND_STYLES = `
 .slider { display: grid; gap: 4px; margin: 10px 0 2px; }
 input[type='range'] { width: 100%; accent-color: var(--_fg); }
+.credit { margin: 10px 0 0; font-size: 0.8em; opacity: 0.75; }
+.credit a { color: inherit; }
 .popover .panel { font-size: 1.1em; }
 @container afk-box (max-width: 767px) {
   input[type='range'] { height: 44px; }
@@ -17,6 +20,8 @@ export type SoundDeps = {
   setVolume(key: 'musicVolume' | 'sfxVolume', value: number): void;
   /** Slider released: persist. */
   commit(): void;
+  /** The credit line of a music track, if it has one. */
+  credit(trackId: string): TrackCredit | undefined;
 };
 
 export type SoundPanel = { el: HTMLElement; refresh(settings: AudioSettings): void };
@@ -32,10 +37,13 @@ export function createSoundPanel(deps: SoundDeps, initial: AudioSettings): Sound
       body: `
         <div class="row"><span>All sound</span><button type="button" class="toggle" data-act="mute"></button></div>
         <label class="slider">Music volume <input type="range" min="0" max="100" step="1" data-vol="musicVolume" /></label>
-        <label class="slider">Effects volume <input type="range" min="0" max="100" step="1" data-vol="sfxVolume" /></label>`,
+        <label class="slider">Effects volume <input type="range" min="0" max="100" step="1" data-vol="sfxVolume" /></label>
+        <p class="credit" hidden><a target="_blank" rel="noopener noreferrer"></a></p>`,
     }),
   );
   const show = createShow();
+  const creditLine = el.querySelector<HTMLElement>('.credit')!;
+  const creditLink = creditLine.querySelector('a')!;
   const muteToggle = el.querySelector<HTMLButtonElement>('[data-act="mute"]')!;
   muteToggle.addEventListener('click', () => deps.toggleMute());
 
@@ -51,6 +59,12 @@ export function createSoundPanel(deps: SoundDeps, initial: AudioSettings): Sound
   function refresh(settings: AudioSettings): void {
     muteToggle.setAttribute('aria-pressed', String(!settings.muted));
     show(muteToggle, settings.muted ? 'OFF' : 'ON');
+    const credit = deps.credit(settings.track);
+    setFlag(creditLine, 'hidden', !credit);
+    if (credit) {
+      show(creditLink, credit.text);
+      if (creditLink.href !== credit.url) creditLink.href = credit.url;
+    }
   }
 
   return { el, refresh };

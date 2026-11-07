@@ -30,9 +30,16 @@ export interface TrackHandle {
   stop(): void;
 }
 
+/** Credit shown in the sound settings while the track is selected. */
+export interface TrackCredit {
+  text: string;
+  url: string;
+}
+
 /** A music source. Register new ones in `tracks/index.ts`; game code only ever sees the id. */
 export interface Track {
   readonly id: string;
   readonly kind: 'synth' | 'file';
+  readonly credit?: TrackCredit;
   play(ctx: BaseAudioContext, out: AudioNode): TrackHandle;
 }
