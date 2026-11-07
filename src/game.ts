@@ -1,4 +1,4 @@
-import { AUDIO_DEFAULTS, createAudio, DEFAULT_TRACK, TRACK_IDS } from './audio';
+import { AUDIO_DEFAULTS, createAudio, DEFAULT_TRACK, TRACK_IDS, trackCredit } from './audio';
 import type { SfxName } from './audio/types';
 import { HERO_MAX_HP, isBoss } from './game/balance';
 import { formatNumber } from './game/format';
@@ -59,7 +59,13 @@ const COMPACT_HUD_HEIGHT = 200;
 const COMPACT_BOTTOM = 64;
 /** Music switch order; '' = off. */
 const TRACK_CYCLE = [...TRACK_IDS, ''];
-const trackName = (id: string) => (id ? id[0].toUpperCase() + id.slice(1) : 'Off');
+const trackName = (id: string) =>
+  id
+    ? id
+        .split('-')
+        .map((w) => w[0].toUpperCase() + w.slice(1))
+        .join(' ')
+    : 'Off';
 
 const HTML = `
   <div class="box" part="box">
@@ -165,6 +171,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         else audio.setSfxVolume(value);
       },
       commit: saveNow,
+      credit: trackCredit,
     },
     audioSettings,
   );
