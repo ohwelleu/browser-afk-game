@@ -30,6 +30,7 @@ import { takeSaveLink } from './save-link';
 import { SfxMixer } from './sfx-mixer';
 import { coinSpin, icons, type SpriteDef } from './sprites';
 import { STYLES } from './styles';
+import { createBrowserTabGuard, TAB_LOCK_STYLES } from './tab-guard';
 import { buildPalette, resolveTheme, type Palette, type ThemeMode } from './theme';
 import { createShow } from './ui/dom';
 import { createMenu, MENU_STYLES } from './ui/menu';
@@ -89,6 +90,7 @@ const HTML = `
     </div>
     <button class="auto-btn toggle" type="button" data-act="auto" title="Auto-advance: go to the next stage after a win"></button>
     <div class="overlay"><button class="start" type="button">Start</button></div>
+    <div class="overlay tab-lock" role="alert" hidden><p>The game is open in another tab</p><button class="start" type="button" data-act="take-over">Play here</button></div>
   </div>`;
 
 /**
@@ -96,7 +98,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -116,6 +118,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   if (loadStatus === 'backup') console.warn('[afk] Save was damaged; loaded the backup.');
   if (loadStatus === 'reset') console.warn('[afk] Save and backup were damaged; new game.');
   if (preview?.stage) startButton.textContent = `Continue · ${preview.stage}`;
+  // Only one tab runs and writes the save; the others show `.tab-lock`.
+  const tabGuard = createBrowserTabGuard(opts.saveKey, storage);
 
   const colorScheme = matchMedia('(prefers-color-scheme: dark)');
   let themeMode = opts.theme;
@@ -216,7 +220,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   }
 
   function saveNow(): void {
-    if (!started) return;
+    if (!started || !tabGuard.owner) return;
     writeSave(storage, opts.saveKey, toSaveData(state, audioSettings, __VERSION__));
   }
 
@@ -364,7 +368,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   /** Runs only after Start, while on screen, in a visible tab and not paused. */
   function syncRunning(): void {
-    const shouldRun = started && !paused && onScreen && !document.hidden;
+    const shouldRun = started && !paused && onScreen && !document.hidden && tabGuard.owner;
     if (shouldRun === loop.running) return;
     if (shouldRun) {
       loop.start();
@@ -409,6 +413,9 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       case 'auto':
         act((s) => setAutoAdvance(s, !s.autoAdvance));
         return;
+      case 'take-over':
+        tabGuard.claim();
+        return;
     }
   });
 
@@ -441,6 +448,31 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     saveNow();
     syncRunning();
   });
+
+  /** Shows `.tab-lock` and makes the rest of the box inert while another tab owns the game. */
+  function showTabLock(owner: boolean): void {
+    const lock = $('.tab-lock');
+    lock.hidden = owner;
+    for (const el of box.children) if (el !== lock) (el as HTMLElement).inert = !owner;
+  }
+
+  function onTabOwner(owner: boolean): void {
+    showTabLock(owner);
+    if (owner) {
+      // The other tab played on meanwhile: continue from its save.
+      const fresh = loadSave(storage, opts.saveKey).saved;
+      if (fresh) {
+        state = createState(fresh.progress);
+        if (!started) startButton.textContent = `Continue · ${state.world}.${state.stage}`;
+        refreshUi();
+        draw();
+      }
+    } else {
+      dialogs.close();
+    }
+    syncRunning();
+  }
+  tabGuard.onChange(onTabOwner);
 
   const autosave = window.setInterval(() => {
     if (loop.running) saveNow();
@@ -480,6 +512,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       { saveKey: opts.saveKey },
     );
   }
+  showTabLock(tabGuard.owner);
   applyTheme();
   resize();
 
@@ -490,6 +523,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     },
     destroy() {
       saveNow();
+      tabGuard.destroy();
       dialogs.destroy();
       debugPanel?.destroy();
       toast.destroy();
