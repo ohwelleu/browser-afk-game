@@ -1,4 +1,11 @@
-import { AUDIO_DEFAULTS, createAudio, DEFAULT_TRACK, TRACK_IDS, trackCredit } from './audio';
+import {
+  AUDIO_DEFAULTS,
+  createAudio,
+  DEFAULT_TRACK,
+  TRACK_IDS,
+  trackCredit,
+  trackName,
+} from './audio';
 import type { SfxName } from './audio/types';
 import { HERO_MAX_HP, isBoss } from './game/balance';
 import { formatNumber } from './game/format';
@@ -38,6 +45,7 @@ import { Dialogs, MODAL_STYLES } from './ui/modal';
 import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
 import { createToast, GEAR_STYLES } from './ui/gear';
+import { createNowPlaying, NOW_PLAYING_STYLES } from './ui/now-playing';
 
 export type GameOptions = {
   saveKey: string;
@@ -61,13 +69,6 @@ const COMPACT_HUD_HEIGHT = 200;
 const COMPACT_BOTTOM = 64;
 /** Music switch order; '' = off. */
 const TRACK_CYCLE = [...TRACK_IDS, ''];
-const trackName = (id: string) =>
-  id
-    ? id
-        .split('-')
-        .map((w) => w[0].toUpperCase() + w.slice(1))
-        .join(' ')
-    : 'Off';
 
 const HTML = `
   <div class="box" part="box">
@@ -98,7 +99,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${NOW_PLAYING_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -184,6 +185,14 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   );
   autoButton.before(menu.el, sound.el);
   const toast = createToast(box, { iconUrl });
+  const noteEl = document.createElement('div');
+  noteEl.className = 'now-playing';
+  noteEl.setAttribute('role', 'status');
+  box.append(noteEl);
+  const nowPlaying = createNowPlaying(noteEl);
+  /** "♪ title by author" for a few seconds; called when the music starts or the track is switched. */
+  const announceTrack = () =>
+    nowPlaying.announce(audioSettings.muted ? undefined : trackCredit(audioSettings.track));
   if (saveLink) {
     // A `#save=` link: open Help on the import preview, above the Start overlay.
     menu.el.style.zIndex = '4';
@@ -395,6 +404,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         const i = TRACK_CYCLE.indexOf(audioSettings.track);
         audioSettings.track = TRACK_CYCLE[(i + 1) % TRACK_CYCLE.length];
         audio.setTrack(audioSettings.track);
+        announceTrack();
         refreshAudioButtons();
         saveNow();
         return;
@@ -445,6 +455,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     started = true;
     overlay.hidden = true;
     void audio.start();
+    announceTrack();
     saveNow();
     syncRunning();
   });
@@ -527,6 +538,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       dialogs.destroy();
       debugPanel?.destroy();
       toast.destroy();
+      nowPlaying.destroy();
+      noteEl.remove();
       loop.stop();
       audio.pause();
       audio.setTrack('');

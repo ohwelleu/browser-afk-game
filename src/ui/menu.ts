@@ -12,6 +12,7 @@ import {
   type BuyAmount,
   type CompanionDef,
 } from '../game/balance';
+import { trackCredits } from '../audio';
 import { formatNumber } from '../game/format';
 import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
@@ -36,6 +37,7 @@ import {
 import { hiddenWeaponCount } from '../game/reveal';
 import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '../sprites';
 import { createShow, html, setClass, setFlag } from './dom';
+import { musicCreditsHtml } from './credits';
 import { createGearView, GEAR_HTML } from './gear';
 import { dialogHtml } from './modal';
 import { createSavePanel, type SavePanelDeps } from './save-panel';
@@ -126,6 +128,7 @@ export const MENU_STYLES = `
 .menu button:hover:not(:disabled) .price,
 .menu button:focus-visible .price { color: inherit; }
 .note { opacity: 0.75; }
+#afk-panel-help a { color: inherit; }
 .list + .note { margin-top: 10px; }
 .soon { margin-top: 1.5em !important; text-align: center; font-weight: bold; }
 
@@ -423,7 +426,7 @@ const HELP = `
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <div class="save-slot"></div>
       <h3>Credits</h3>
-      <p>Sound effects: ZzFX by Frank Force (MIT licence).<br />Music: original chiptune, synthesized in the browser.<br />Sprites: original pixel art, drawn in code.</p>
+      <p>Sound effects: ZzFX by Frank Force (MIT licence).<br />${musicCreditsHtml(trackCredits())}<br />Sprites: original pixel art, drawn in code.</p>
       <p class="note">browser-afk-game v${__VERSION__}</p>
     </section>`;
 
