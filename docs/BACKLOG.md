@@ -178,11 +178,10 @@ Each line below is its own thread, in this order.
 
 ## Music & sound
 
-- [ ] **New music**: an original **8-bit synthwave** track (in the feel of the
-      owner's YouTube example, but our own; no ripping). Or a licensed track:
-      the owner is asking the creator of one song for permission
-      (2026-11-02). Only add it with written permission.
-- [x] **Synthwave plays first** by default; players can still switch.
+- [~] **New music**: "Gaming Time" by Otrebil, with written permission
+      (2026-11-03, see [DECISIONS.md](DECISIONS.md)). Thread
+      `audio/otrebil-track`: seamless loop, OGG, credit, default for new
+      players. Our own original 8-bit synthwave track is optional now.
 - [ ] Per-world tracks and a boss theme.
 
 ## Blog & side projects
