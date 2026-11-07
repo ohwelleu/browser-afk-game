@@ -191,6 +191,11 @@ Each line below is its own thread, in this order.
       charts from the sim. Probably its own small project (a sim "lab" that
       imports the game's pure balance/combat code), published on the site.
 
+## Blog (other repo: `ohwelleu.github.io`)
+
+- [ ] **Fix the blog's mobile menu.** This is the site's own menu, not
+      the game's, so the work happens in the blog repo, not here.
+
 ## Docs & housekeeping
 
 - [x] Tag `v0.2.0` and release the current work as `v0.3.0`.
