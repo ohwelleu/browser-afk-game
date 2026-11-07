@@ -70,12 +70,42 @@
       #status {
         opacity: 0.7;
       }
+      .demo-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        margin: 0 0 12px;
+        font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace;
+      }
+      .demo-nav a {
+        color: inherit;
+        opacity: 0.7;
+        text-decoration: none;
+      }
+      .demo-nav a:hover {
+        text-decoration: underline;
+      }
+      .demo-nav a[aria-current='page'] {
+        font-weight: bold;
+        opacity: 1;
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
+    <nav class="demo-nav" aria-label="Demo pages">
+      <a href="./?afkdebug">Game</a> · <a href="./sprites.html">Sprites</a> ·
+      <a href="./audio.html">Music &amp; SFX</a>
+    </nav>
+    <script>
+      for (const a of document.querySelectorAll('.demo-nav a')) {
+        const page = (p) => p.replace(/index\.html$/, '');
+        if (page(a.pathname) === page(location.pathname)) a.setAttribute('aria-current', 'page');
+      }
+    </script>
     <h1>browser-afk-game · music &amp; SFX prototypes</h1>
     <p>
-      Nothing plays until Start (same as the game). Listen to both loops for a while: they are
+      Nothing plays until Start (same as the game). Listen to the loops for a while: they are
       background music for an idle game on a blog.
     </p>
     <button id="start">Start</button>

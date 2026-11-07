@@ -1,19 +1,30 @@
-import { AUDIO_DEFAULTS, createAudio, SFX_NAMES, type SfxName } from '../src/audio';
+import {
+  AUDIO_DEFAULTS,
+  createAudio,
+  SFX_NAMES,
+  TRACK_IDS,
+  trackCredit,
+  type SfxName,
+} from '../src/audio';
 
-const TRACKS = [
-  {
-    id: 'medieval',
+// The track list comes from the game's registry, so a new track shows up here automatically.
+// This map only adds a title and a description; an unlisted id falls back to its id.
+const TRACK_INFO: Record<string, { title: string; about: string }> = {
+  'gaming-time': {
+    title: 'Gaming Time (Otrebil)',
+    about: '120 BPM · 96 s loop (48 bars). Recorded track, tail cross-faded into the head.',
+  },
+  medieval: {
     title: 'Medieval ambient',
     about:
       'D Dorian · 70 BPM · 16 bars (~55 s). Karplus-Strong harp, recorder with vibrato, D–A drone, soft tabor.',
   },
-  {
-    id: 'synthwave',
+  synthwave: {
     title: 'Retro synthwave chill',
     about:
       'A minor · 90 BPM · 16 bars (~43 s). Saw pads, square arpeggio + echo, bass, soft kick/hat; snare + lead in the second half.',
   },
-];
+};
 
 const audio = createAudio();
 audio.setTrack('');
@@ -44,12 +55,28 @@ function selectTrack(id: string): void {
   status.textContent = id ? `playing: ${id}` : 'music stopped';
 }
 
-for (const t of TRACKS) {
+for (const id of TRACK_IDS) {
+  const info = TRACK_INFO[id] ?? { title: id, about: '' };
   const box = document.createElement('div');
   box.className = 'track';
-  box.innerHTML = `<strong>${t.title}</strong><p>${t.about}</p>`;
-  playButtons.set(t.id, button('▶ Play', box, () => selectTrack(t.id)));
-  button('■ Stop', box, () => playing === t.id && selectTrack(''));
+  const title = document.createElement('strong');
+  title.textContent = info.title;
+  const about = document.createElement('p');
+  about.textContent = info.about;
+  box.append(title, about);
+  const credit = trackCredit(id);
+  if (credit) {
+    const line = document.createElement('p');
+    const link = document.createElement('a');
+    link.href = credit.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = credit.text;
+    line.append(link);
+    box.append(line);
+  }
+  playButtons.set(id, button('▶ Play', box, () => selectTrack(id)));
+  button('■ Stop', box, () => playing === id && selectTrack(''));
   $('#tracks').append(box);
 }
 
