@@ -5,24 +5,21 @@ import {
   COMPANIONS,
   defenceFromLevel,
   defenceReduction,
+  BUY_AMOUNTS,
   STAGES_PER_WORLD,
-  upgradeCost,
   weaponDamage,
   WEAPONS,
+  type BuyAmount,
   type CompanionDef,
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
   buyCompanion,
-  buyDefence,
-  canBuyDefence,
-  defenceCost,
+  buyUpgrades,
   heroDefence,
-  buyUpgrade,
   buyWeapon,
   canBuyCompanion,
-  canUpgrade,
   canUpgradeCompanion,
   canBuyWeapon,
   companionDef,
@@ -33,6 +30,8 @@ import {
   type CompanionUpgrade,
   nextWeapon,
   type GameState,
+  upgradeQuote,
+  type UpgradeTarget,
 } from '../game/state';
 import { hiddenWeaponCount } from '../game/reveal';
 import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '../sprites';
@@ -115,6 +114,10 @@ export const MENU_STYLES = `
 .tag.on { color: var(--_green); }
 .dmg-next { color: var(--_green); font-weight: bold; }
 .buy-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+/* Buy amount toggle (x1 x10 x100 MAX), shared by all upgrade rows. */
+.amounts { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
+.amounts button { min-width: 3.4em; min-height: 36px; padding: 4px 8px; }
+.amounts button[aria-pressed='true'] { color: var(--_bg); background: var(--_fg); font-weight: bold; }
 .menu button:hover:not(:disabled) .price,
 .menu button:focus-visible .price { color: inherit; }
 .note { opacity: 0.75; }
@@ -163,12 +166,17 @@ const TABS = [
 ] as const;
 export type MenuTab = (typeof TABS)[number]['id'];
 
-/**
- * Upgrade amounts, one buy button each. v1 has ×1 only. Later: 10, 100 and
- * MAX (bulk cost formula in docs/PLAN.md → Weapons & upgrades), once the game
- * has a pure bulk-buy action to call.
- */
-const BUY_AMOUNTS = [1] as const;
+const amountLabel = (a: BuyAmount) => (a === 'max' ? 'MAX' : `×${a}`);
+
+/** The buy amount toggle. Every copy shows the one shared choice. */
+const AMOUNTS = `<div class="amounts" role="group" aria-label="Buy amount"><span class="note">Buy</span>${BUY_AMOUNTS.map(
+  (a) =>
+    `<button type="button" data-act="amount" data-amount="${a}" aria-pressed="false">${amountLabel(a)}</button>`,
+).join('')}</div>`;
+
+/** A bulk buy button: label, level count (`.buy-n`) and total price (`.buy-cost`). */
+const bulkButton = (label: string, attrs: string) =>
+  `<button type="button" ${attrs}>${label} <span class="buy-n"></span> ${price('buy-cost')}</button>`;
 
 /** "1.1" for stage level 1, "2.1" for level 7. */
 export function stageName(level: number): string {
@@ -255,9 +263,7 @@ type CharacterRow = {
   level(s: GameState): number;
   /** Stat now → after one more level, and the effect line. */
   stat(s: GameState): { now: string; next: string; effect: string };
-  cost(s: GameState): number;
-  canBuy(s: GameState): boolean;
-  buy(s: GameState): GameState;
+  target: UpgradeTarget;
 };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -279,16 +285,18 @@ const CHARACTER_ROWS: readonly CharacterRow[] = [
         effect: `Mob hits −${pct(defenceReduction(now))} → −${pct(defenceReduction(next))}`,
       };
     },
-    cost: defenceCost,
-    canBuy: canBuyDefence,
-    buy: buyDefence,
+    target: { type: 'defence' },
   },
 ];
 
 const companionIcon = `<span class="icon"><img alt="" data-icon="companion" /></span>`;
 
-const SHOP = {
-  character: `
+/** Crow stats line (Shop and Inventory fill it the same way). */
+const companionStats = (next: boolean) =>
+  `<span>Damage <span class="comp-dmg"></span>${next ? ' → <span class="dmg-next comp-next"></span>' : ''}</span><span class="comp-auto"></span>`;
+
+export const SHOP = {
+  character: `${AMOUNTS}
     <ul class="list">${CHARACTER_ROWS.map(
       (r) => `
       <li class="item" data-char="${r.id}">
@@ -300,74 +308,75 @@ const SHOP = {
           </span>
         </div>
         <div class="action">
-          <button type="button" data-act="buy-char" data-char="${r.id}">Buy ${price('char-cost')}</button>
+          ${bulkButton('Buy', `data-act="buy-char" data-char="${r.id}"`)}
         </div>
       </li>`,
     ).join('')}</ul>
     <p class="note">Defence from rings and pendants counts too. A hit always does at least 1.</p>`,
-  weapons: `${weaponRows(
+  weapons: `${AMOUNTS}${weaponRows(
     'shop-list',
-    `<span class="shop-dmg"></span><span class="shop-price-text"></span>`,
+    `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
+      `<span class="shop-lv">Lv <span class="shop-level"></span></span>` +
+      `<span class="shop-up-dmg">Damage <span class="shop-cur"></span> → <span class="dmg-next shop-next"></span></span>`,
     (i) =>
       `<span class="tag on shop-equipped">Equipped</span>` +
-      `<span class="tag on shop-owned">Owned</span>` +
       `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
+      bulkButton('Upgrade', `data-act="upgrade" data-tier="${i}" class="shop-upgrade"`) +
       `<span class="tag shop-locked">Locked</span>`,
   )}
+    <p class="note">Upgrades raise a weapon's damage, equipped or not. Switch weapons in Inventory → Weapons.</p>
     <p class="note shop-more" hidden>More weapons appear as you earn coins.</p>`,
   companions: `
     <ul class="list"><li class="item comp-shop">
       ${companionIcon}
       <div class="item-body">
         <span class="item-name">${COMPANIONS.crow.name}</span>
-        <span class="item-stats"><span>Pecks the mob when you click or tap</span></span>
+        <span class="item-stats comp-pitch"><span>Pecks the mob when you click or tap</span></span>
+        <span class="item-stats comp-stats" hidden>${companionStats(true)}</span>
         <span class="note comp-unlock"></span>
       </div>
       <div class="action">
-        <span class="tag on comp-owned">Owned</span>
+        <span class="tag on comp-owned">Owned · Lv <span class="comp-level"></span></span>
         <button type="button" data-act="buy-companion" class="comp-buy">Buy ${price('comp-price')}</button>
         <span class="tag comp-locked">Locked</span>
       </div>
     </li></ul>
-    <p class="note comp-shop-hint" hidden>Upgrade your companion in Inventory → Companions.</p>`,
+    <div class="comp-up" hidden>
+      <h3>Upgrades</h3>
+      ${AMOUNTS}
+      <div class="buy-row">
+        ${bulkButton('Damage', 'data-act="comp-up" data-kind="dmg"')}
+        <button type="button" data-act="comp-up" data-kind="auto">Auto attack ${price('comp-cost-auto')}</button>
+        ${bulkButton('<span class="comp-speed-label">Faster</span>', 'data-act="comp-up" data-kind="speed"')}
+      </div>
+    </div>`,
   ascend: `
     <p class="soon">Coming soon</p>
     <p class="note">Ascend will let you start over with a permanent bonus.</p>`,
 };
 
-const INVENTORY = {
+export const INVENTORY = {
   weapons: `${weaponRows(
     'inv-list',
-    `<span>Lv <span class="inv-level"></span></span><span>Damage <span class="inv-dmg"></span><span class="inv-next-wrap"> → <span class="dmg-next inv-next"></span></span></span>`,
+    `<span>Lv <span class="inv-level"></span></span><span>Damage <span class="inv-dmg"></span></span>`,
     (i) =>
       `<span class="tag on inv-equipped">Equipped</span>` +
-      `<button type="button" data-act="equip" data-tier="${i}" class="inv-equip">Equip</button>` +
-      BUY_AMOUNTS.map(
-        (n) =>
-          `<button type="button" data-act="upgrade" data-amount="${n}" class="inv-upgrade">Upgrade ×${n} ${price('inv-cost')}</button>`,
-      ).join(''),
+      `<button type="button" data-act="equip" data-tier="${i}" class="inv-equip">Equip</button>`,
   )}
-    <p class="note">Upgrades raise the equipped weapon's damage. Equip a weapon to upgrade it.</p>
+    <p class="note">Upgrade weapons in Shop → Weapons.</p>
     <p class="note inv-hint">Buy more weapons in Shop → Weapons.</p>`,
   companions: `
     <h3>Companion slot</h3>
     <p class="inv-comp-empty">Empty. Companions are sold in Shop → Companions.</p>
-    <div class="comp-up" hidden>
-      <div class="item">
+    <div class="inv-comp" hidden>
+      <ul class="list"><li class="item">
         ${companionIcon}
         <div class="item-body">
           <span class="item-name"><span class="comp-name"></span> · Lv <span class="comp-level"></span> <span class="tag on">Equipped</span></span>
-          <span class="item-stats">
-            <span>Damage <span class="comp-dmg"></span> → <span class="dmg-next comp-next"></span></span>
-            <span class="comp-auto"></span>
-          </span>
+          <span class="item-stats">${companionStats(false)}</span>
         </div>
-      </div>
-      <div class="buy-row">
-        <button type="button" data-act="comp-up" data-kind="dmg">Damage +1 ${price('comp-cost-dmg')}</button>
-        <button type="button" data-act="comp-up" data-kind="auto">Auto attack ${price('comp-cost-auto')}</button>
-        <button type="button" data-act="comp-up" data-kind="speed"><span class="comp-speed-label">Faster</span> ${price('comp-cost-speed')}</button>
-      </div>
+      </li></ul>
+      <p class="note">Upgrade your companion in Shop → Companions.</p>
     </div>`,
   accessories: GEAR_HTML,
 };
@@ -411,7 +420,7 @@ const KEY_STEP: Record<string, (i: number, n: number) => number> = {
   End: (_, n) => n - 1,
 };
 
-/** The ☰ menu modal: shop, inventory (with upgrades), help & credits. */
+/** The ☰ menu modal: shop (with upgrades), inventory, help & credits. */
 export function createMenu(deps: MenuDeps): Menu {
   const el = html(
     dialogHtml({ kind: 'modal', id: 'afk-menu', title: '', closeLabel: 'Close menu', body: '' }),
@@ -435,6 +444,8 @@ export function createMenu(deps: MenuDeps): Menu {
     TABS.flatMap((t) => (t.subs.length ? [[t.id, t.subs[0]!.id]] : [])),
   );
   let last: GameState | null = null;
+  /** Chosen buy amount (UI state only, back to ×1 on reload). */
+  let amount: BuyAmount = 1;
   const gear = createGearView($(`#${subPanelId('inventory', 'accessories')}`), {
     iconUrl: deps.iconUrl,
     coinUrl: () => deps.iconUrl(coinSpin),
@@ -511,9 +522,17 @@ export function createMenu(deps: MenuDeps): Menu {
       return;
     }
     switch (target.dataset.act) {
-      case 'upgrade':
-        deps.act(buyUpgrade);
+      case 'amount': {
+        const a = target.dataset.amount;
+        amount = a === 'max' ? 'max' : (Number(a) as BuyAmount);
+        if (last) refresh(last);
         break;
+      }
+      case 'upgrade': {
+        const a = amount;
+        deps.act((s) => buyUpgrades(s, { type: 'weapon', tier: Number(target.dataset.tier) }, a));
+        break;
+      }
       case 'buy':
         // Only the next weapon's button is shown; buyWeapon re-checks anyway.
         deps.act(buyWeapon);
@@ -532,15 +551,23 @@ export function createMenu(deps: MenuDeps): Menu {
         break;
       case 'buy-char': {
         const row = CHARACTER_ROWS.find((r) => r.id === target.dataset.char);
-        if (row) deps.act(row.buy);
+        const a = amount;
+        if (row) deps.act((s) => buyUpgrades(s, row.target, a));
         break;
       }
       case 'buy-companion':
         deps.act(buyCompanion);
         break;
-      case 'comp-up':
-        deps.act((s) => upgradeCompanion(s, target.dataset.kind as CompanionUpgrade));
+      case 'comp-up': {
+        const kind = target.dataset.kind as CompanionUpgrade;
+        const a = amount;
+        deps.act((s) =>
+          kind === 'auto'
+            ? upgradeCompanion(s, kind)
+            : buyUpgrades(s, { type: 'companion', kind }, a),
+        );
         break;
+      }
       default:
         return;
     }
@@ -571,8 +598,30 @@ export function createMenu(deps: MenuDeps): Menu {
     gear.refreshIcons();
   }
 
+  /**
+   * Fills a bulk buy button for the chosen amount. MAX with nothing affordable
+   * shows the next level's price; a capped upgrade shows no price.
+   */
+  function setBulkButton(btn: HTMLButtonElement, state: GameState, t: UpgradeTarget): void {
+    const q = upgradeQuote(state, t, amount);
+    const shown = q.levels > 0 ? q : upgradeQuote(state, t, 1);
+    const ok = q.levels > 0 && state.coins >= q.cost;
+    show(
+      btn.querySelector('.buy-n')!,
+      q.levels > 0 ? `×${formatNumber(q.levels)}` : amountLabel(amount),
+    );
+    show(btn.querySelector('.buy-cost')!, formatNumber(shown.cost));
+    setFlag(btn.querySelector('.price')!, 'hidden', shown.levels === 0);
+    setFlag(btn.querySelector('.buy-n')!, 'hidden', shown.levels === 0);
+    setFlag(btn, 'disabled', !ok);
+    show(btn, ok || shown.levels === 0 ? '' : 'Not enough coins', 'title');
+  }
+
   function refresh(state: GameState): void {
     last = state;
+    for (const b of $$('[data-act="amount"]')) {
+      b.setAttribute('aria-pressed', String(b.dataset.amount === String(amount)));
+    }
     show($('.wallet-coins'), formatNumber(state.coins));
     const sub = currentSub[current];
     if (current === 'shop') {
@@ -581,7 +630,7 @@ export function createMenu(deps: MenuDeps): Menu {
       else if (sub === 'companions') refreshShopCompanions(state);
     } else if (current === 'inventory') {
       if (sub === 'weapons') refreshInventoryWeapons(state);
-      else if (sub === 'companions') refreshCompanionUpgrades(state);
+      else if (sub === 'companions') refreshInventoryCompanion(state);
       else if (sub === 'accessories') gear.refresh(state);
     }
   }
@@ -594,11 +643,7 @@ export function createMenu(deps: MenuDeps): Menu {
       show(li.querySelector('.char-now')!, st.now);
       show(li.querySelector('.char-next')!, st.next);
       show(li.querySelector('.char-effect')!, st.effect);
-      show(li.querySelector('.char-cost')!, formatNumber(r.cost(state)));
-      const ok = r.canBuy(state);
-      const btn = li.querySelector<HTMLButtonElement>('button')!;
-      setFlag(btn, 'disabled', !ok);
-      show(btn, ok ? '' : 'Not enough coins', 'title');
+      setBulkButton(li.querySelector<HTMLButtonElement>('button')!, state, r.target);
     }
   }
 
@@ -614,15 +659,29 @@ export function createMenu(deps: MenuDeps): Menu {
       // Weapons only show up near their price (game/reveal.ts); hidden ones say nothing.
       setFlag(li, 'hidden', state.revealedWeapons[i] !== true);
       setClass(li, 'locked', locked);
-      show(li.querySelector('.shop-dmg')!, `${formatNumber(w.baseDmg)} base dmg`);
+      // Owned weapons show level and damage → next next to their Upgrade
+      // button; the others show base damage and price.
+      const dmg = li.querySelector('.shop-dmg')!;
+      show(dmg, `${formatNumber(w.baseDmg)} base dmg`);
+      setFlag(dmg, 'hidden', owned);
       // The next weapon shows its price on the Buy button, the others as text.
       const priceText = li.querySelector('.shop-price-text')!;
       show(priceText, w.price ? `${formatNumber(w.price)} coins` : 'Starter');
-      setFlag(priceText, 'hidden', isNext);
+      setFlag(priceText, 'hidden', isNext || owned);
       show(li.querySelector('.shop-price')!, formatNumber(w.price));
+      setFlag(li.querySelector('.shop-lv')!, 'hidden', !owned);
+      setFlag(li.querySelector('.shop-up-dmg')!, 'hidden', !owned);
+      const upgrade = li.querySelector<HTMLButtonElement>('.shop-upgrade')!;
+      setFlag(upgrade, 'hidden', !owned);
+      if (owned) {
+        const lvl = state.weaponLevels[i];
+        show(li.querySelector('.shop-level')!, formatNumber(lvl));
+        show(li.querySelector('.shop-cur')!, formatNumber(weaponDamage(i, lvl)));
+        show(li.querySelector('.shop-next')!, formatNumber(weaponDamage(i, lvl + 1)));
+        setBulkButton(upgrade, state, { type: 'weapon', tier: i });
+      }
       const equipped = i === state.equipped;
       setFlag(li.querySelector('.shop-equipped')!, 'hidden', !(owned && equipped));
-      setFlag(li.querySelector('.shop-owned')!, 'hidden', !owned || equipped);
       const lockTag = li.querySelector('.shop-locked')!;
       setFlag(lockTag, 'hidden', !locked);
       show(lockTag, locked ? `Buy ${WEAPONS[i - 1].name} first` : '', 'title');
@@ -642,7 +701,6 @@ export function createMenu(deps: MenuDeps): Menu {
     setClass($('.comp-shop'), 'locked', locked);
     setFlag($('.comp-owned'), 'hidden', !owned);
     setFlag($('.comp-locked'), 'hidden', !locked);
-    setFlag($('.comp-shop-hint'), 'hidden', !owned);
     const unlock = $('.comp-unlock');
     show(unlock, companionUnlockText(def));
     setFlag(unlock, 'hidden', !locked);
@@ -652,11 +710,11 @@ export function createMenu(deps: MenuDeps): Menu {
     const canComp = canBuyCompanion(state);
     setFlag(buyComp, 'disabled', !canComp);
     show(buyComp, offer && !canComp ? 'Not enough coins' : '', 'title');
+    refreshCompanionUpgrades(state);
   }
 
   function refreshInventoryWeapons(state: GameState): void {
     let owned = 0;
-    const affordable = canUpgrade(state);
     for (const li of $$('.inv-list .item')) {
       const i = Number(li.dataset.tier);
       const lvl = state.weaponLevels[i];
@@ -667,44 +725,59 @@ export function createMenu(deps: MenuDeps): Menu {
       const equipped = i === state.equipped;
       show(li.querySelector('.inv-level')!, formatNumber(lvl));
       show(li.querySelector('.inv-dmg')!, formatNumber(weaponDamage(i, lvl)));
-      setFlag(li.querySelector('.inv-next-wrap')!, 'hidden', !equipped);
       setFlag(li.querySelector('.inv-equipped')!, 'hidden', !equipped);
       setFlag(li.querySelector('.inv-equip')!, 'hidden', equipped);
-      for (const btn of $$<HTMLButtonElement>('.inv-upgrade', li)) {
-        setFlag(btn, 'hidden', !equipped);
-        if (!equipped) continue;
-        setFlag(btn, 'disabled', !affordable);
-        show(btn, affordable ? '' : 'Not enough coins', 'title');
-      }
-      if (!equipped) continue;
-      show(li.querySelector('.inv-next')!, formatNumber(weaponDamage(i, lvl + 1)));
-      for (const c of $$('.inv-cost', li)) show(c, formatNumber(upgradeCost(i, lvl)));
     }
     setFlag($('.inv-hint'), 'hidden', owned >= WEAPONS.length);
   }
 
+  /** Crow level, damage (→ next, if shown) and auto line inside `root`. */
+  function fillCompanionStats(root: HTMLElement, state: GameState): void {
+    const c = state.companion;
+    const def = companionDef(state);
+    if (!c || !def) return;
+    const q = (sel: string) => root.querySelector<HTMLElement>(sel);
+    const name = q('.comp-name');
+    if (name) show(name, def.name);
+    show(q('.comp-level')!, formatNumber(c.dmgLevel));
+    show(q('.comp-dmg')!, formatNumber(companionDamage(def, c.dmgLevel)));
+    const next = q('.comp-next');
+    if (next) show(next, formatNumber(companionDamage(def, c.dmgLevel + 1)));
+    const interval = companionAutoInterval(def, c.speedLevel).toFixed(1);
+    show(q('.comp-auto')!, c.autoUnlocked ? `Auto every ${interval} s` : 'Auto attack: locked');
+  }
+
+  function refreshInventoryCompanion(state: GameState): void {
+    const has = !!state.companion && !!companionDef(state);
+    setFlag($('.inv-comp'), 'hidden', !has);
+    setFlag($('.inv-comp-empty'), 'hidden', has);
+    if (has) fillCompanionStats($('.inv-comp'), state);
+  }
+
+  /** Shop → Companions once the crow is bought: its stats and upgrade buttons. */
   function refreshCompanionUpgrades(state: GameState): void {
     const c = state.companion;
     const def = companionDef(state);
-    setFlag($('.comp-up'), 'hidden', !c || !def);
-    setFlag($('.inv-comp-empty'), 'hidden', !!c && !!def);
+    const has = !!c && !!def;
+    setFlag($('.comp-up'), 'hidden', !has);
+    setFlag($('.comp-pitch'), 'hidden', has);
+    setFlag($('.comp-stats'), 'hidden', !has);
     if (!c || !def) return;
-    show($('.comp-name'), def.name);
-    show($('.comp-level'), formatNumber(c.dmgLevel));
-    show($('.comp-dmg'), formatNumber(companionDamage(def, c.dmgLevel)));
-    show($('.comp-next'), formatNumber(companionDamage(def, c.dmgLevel + 1)));
-    const interval = companionAutoInterval(def, c.speedLevel).toFixed(1);
-    show($('.comp-auto'), c.autoUnlocked ? `Auto every ${interval} s` : 'Auto attack: locked');
+    fillCompanionStats($('.comp-shop'), state);
     const maxed = c.speedLevel >= companionMaxSpeedLevel(def);
     show($('.comp-speed-label'), maxed ? 'Fastest' : 'Faster');
     for (const btn of $$<HTMLButtonElement>('[data-act="comp-up"]')) {
       const kind = btn.dataset.kind as CompanionUpgrade;
-      const cost = companionUpgradeCost(state, kind);
       setFlag(
         btn,
         'hidden',
         (kind === 'auto' && c.autoUnlocked) || (kind === 'speed' && !c.autoUnlocked),
       );
+      if (kind !== 'auto') {
+        setBulkButton(btn, state, { type: 'companion', kind });
+        continue;
+      }
+      const cost = companionUpgradeCost(state, kind);
       setFlag(btn.querySelector('.price')!, 'hidden', cost === null);
       if (cost !== null) show(btn.querySelector(`.comp-cost-${kind}`)!, formatNumber(cost));
       const ok = canUpgradeCompanion(state, kind);
