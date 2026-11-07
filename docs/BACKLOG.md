@@ -13,7 +13,7 @@ Each line below is its own thread, in this order.
 
 - [x] palette file (`art/afk-palette.gpl`, exists) + PNG → sprite, with
       palette checks (`npm run sprites`, PR #10)
-- [ ] Aseprite JSON: tags = animations, per-frame durations
+- [x] Aseprite JSON: tags = animations, per-frame durations
 - [ ] marker layers: `hit` (damage frame), `anchor` (weapon grip),
       `fx` (effect origin)
 - [ ] watch mode (save in Aseprite → game reloads) + sprite → PNG export
@@ -26,9 +26,9 @@ Each line below is its own thread, in this order.
       the other frames derived, the attack is a slap with the white hand.
 - [x] **Bigger, better swords**: about 2× longer, own guard/grip/pommel per
       tier, bigger slash arcs (PR #22). Menu icons fit their box (PR #24).
-- [ ] **Brown colour** + brown Wooden sword (thread `art/brown-wooden-sword`).
-- [ ] **Colours doc**: every colour used in the game, with images (after
-      brown lands).
+- [x] **Brown colour** + brown Wooden sword.
+- [x] **Colours doc**: every colour used in the game, with images
+      ([COLORS.md](COLORS.md)).
 - [ ] **Bigger mobs and boss** to match the hero (mobs 32–48 tall, boss
       64–96).
 - [ ] Owner draws the hero animations (idle, slap, hurt, death), then mobs.
@@ -37,8 +37,8 @@ Each line below is its own thread, in this order.
       white slot for the hand. Needs a palette update in `art/afk-palette.gpl`.
 - [ ] More animations: mob attack/hurt/death, hero intro/victory, coin fly,
       damage number style.
-- [ ] Decide: is the white hand always white (new palette slot) or does it
-      swap with the theme?
+- [x] Decide: the white hand → **leave it for now**; the hero animations
+      get redrawn later with normal attacks per weapon (2026-11-02).
 - [x] Decide: keep the sword, or make the slap the attack? → **Keep the
       sword, make it bigger** (2026-11-01).
 
@@ -48,7 +48,13 @@ Each line below is its own thread, in this order.
       plus Equip in the shop (PR #9).
 - [x] **Defence upgrade** in Shop → Character:
       `taken = dmg × 100 / (100 + defence)`, at least 1 (PR #26).
-- [ ] Hero HP upgrades (then revisit mob damage growth).
+- [ ] **HP and mob damage grow**: the hero's max HP grows (per stage
+      and/or an HP upgrade) and mob damage scales with the stage. Today it's
+      almost flat (stage 5 mobs still hit for ~12). Bigger numbers on both
+      sides feel better. Tune with the simulator.
+- [ ] **Critical chance**: a crit chance stat (and crit damage ×), bought
+      in Shop → Character and found on items. Crits get their own damage
+      number style.
 - [ ] **Speed upgrade** (attack speed), after ascend lands, because it
       multiplies everything.
 
@@ -60,18 +66,33 @@ Each line below is its own thread, in this order.
 - [x] **Remove the cooldown ring** ("loader") around the crow (PR #20).
 - [x] Real crow sprites instead of the placeholder (PR #16, #20).
 - [x] **Show when the crow becomes buyable** in the shop (PR #23).
+- [ ] **Companion damage scales with the hero's damage** (e.g. a % of the
+      hero's hit, raised by crow upgrades), so the crow stays useful later
+      on.
+- [ ] **Companion upgrades in Shop and Inventory**: crow upgrades can be
+      bought from Shop → Companions too, not only from Inventory (same as
+      weapons).
+- [ ] **More companions**: other animals with their own attack and upgrades
+      (e.g. bat, cat), each its own sprite set. One active or several?
+      (owner to decide).
 
 ## Weapons & items
 
 - [ ] **Crossbow**: the first new weapon type (ranged, bolts). The hero needs
       an aiming pose, plus bolt and impact sprites. `AttackDef` already allows it.
-- [ ] **More weapons**: tiers after gold (and later the large sword).
+- [ ] **More weapons**: tiers after gold, the large sword, later stakes /
+      holy water / axe (see [ROADMAP.md](ROADMAP.md#weapon-types)).
 - [x] Rings and pendants with small bonuses (PR #15, #17).
-- [ ] **More items**: more slots and types (e.g. potions).
+- [ ] **More items**: more slots and types (e.g. potions, belts, cloaks),
+      more stats per item.
 - [x] **Rarity tiers** C / B / A / **S** with own frame colours; S glows and
       sparkles (PR #15, #17).
 - [ ] Item defence is weak under the % formula (1–4 % per item): raise
-      `ITEMS.stats.defence.base`? (owner to decide)
+      `ITEMS.stats.defence.base`? → **decide after the simulator**.
+- [ ] **Item names that say what they do**: name parts from the stats,
+      e.g. "Lucky Ring" = more item find, "Ring of Haste" = speed, "Sharp
+      Pendant of Fortune" = damage + item find. Tier in the name or frame
+      colour. Easy to tell what you got from the drop toast.
 - [ ] Mana bar and **auras** (passive bonuses with a visible effect around
       the hero).
 
@@ -81,15 +102,22 @@ Each line below is its own thread, in this order.
       debug panel tab. This comes first.
 - [ ] **Slow progress down**: measure with the sim, agree on target times,
       then tune (see [PLAN.md → Pacing](PLAN.md#pacing-to-do)).
-- [ ] **Ascend** (prestige): reset stage and weapons for a permanent bonus.
-      Ascend points are spent on upgrades in the Ascend shop tab.
-- [ ] Bulk buy ×10 / ×100 / MAX.
-- [ ] **Shop reveal**: a weapon appears once you have 90 % of its price and
-      stays shown (thread `code/shop-reveal`, save data version 5).
-- [ ] Upgrade weapons that aren't equipped? (owner to decide)
+- [ ] **Ascend logic** (prestige), design first in `docs/design/ascend.md`:
+      when you can ascend (stage gate), what resets (stage, coins, weapons,
+      upgrades) and what stays (items, crow?, stats), how many ascend
+      points you get (scales with stage), and what they buy in Shop →
+      Ascend (permanent % damage, coin bonus, start stage). Tuned with the
+      simulator. Then implement in small PRs (state + save, shop tab, UI).
+- [x] **Shop reveal**: a weapon appears once you have 90 % of its price and
+      stays shown.
+- [x] Upgrade weapons that aren't equipped? → **Yes** (2026-11-02; PR #38,
+      bulk buy: every owned weapon has its own Upgrade button).
 
 ## Active play
 
+- [ ] **Starter quest: buy the companion**. At the start, a small quest
+      ("Buy the crow to start clicking") points to Shop → Companions, so new
+      players learn clicking early. Reward or highlight when done.
 - [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
       (PR #20). Still open: click the mob for bonus damage (cap clicks per second so
       autoclickers don't break the balance).
@@ -100,13 +128,24 @@ Each line below is its own thread, in this order.
 
 - [x] **Menu restructure**: Shop (Character · Weapons · Companions · Ascend
       soon), Inventory (Weapons · Companions · Accessories) with upgrades,
-      no Upgrades tab (PR #23, #26). Third Shop tab is "Ascend" for now;
-      owner to confirm vs Accessories.
-- [ ] **Help behind a small ⓘ icon** instead of a menu tab.
+      no Upgrades tab (PR #23, #26). Third Shop tab is **Ascend**;
+      accessories are drop-only, never sold (2026-11-02).
+- [ ] **Help behind a small ⓘ icon** instead of a menu tab (thread
+      `ui/help-icon`).
+- [ ] **Bulk buy** ×10 / ×100 / MAX (thread `code/bulk-buy`).
+- [ ] **Compare before buying a weapon**: the shop shows the current
+      damage vs. the new weapon's damage (e.g. `12 → 30 (+18)`).
+- [ ] **Equipped first**: equipped weapons (and items) are listed at the
+      top in Inventory.
+- [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
+      on top while scrolling, like the main tabs.
+- [ ] **Fix: sound settings**: the [X] close button overlaps the on/off
+      button in the sound settings popover. Move it so both are usable.
+- [ ] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
+      defence, crit/speed, crow DPS, item totals, kills, deaths).
 - [x] Pixel font: Pixelify Sans, with Lithuanian letters (PR #12).
-- [ ] **Sharper font**: Pixelify is crisp only at 11/22 px, menus use 16 px
-      and look blurry. Font picker in the debugger first (thread
-      `ui/font-picker`), the owner picks, then a PR makes it the default.
+- [x] **Sharper font**: font picker in the debugger, Press Start 2P is the
+      game font (for now).
 - [x] **Debugger: new features**: crow, give item by tier, force drop, max
       DPS, save string and backup tools (PR #13, #21).
 
@@ -116,9 +155,10 @@ Each line below is its own thread, in this order.
       (PR #11).
 - [x] **Save and load in Help**: copy/paste and download/upload, with a
       preview and a confirm (PR #25).
-- [ ] One-tab guard.
-- [ ] **Share progress**: a "Copy save" link like
-      `…/en/game#save=AFK1…` that loads the save on another device.
+- [ ] One-tab guard (thread `code/one-tab-guard`).
+- [ ] **Share progress**: a "Copy link" like
+      `…/en/game#save=AFK1…` that loads the save on another device (thread
+      `code/share-link`, together with the honesty note below).
 - [ ] Be honest in the UI: the checksum stops typos and casual edits.
       Anyone can read the JS and **decode or forge a save**, and no amount of
       time or hashing changes that on the client. Real protection needs a
@@ -138,12 +178,10 @@ Each line below is its own thread, in this order.
 
 ## Music & sound
 
-- [ ] **New music**: an original **8-bit synthwave** track (in the feel of the
-      owner's YouTube example, but our own; no ripping). Or a licensed track:
-      the owner is asking the creator of one song for permission
-      (2026-11-02). Only add it with written permission.
-- [ ] **Synthwave plays first** by default (thread
-      `audio/synthwave-default`); players can still switch.
+- [~] **New music**: "Gaming Time" by Otrebil, with written permission
+      (2026-11-03, see [DECISIONS.md](DECISIONS.md)). Thread
+      `audio/otrebil-track`: seamless loop, OGG, credit, default for new
+      players. Our own original 8-bit synthwave track is optional now.
 - [ ] Per-world tracks and a boss theme.
 
 ## Blog & side projects
@@ -152,9 +190,13 @@ Each line below is its own thread, in this order.
       charts from the sim. Probably its own small project (a sim "lab" that
       imports the game's pure balance/combat code), published on the site.
 
+## Blog (other repo: `ohwelleu.github.io`)
+
+- [ ] **Fix the blog's mobile menu.** This is the site's own menu, not
+      the game's, so the work happens in the blog repo, not here.
+
 ## Docs & housekeeping
 
-- [ ] Tag `v0.2.0` and release the current work as `v0.3.0`? (owner to
-      decide)
-- [ ] Delete merged branches and `pr-assets/*` once old PR images aren't
-      needed. Future PRs: use one shared `pr-assets` branch.
+- [x] Tag `v0.2.0` and release the current work as `v0.3.0`.
+- [x] Delete merged branches and `pr-assets/*`; one shared `pr-assets`
+      branch from now on (2026-11-02).
