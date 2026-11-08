@@ -69,7 +69,7 @@ Each line below is its own thread, in this order.
 - [ ] **Companion damage scales with the hero's damage** (e.g. a % of the
       hero's hit, raised by crow upgrades), so the crow stays useful later
       on.
-- [ ] **Companion upgrades in Shop and Inventory**: crow upgrades can be
+- [x] **Companion upgrades in Shop and Inventory**: crow upgrades can be
       bought from Shop → Companions too, not only from Inventory (same as
       weapons).
 - [ ] **More companions**: other animals with their own attack and upgrades
@@ -130,16 +130,15 @@ Each line below is its own thread, in this order.
       soon), Inventory (Weapons · Companions · Accessories) with upgrades,
       no Upgrades tab (PR #23, #26). Third Shop tab is **Ascend**;
       accessories are drop-only, never sold (2026-11-02).
-- [ ] **Help behind a small ⓘ icon** instead of a menu tab (thread
-      `ui/help-icon`).
-- [ ] **Bulk buy** ×10 / ×100 / MAX (thread `code/bulk-buy`).
+- [x] **Help behind a small ⓘ icon** instead of a menu tab (opens Credits, 0.4.0).
+- [x] **Bulk buy** ×10 / ×100 / MAX (amount button + popover, 0.4.0).
 - [ ] **Compare before buying a weapon**: the shop shows the current
       damage vs. the new weapon's damage (e.g. `12 → 30 (+18)`).
 - [ ] **Equipped first**: equipped weapons (and items) are listed at the
       top in Inventory.
 - [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
       on top while scrolling, like the main tabs.
-- [ ] **Fix: sound settings**: the [X] close button overlaps the on/off
+- [x] **Fix: sound settings**: the [X] close button overlaps the on/off
       button in the sound settings popover. Move it so both are usable.
 - [ ] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
       defence, crit/speed, crow DPS, item totals, kills, deaths).
@@ -155,10 +154,9 @@ Each line below is its own thread, in this order.
       (PR #11).
 - [x] **Save and load in Help**: copy/paste and download/upload, with a
       preview and a confirm (PR #25).
-- [ ] One-tab guard (thread `code/one-tab-guard`).
-- [ ] **Share progress**: a "Copy link" like
-      `…/en/game#save=AFK1…` that loads the save on another device (thread
-      `code/share-link`, together with the honesty note below).
+- [x] One-tab guard (0.4.0).
+- [x] **Share progress**: a "Copy link" like
+      `…/en/game#save=AFK1…` that loads the save on another device (0.4.0).
 - [ ] Be honest in the UI: the checksum stops typos and casual edits.
       Anyone can read the JS and **decode or forge a save**, and no amount of
       time or hashing changes that on the client. Real protection needs a
@@ -178,7 +176,7 @@ Each line below is its own thread, in this order.
 
 ## Music & sound
 
-- [~] **New music**: "Gaming Time" by Otrebil, with written permission
+- [x] **New music**: "Gaming Time" by Otrebil, with written permission
       (2026-11-03, see [DECISIONS.md](DECISIONS.md)). Thread
       `audio/otrebil-track`: seamless loop, OGG, credit, default for new
       players. Our own original 8-bit synthwave track is optional now.

@@ -442,8 +442,13 @@ defence upgrade, menu sub tabs, save string + backup + save in Help, shop
 reveal, Press Start 2P font, synthwave default, sprite converter (PNG and
 Aseprite sheets), colours doc.
 
-**Not done yet** from the original plan: no simulator and no `npm run sim`,
-no one-tab guard, no bulk buy.
+**Done** (`0.4.0`): ⓘ button (opens Credits), bulk buy (amount button +
+popover), sound popover fix, crow and weapon upgrades in the Shop,
+"Gaming Time" by Otrebil as the default track (with credits), one-tab
+guard, share link (`#save=`), demo page links, PixelLab test sprite (not
+wired in).
+
+**Not done yet** from the original plan: no simulator and no `npm run sim`.
 
 **Next** (rough order, see [BACKLOG.md](BACKLOG.md) for the full list):
 
