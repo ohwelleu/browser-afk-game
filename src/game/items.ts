@@ -48,9 +48,12 @@ export function newGear(seed: number = randomSeed()): Gear {
   return { ring: null, pendant: null, bag: [], rng: seed >>> 0, nextId: 1 };
 }
 
-/** Sum of both equipped items, with the speed and item find caps applied. */
+/**
+ * Sum of both equipped items, with the speed and item find caps applied.
+ * `crit` is the raw item sum: use `critChance` (state.ts) for the capped total.
+ */
 export function gearTotals(g: Gear | undefined): GearTotals {
-  const t: GearTotals = { damage: 0, defence: 0, speed: 0, itemFind: 0 };
+  const t: GearTotals = { damage: 0, defence: 0, speed: 0, itemFind: 0, crit: 0 };
   if (!g) return t;
   for (const item of [g.ring, g.pendant]) {
     if (!item) continue;

@@ -1,8 +1,11 @@
 import {
+  capCritChance,
   companionAutoInterval,
   companionDamage,
   companionMaxSpeedLevel,
   COMPANIONS,
+  CRIT,
+  critFromLevel,
   defenceFromLevel,
   defenceReduction,
   STAGES_PER_WORLD,
@@ -17,6 +20,7 @@ import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
   buyCompanion,
   buyUpgrades,
+  critChance,
   heroDefence,
   buyWeapon,
   canBuyCompanion,
@@ -297,6 +301,8 @@ type CharacterRow = {
 };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
+/** Crit chances can be fractions of a percent (items): one decimal at most. */
+const critPct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 
 const CHARACTER_ROWS: readonly CharacterRow[] = [
   {
@@ -316,6 +322,23 @@ const CHARACTER_ROWS: readonly CharacterRow[] = [
       };
     },
     target: { type: 'defence' },
+  },
+  {
+    id: 'crit',
+    name: 'Crit chance',
+    level: (s) => s.character.critLevel,
+    stat: (s) => {
+      const now = critChance(s);
+      const next = capCritChance(
+        now + critFromLevel(s.character.critLevel + 1) - critFromLevel(s.character.critLevel),
+      );
+      return {
+        now: critPct(now),
+        next: critPct(next),
+        effect: `Crits hit for ×${CRIT.damageMult} damage`,
+      };
+    },
+    target: { type: 'crit' },
   },
 ];
 
@@ -342,7 +365,7 @@ export const SHOP = {
         </div>
       </li>`,
     ).join('')}</ul>
-    <p class="note">Defence from rings and pendants counts too. A hit always does at least 1.</p>`,
+    <p class="note">Defence and crit chance from rings and pendants count too. A hit always does at least 1. Crit chance tops out at ${critPct(CRIT.maxChance)}.</p>`,
   weapons: `${weaponRows(
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
@@ -416,7 +439,7 @@ const HELP = `
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
-      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A or the rare S). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed or item find.</p>
+      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A or the rare S). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. Click or tap anywhere on the game to make it peck the monster.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <div class="save-slot"></div>

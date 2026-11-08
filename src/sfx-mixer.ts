@@ -9,6 +9,7 @@ export const SFX_PRIORITY: Record<SfxName, number> = {
   stageClear: 8,
   mobDeath: 7,
   purchase: 6,
+  crit: 6,
   hit: 5,
   swing: 3,
   coin: 1,

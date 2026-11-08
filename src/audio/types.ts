@@ -1,6 +1,7 @@
 export type SfxName =
   | 'swing'
   | 'hit'
+  | 'crit'
   | 'mobDeath'
   | 'coin'
   | 'purchase'

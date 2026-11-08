@@ -132,14 +132,14 @@ export function upgradeCost(tier: number, level: number): number {
 
 export type ItemSlot = 'ring' | 'pendant';
 export type ItemTier = 'C' | 'B' | 'A' | 'S';
-export type ItemStat = 'damage' | 'defence' | 'speed' | 'itemFind';
+export type ItemStat = 'damage' | 'defence' | 'speed' | 'itemFind' | 'crit';
 
 export const ITEM_SLOTS: readonly ItemSlot[] = ['ring', 'pendant'];
 export const ITEM_TIERS: readonly ItemTier[] = ['C', 'B', 'A', 'S'];
-export const ITEM_STATS: readonly ItemStat[] = ['damage', 'defence', 'speed', 'itemFind'];
+export const ITEM_STATS: readonly ItemStat[] = ['damage', 'defence', 'speed', 'itemFind', 'crit'];
 
 export const ITEMS = {
-  /** How many different stats an item of each tier has (S = all 4). */
+  /** How many different stats an item of each tier has (drawn from `ITEM_STATS`). */
   statCount: { C: 1, B: 2, A: 3, S: 4 } as Record<ItemTier, number>,
   tierMult: { C: 1.0, B: 1.3, A: 1.6, S: 2.0 } as Record<ItemTier, number>,
   /** Rarity weights of a drop, before item find. */
@@ -157,8 +157,13 @@ export const ITEMS = {
     defence: { base: 0.3, growth: 1.05, flat: true },
     speed: { base: 0.02, growth: 1, flat: false },
     itemFind: { base: 0.05, growth: 1, flat: false },
+    // Same base as speed: +1 % crit is worth about +1 % damage at the default ×2 crit.
+    crit: { base: 0.02, growth: 1, flat: false },
   } as Record<ItemStat, { base: number; growth: number; flat: boolean }>,
-  /** Caps on the total of both equipped items. */
+  /**
+   * Caps on the total of both equipped items. Crit has no item cap of its own:
+   * the total chance (items + upgrade) is capped by `CRIT.maxChance`.
+   */
   caps: { speed: 0.25, itemFind: 1.0 },
   inventorySize: 20,
   /** Sell price = `mobCoins(drop stage) × sellMult × tierMult`. */
@@ -276,7 +281,7 @@ export function companionSpeedCost(def: CompanionDef, level: number): number {
 
 // ── Character upgrades (bought with coins in Shop → Character) ─────────────
 
-export type CharacterUpgradeId = 'defence';
+export type CharacterUpgradeId = 'defence' | 'crit';
 
 /**
  * Each upgrade: cost of buying level `n` is `base × growth^(n−1)` (level 0 =
@@ -289,7 +294,29 @@ export const CHARACTER: Record<
 > = {
   // Mob coins grow 1.3× per stage, so the price keeps pace with progress.
   defence: { base: 50, growth: 1.3, perLevel: 5 },
+  // perLevel is a fraction: 0.01 = +1 % crit chance per level.
+  crit: { base: 100, growth: 1.3, perLevel: 0.01 },
 };
+
+// ── Critical hits (hero hits only for now) ─────────────────────────────────
+
+export const CRIT = {
+  /** The total crit chance (items + upgrade) never goes above this. */
+  maxChance: 0.75,
+  /** A crit does this many times the normal hit damage. */
+  damageMult: 2,
+};
+
+/** Crit chance from the coin upgrade at `level`, kept to 0.01 % steps. */
+export const critFromLevel = (level: number): number =>
+  Math.round(CHARACTER.crit.perLevel * Math.max(0, level) * 10_000) / 10_000;
+
+/** Total crit chance (0–`CRIT.maxChance`) from the raw sum of upgrade and item chances. */
+export const capCritChance = (chance: number): number =>
+  Number.isFinite(chance) ? Math.min(CRIT.maxChance, Math.max(0, chance)) : 0;
+
+/** Damage of a crit that would otherwise hit for `dmg`. */
+export const critDamage = (dmg: number): number => safeInt(dmg * CRIT.damageMult);
 
 /** Cost to go from `level` to `level + 1`. */
 export function characterCost(id: CharacterUpgradeId, level: number): number {
