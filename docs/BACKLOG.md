@@ -142,6 +142,10 @@ Each line below is its own thread, in this order.
       accessories are drop-only, never sold (2026-11-02).
 - [x] **Help behind a small ⓘ icon** instead of a menu tab (opens Credits, 0.4.0).
 - [x] **Bulk buy** ×10 / ×100 / MAX (amount button + popover, 0.4.0).
+- [ ] **New menu icon**: change the menu button icon to something like a
+      "rank up" symbol (stacked upward chevrons), pixel style, fits the
+      palette (owner, 2026-11-08). Check which button the owner means
+      (menu open button vs. tab icons) before drawing.
 - [ ] **Compare before buying a weapon**: the shop shows the current
       damage vs. the new weapon's damage (e.g. `12 → 30 (+18)`).
 - [ ] **Equipped first**: equipped weapons (and items) are listed at the
