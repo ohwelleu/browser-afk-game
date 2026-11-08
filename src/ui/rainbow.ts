@@ -1,34 +1,48 @@
 /**
- * Rainbow: an animated special colour for S-tier things. It cycles through
- * the accent hues (red, orange, yellow, green, blue, purple, pink) and wraps
- * back to red.
+ * Rainbow: a flowing gradient for S-tier things. One big radial gradient with
+ * a rainbow of stops, drawn twice as large as the box, whose position drifts
+ * around the box corners, so blobs of colour slowly flow across the surface.
  *
- * Not a theme colour: the stops are fixed in light and dark mode. They are
- * the accent hues, nudged so every stop keeps at least 3:1 contrast on both
- * backgrounds (`#ece9e2` and `#1f1f1f`); the plain palette yellow, for one,
- * is too pale on the light background. `rainbow.test.ts` checks this.
+ * Not a theme colour: it is fixed in light and dark mode. The stops are the
+ * same lightness, so no band is much darker or brighter than the others.
  *
- * Three ways to use it:
- * - `RAINBOW_STYLES` + the `rainbow` / `rainbow-frame` classes: smooth, pure
- *   CSS, no JS per frame, and still under `prefers-reduced-motion`.
- * - `rainbowColor(t)`: smooth colour for JS-drawn text.
- * - `rainbowStep(t)`: whole palette colours that jump from one to the next,
- *   for pixel art and canvas.
+ * Ways to use it (all pure CSS, one keyframes animation, no JS per frame, and
+ * a still gradient under `prefers-reduced-motion`):
+ * - `rainbow-frame`: a hollow animated border on a box. Put a child inside.
+ *   Add `rainbow-glow` for a soft glow in the same colours.
+ * - `rainbow-fill`: the gradient as the background (bars, chips).
+ * - `rainbow`: the gradient inside the letters (text, damage numbers), with a
+ *   dark outline so yellow stays readable on the light theme.
+ * For JS-drawn pixels and canvas: `rainbowColor(t)` (smooth) and
+ * `rainbowStep(t)` (whole stops that jump), both on the same stop list.
  */
 
-/** Red, orange, yellow, green, blue, purple, pink: one hue per accent, in order. */
-export const RAINBOW_STOPS = [
-  '#e11d1d',
-  '#d95a00',
-  '#a67c00',
-  '#1a8f45',
-  '#2f6fe0',
-  '#8b4ff0',
-  '#d6307f',
-] as const;
+/** Hues of the gradient stops, in order. 360 is red again, so the loop closes. */
+export const RAINBOW_HUES = [0, 30, 45, 60, 70, 90, 120, 180, 200, 240, 270, 300, 360] as const;
 
-/** One full cycle, in milliseconds. */
-export const RAINBOW_PERIOD_MS = 6000;
+/** Lightness of every stop, in percent (saturation is always 100 %). */
+export const RAINBOW_LIGHTNESS = 75;
+
+/** One full flow around the box, in milliseconds. */
+export const RAINBOW_PERIOD_MS = 20000;
+
+/** Frame thickness, in px. */
+export const RAINBOW_BORDER_PX = 3;
+
+/** CSS colour for one stop. */
+export const rainbowHsl = (hue: number, lightness: number | string = RAINBOW_LIGHTNESS): string =>
+  `hsl(${hue}, 100%, ${typeof lightness === 'number' ? `${lightness}%` : lightness})`;
+
+/** All stops as CSS colours (hue 360 included, the same red as the first). */
+export const RAINBOW_STOPS: readonly string[] = RAINBOW_HUES.map((h) => rainbowHsl(h));
+
+/** The colours a cycle steps through: every stop once (the closing 360 would repeat red). */
+const CYCLE_HUES = RAINBOW_HUES.slice(0, -1);
+
+/** The CSS `radial-gradient(...)` over all stops. `lightness` can be a `var(...)`. */
+export function rainbowGradient(lightness: number | string = RAINBOW_LIGHTNESS): string {
+  return `radial-gradient(circle, ${RAINBOW_HUES.map((h) => rainbowHsl(h, lightness)).join(', ')})`;
+}
 
 /** Where `t` is in the cycle, `0 <= phase < 1`. Handles negative and non-finite input. */
 export function rainbowPhase(t: number, periodMs: number = RAINBOW_PERIOD_MS): number {
@@ -37,47 +51,90 @@ export function rainbowPhase(t: number, periodMs: number = RAINBOW_PERIOD_MS): n
   return p < 0 ? p + 1 : p;
 }
 
-const hex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
-const channels = (color: string): [number, number, number] => {
-  const n = parseInt(color.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-
-/** Smooth rainbow colour (`#rrggbb`) at time `t` ms: blends between neighbouring stops. */
-export function rainbowColor(t: number, periodMs: number = RAINBOW_PERIOD_MS): string {
-  const n = RAINBOW_STOPS.length;
+/** Smooth rainbow colour at time `t` ms: the hue slides from stop to stop and wraps. */
+export function rainbowColor(
+  t: number,
+  periodMs: number = RAINBOW_PERIOD_MS,
+  lightness: number = RAINBOW_LIGHTNESS,
+): string {
+  const n = CYCLE_HUES.length;
   const pos = rainbowPhase(t, periodMs) * n;
   const i = Math.min(Math.floor(pos), n - 1);
-  const k = pos - i;
-  const a = channels(RAINBOW_STOPS[i]);
-  const b = channels(RAINBOW_STOPS[(i + 1) % n]);
-  return `#${a.map((v, c) => hex(v + (b[c] - v) * k)).join('')}`;
+  const hue = RAINBOW_HUES[i] + (RAINBOW_HUES[i + 1] - RAINBOW_HUES[i]) * (pos - i);
+  return rainbowHsl(Math.round(hue * 10) / 10, lightness);
 }
 
-/** Stepped rainbow colour at time `t` ms: one stop at a time, no blending. */
-export function rainbowStep(t: number, periodMs: number = RAINBOW_PERIOD_MS): string {
-  const n = RAINBOW_STOPS.length;
-  return RAINBOW_STOPS[Math.min(Math.floor(rainbowPhase(t, periodMs) * n + 1e-9), n - 1)];
+/** Stepped rainbow colour at time `t` ms: one stop at a time, no blending. For pixel art. */
+export function rainbowStep(
+  t: number,
+  periodMs: number = RAINBOW_PERIOD_MS,
+  lightness: number = RAINBOW_LIGHTNESS,
+): string {
+  const n = CYCLE_HUES.length;
+  const i = Math.min(Math.floor(rainbowPhase(t, periodMs) * n + 1e-9), n - 1);
+  return rainbowHsl(CYCLE_HUES[i], lightness);
 }
 
 /**
- * Smooth CSS rainbow. Add it to a stylesheet, then put `rainbow` on text, or
- * `rainbow-frame` on a box for a border and glow in the same colour. The cycle
- * length is `--afk-rainbow-period` (default 6s). With `prefers-reduced-motion`
- * it stops on the first stop.
+ * The flowing gradient as CSS. Add it to a stylesheet. Settings (inherited, so
+ * set them on the box or a parent): `--afk-rainbow-period` (default 20s) and
+ * `--afk-rainbow-l` (stop lightness, default 75%), `--afk-rainbow-ink` (outline
+ * colour of `rainbow` text, default `#1f1f1f`). `rainbow-outline` gives the same
+ * outline to other rainbow-coloured text, such as JS-drawn `rainbowColor(t)`.
  */
 export const RAINBOW_STYLES = `
-@keyframes afk-rainbow {
-${[...RAINBOW_STOPS, RAINBOW_STOPS[0]]
-  .map((c, i) => `  ${Math.round((i / RAINBOW_STOPS.length) * 10000) / 100}% { color: ${c}; }`)
-  .join('\n')}
+@keyframes afk-rainbow-flow {
+  0% { background-position: 0% 0%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
 }
-.rainbow, .rainbow-frame {
-  color: ${RAINBOW_STOPS[0]};
-  animation: afk-rainbow var(--afk-rainbow-period, ${RAINBOW_PERIOD_MS / 1000}s) linear infinite;
+.rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after {
+  --afk-rainbow-gradient: ${rainbowGradient('var(--afk-rainbow-l, ' + RAINBOW_LIGHTNESS + '%)')};
+  background-image: var(--afk-rainbow-gradient);
+  background-size: 200% 200%;
+  animation: afk-rainbow-flow var(--afk-rainbow-period, ${RAINBOW_PERIOD_MS / 1000}s) ease-in-out infinite;
 }
-.rainbow-frame { border: 3px solid currentColor; box-shadow: 0 0 6px 1px currentColor; }
+/* Thin dark outline so pale stops (yellow) stay readable on the light theme. Fixed, like the rainbow. */
+.rainbow, .rainbow-outline {
+  filter: drop-shadow(1px 0 0 var(--afk-rainbow-ink, #1f1f1f)) drop-shadow(-1px 0 0 var(--afk-rainbow-ink, #1f1f1f)) drop-shadow(0 1px 0 var(--afk-rainbow-ink, #1f1f1f)) drop-shadow(0 -1px 0 var(--afk-rainbow-ink, #1f1f1f));
+}
+.rainbow {
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.rainbow-frame {
+  position: relative;
+  border: ${RAINBOW_BORDER_PX}px solid transparent;
+  box-shadow: 0 0 0 1px var(--_fg, #000);
+}
+.rainbow-frame::before, .rainbow-glow::after {
+  content: '';
+  position: absolute;
+  inset: -${RAINBOW_BORDER_PX}px;
+  pointer-events: none;
+}
+/* Hollow: the gradient shows only in the padding ring (content box cut out). */
+.rainbow-frame::before, .rainbow-glow::after {
+  padding: ${RAINBOW_BORDER_PX}px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.rainbow-glow { isolation: isolate; }
+.rainbow-glow::after {
+  inset: -${RAINBOW_BORDER_PX * 2}px;
+  padding: ${RAINBOW_BORDER_PX * 2}px;
+  z-index: -1;
+  filter: blur(4px);
+}
 @media (prefers-reduced-motion: reduce) {
-  .rainbow, .rainbow-frame { animation: none; }
+  .rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after {
+    animation: none;
+    background-position: 50% 50%;
+  }
 }
 `;

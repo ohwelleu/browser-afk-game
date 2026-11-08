@@ -1,40 +1,47 @@
-import { RAINBOW_STOPS, RAINBOW_STYLES, rainbowColor, rainbowStep } from './rainbow';
+import { RAINBOW_HUES, RAINBOW_STYLES, rainbowColor, rainbowHsl, rainbowStep } from './rainbow';
 
-/** Debug panel section "Rainbow": the colour in every form it comes in. Not used by the game. */
+const SWATCH_HUES = RAINBOW_HUES.slice(0, -1);
+
+/** Debug panel section "Rainbow": the flowing gradient in every form. Not used by the game. */
 export const RAINBOW_DEMO_STYLES = `${RAINBOW_STYLES}
 .dbg-rainbow summary { padding: 0; font-weight: normal; }
 .dbg-rainbow[open] summary { border: 0; margin-bottom: 6px; }
 .dbg-rainbow-list { display: grid; gap: 8px; }
 .dbg-rainbow-list p { margin: 0; }
-.dbg-rainbow-box { padding: 6px 8px; margin: 3px; }
-.dbg-rainbow-dmg {
-  font-size: var(--afk-fs, 16px);
-  text-shadow: 1px 0 var(--_bg), -1px 0 var(--_bg), 0 1px var(--_bg), 0 -1px var(--_bg);
-}
-.dbg-rainbow canvas { position: static; width: 168px; height: 36px; border: 3px solid var(--_fg); }
+.dbg-rainbow-row { display: flex; gap: 12px; align-items: center; padding: 4px; }
+.dbg-rainbow-slot { flex: none; display: grid; place-items: center; width: 40px; height: 40px; box-sizing: border-box; }
+.dbg-rainbow-item { width: 20px; height: 20px; background: var(--_fg); clip-path: polygon(50% 0, 100% 40%, 80% 100%, 20% 100%, 0 40%); }
+.dbg-rainbow-big { font-size: var(--afk-fs, 16px); font-weight: bold; }
+.dbg-rainbow-bar { height: 14px; border: 3px solid var(--_fg); }
+.dbg-rainbow-bar > .rainbow-fill { display: block; height: 100%; width: 70%; }
+.dbg-rainbow canvas { position: static; width: 192px; height: 36px; border: 3px solid var(--_fg); image-rendering: pixelated; }
 .dbg-rainbow label { display: flex; gap: 8px; align-items: center; }
 .dbg-rainbow input[type='range'] { flex: 1; accent-color: var(--_fg); }
 `;
 
 export const RAINBOW_DEMO_HTML = `
 <details class="dbg-compare dbg-rainbow">
-  <summary>Rainbow (S-tier colour)</summary>
+  <summary>Rainbow (S-tier flowing gradient)</summary>
   <div class="dbg-rainbow-list">
-    <label>Cycle <input type="range" name="rainbow-speed" min="1" max="12" step="0.5" value="6" aria-label="Rainbow cycle length in seconds" /><span class="dbg-rainbow-secs">6s</span></label>
-    <p class="rainbow">CSS text: S-tier loot</p>
-    <p class="dbg-rainbow-box rainbow-frame">CSS frame and glow, like an S-tier item</p>
-    <p class="rainbow dbg-rainbow-dmg">-12.3K</p>
-    <p class="dbg-rainbow-js">JS smooth: <b></b></p>
-    <canvas width="42" height="9" aria-label="Stepped rainbow swatch"></canvas>
+    <label>Cycle <input type="range" name="rainbow-speed" min="4" max="40" step="1" value="20" aria-label="Rainbow cycle length in seconds" /><span class="dbg-rainbow-secs">20s</span></label>
+    <div class="dbg-rainbow-row">
+      <span class="dbg-rainbow-slot rainbow-frame rainbow-glow"><span class="dbg-rainbow-item"></span></span>
+      <span>S-tier item frame</span>
+    </div>
+    <p class="rainbow dbg-rainbow-big">S-tier loot</p>
+    <div class="dbg-rainbow-bar"><span class="rainbow-fill"></span></div>
+    <p class="rainbow dbg-rainbow-big">-12.3K</p>
+    <p class="dbg-rainbow-js">JS smooth: <b class="rainbow-outline"></b></p>
+    <canvas width="48" height="9" aria-label="Stepped rainbow swatch"></canvas>
     <p class="dbg-stats dbg-rainbow-note"></p>
   </div>
 </details>`;
 
 /**
- * Wires the section in `root`: the speed slider and the JS-drawn parts. The
- * frame loop only runs while the section is open, and not at all with
- * `prefers-reduced-motion` (then the JS parts are drawn once, still).
- * Returns a function that stops everything.
+ * Wires the section in `root`: the speed slider and the JS-drawn parts (the
+ * CSS parts need no JS). The frame loop only runs while the section is open,
+ * and not at all with `prefers-reduced-motion` (then the JS parts are drawn
+ * once, still). Returns a function that stops everything.
  */
 export function mountRainbowDemo(root: HTMLElement): () => void {
   const q = <T extends Element>(sel: string) => root.querySelector<T>(sel)!;
@@ -51,24 +58,26 @@ export function mountRainbowDemo(root: HTMLElement): () => void {
   let raf = 0;
   let lastStep = '';
 
-  /** Canvas at 42x9 px shown 4x: a big chip with the current colour, then all seven. */
+  /** Canvas at 48x9 px shown 4x: a big chip with the current stop, then every stop. */
   function draw(t: number, force = false): void {
     const p = periodMs();
     const step = rainbowStep(t, p);
-    js.textContent = rainbowColor(t, p);
-    js.style.color = rainbowColor(t, p);
+    const smooth = rainbowColor(t, p);
+    js.textContent = smooth;
+    js.style.color = smooth;
     if (!ctx || (!force && step === lastStep)) return;
     lastStep = step;
     const fg = getComputedStyle(canvas).getPropertyValue('--_fg').trim() || 'currentColor';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = step;
     ctx.fillRect(0, 0, 9, 9);
-    RAINBOW_STOPS.forEach((c, i) => {
+    SWATCH_HUES.forEach((h, i) => {
+      const c = rainbowHsl(h);
       ctx.fillStyle = c;
-      ctx.fillRect(11 + i * 4, 3, 3, 3);
+      ctx.fillRect(11 + i * 3, 3, 2, 3);
       if (c === step) {
         ctx.fillStyle = fg;
-        ctx.fillRect(11 + i * 4, 7, 3, 1);
+        ctx.fillRect(11 + i * 3, 7, 2, 1);
       }
     });
   }
