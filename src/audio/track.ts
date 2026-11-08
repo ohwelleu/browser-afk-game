@@ -1,4 +1,4 @@
-import type { Track, TrackHandle } from './types';
+import type { Track, TrackCredit, TrackHandle } from './types';
 
 /** Seconds for a track to fade in/out when switching. */
 export const FADE = 0.4;
@@ -37,14 +37,17 @@ export interface FileTrackOptions {
   /** Loop points in seconds, for files with an intro. Defaults to the whole file. */
   loopStart?: number;
   loopEnd?: number;
+  /** Shown in the sound settings while this track is selected. */
+  credit?: TrackCredit;
 }
 
 /** A looping OGG/MP3, decoded into a buffer so the loop point is sample-exact. */
 export function fileTrack(id: string, url: string, options: FileTrackOptions = {}): Track {
-  const { gain: level = 1, loopStart = 0, loopEnd = 0 } = options;
+  const { gain: level = 1, loopStart = 0, loopEnd = 0, credit } = options;
   return {
     id,
     kind: 'file',
+    credit,
     play(ctx, out): TrackHandle {
       const gain = ctx.createGain();
       gain.gain.value = 0;

@@ -201,3 +201,35 @@ bump in `package.json`, `[Unreleased]` becomes the new version's update
 notes in `CHANGELOG.md`, tag `vX.Y.Z`, GitHub Release. `main` (the live
 site) always equals the last release. Replaces the `integrate/wave*`
 branches. Steps in [WORKFLOW.md](WORKFLOW.md#branches-and-releases).
+
+## 2026-11-02: Owner decisions (hand, defence, upgrades, shop tab, branches)
+
+- **White hand:** leave it as it is. The hero animations will be redrawn
+  later, with normal attack animations per weapon, so the hand question goes
+  away then.
+- **Item defence:** decide after the simulator shows how it plays.
+- **Unequipped weapons can be upgraded.**
+- **Third Shop tab is Ascend.** Accessories (rings, pendants) are never
+  sold, they only drop from monsters.
+- **Branch cleanup:** merged branches and all `pr-assets/*` branches are
+  deleted (old PR images go with them). One shared `pr-assets` branch from
+  now on.
+
+## 2026-11-07: Music by Otrebil, "Gaming Time"
+
+The artist (Otrebil, otrebil.synthwave@gmail.com) agreed by email (2026-11-03)
+to our request to use the song as background music in the game, with credit
+and links, and to adapt it into a seamless loop. He sent the track on
+2026-11-04 as a WAV.
+
+- **Scope of the permission:** this game only, as music, with credit. The
+  email doesn't mention anything else, so don't reuse the song elsewhere.
+- **Not in the repo:** the original WAV and the email PDF stay in the
+  gitignored `references/music/_private/`. Only the encoded loop
+  (`src/audio/tracks/gaming-time.ogg`) is committed.
+- **Credit:** "Music: Gaming Time by Otrebil" with a link, in the README and
+  next to the track name in the music settings.
+- **Default:** the new track is the default for new players. The synthwave
+  and medieval synth tracks stay selectable.
+- If the artist asks us to remove it, remove the file and the track id and
+  keep a fallback to the default (saves with the old id already fall back).

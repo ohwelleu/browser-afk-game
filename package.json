@@ -1,6 +1,6 @@
 {
   "name": "browser-afk-game",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A tiny embeddable idle pixel-art game: one script tag, one <afk-game> element.",
   "private": true,
   "type": "module",

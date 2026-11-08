@@ -437,9 +437,13 @@ auto-advance, stats, audio). **Planned:**
 - debug panel as a **save editor** (stage, coins, levels, audio) (PR #5)
 - hero v2: the owner's own 32×64 sprite, slap attack (PR #7)
 
-**Not done yet** from the original plan: the save is still plain JSON
-(no checksum, backup or export), there's no simulator and no `npm run sim`,
-no pixel font, no one-tab guard, no bulk buy.
+**Done** (`0.3.0`): crow companion, rings and pendants with rarity tiers,
+defence upgrade, menu sub tabs, save string + backup + save in Help, shop
+reveal, Press Start 2P font, synthwave default, sprite converter (PNG and
+Aseprite sheets), colours doc.
+
+**Not done yet** from the original plan: no simulator and no `npm run sim`,
+no one-tab guard, no bulk buy.
 
 **Next** (rough order, see [BACKLOG.md](BACKLOG.md) for the full list):
 
@@ -448,15 +452,23 @@ no pixel font, no one-tab guard, no bulk buy.
 7. **Simulator first, then balance**: headless sim + `npm run sim` + debug
    panel UI. Use it to slow progress down on purpose (see
    [Pacing](#pacing-to-do)) before adding new upgrades.
+   Balance work includes hero HP growth, mob damage growth (bigger
+   numbers), crit chance, and crow damage scaling with the hero.
 8. **Character & weapons**: defence upgrade, buy → equip, bigger swords,
    crossbow, more weapon tiers.
 9. **Save v2**: checksummed string, backup slot, `.txt` export/import,
    share link, one-tab guard.
-10. **Shop & UI**: shop tabs (Character / Weapons / Ascend / Other), help
-    behind a small ⓘ icon, pixel font, bulk buy.
-11. **Ascend (prestige)**, then the speed upgrade.
+10. **Shop & UI**: help behind a small ⓘ icon, bulk buy, a **stats panel**
+    (tap the HP bar area to see max DPS and other stats), weapon damage
+    compare in the shop, equipped items on top, sticky sub tabs, crow
+    upgrades in the shop too, sound popover [X] fix, a starter quest (buy
+    the crow to start clicking).
+11. **Ascend (prestige)**: design the logic first (gate, reset, points,
+    Ascend shop), then build it. Then the speed upgrade.
 12. **Active play**: clicking, skills with long cooldowns, auras, items
     with rarity tiers.
+    **Content** alongside: more weapons (tiers after gold, large sword,
+    crossbow), more items (slots, types), more companions.
 13. **Music**: an original 8-bit synthwave track, then pick the default.
 14. **Online (research first)**: ranking with Firebase, unique sessions.
 15. **Release `1.0.0`** + blog integration.
