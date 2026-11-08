@@ -52,7 +52,7 @@ Each line below is its own thread, in this order.
       and/or an HP upgrade) and mob damage scales with the stage. Today it's
       almost flat (stage 5 mobs still hit for ~12). Bigger numbers on both
       sides feel better. Tune with the simulator.
-- [ ] **Critical chance**: a crit chance stat (and crit damage ×), bought
+- [x] **Critical chance**: a crit chance stat (and crit damage ×), bought
       in Shop → Character and found on items. Crits get their own damage
       number style.
 - [ ] **Speed upgrade** (attack speed), after ascend lands, because it
@@ -66,7 +66,7 @@ Each line below is its own thread, in this order.
 - [x] **Remove the cooldown ring** ("loader") around the crow (PR #20).
 - [x] Real crow sprites instead of the placeholder (PR #16, #20).
 - [x] **Show when the crow becomes buyable** in the shop (PR #23).
-- [ ] **Companion damage scales with the hero's damage** (e.g. a % of the
+- [x] **Companion damage scales with the hero's damage** (e.g. a % of the
       hero's hit, raised by crow upgrades), so the crow stays useful later
       on.
 - [x] **Companion upgrades in Shop and Inventory**: crow upgrades can be
@@ -93,10 +93,10 @@ Each line below is its own thread, in this order.
       sooner (owner, 2026-11-08). Raise the drop chance or add a guaranteed
       early drop in the first stages, then keep later drops as they are.
       Tune with the simulator.
-- [ ] **Rainbow colour** (animated, for S-tier things): demo in the debug
+- [~] **Rainbow colour** (animated, for S-tier things): demo in the debug
       panel first (thread `ui/rainbow-colour-demo`), where to use it is
       decided later.
-- [ ] **Character stats window**: damage per second, crit chance, best
+- [x] **Character stats window**: damage per second, crit chance, best
       weapon (name and tier) and highest stage. Starts after crit chance
       lands. (Same item as the stats panel below.)
 - [ ] **Item names that say what they do**: name parts from the stats,
@@ -154,7 +154,7 @@ Each line below is its own thread, in this order.
       on top while scrolling, like the main tabs.
 - [x] **Fix: sound settings**: the [X] close button overlaps the on/off
       button in the sound settings popover. Move it so both are usable.
-- [ ] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
+- [x] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
       defence, crit/speed, crow DPS, item totals, kills, deaths).
 - [x] Pixel font: Pixelify Sans, with Lithuanian letters (PR #12).
 - [x] **Sharper font**: font picker in the debugger, Press Start 2P is the

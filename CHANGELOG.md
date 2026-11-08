@@ -7,6 +7,20 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+- **Critical chance**: an upgrade in Shop → Character and an item stat,
+  with their own crit damage numbers (#51).
+- **Character stats window**: click the HP bar to see DPS, crit chance,
+  best weapon and highest stage (#54).
+- Animated **rainbow** colour (flowing gradient for frame, fill, text),
+  with a demo in the debug panel (#50, #55).
+
+### Changed
+
+- The crow's damage now adds a share of the hero's hit, so it stays useful
+  later on (#49).
+
 ## [0.4.0] - 2026-11-08
 
 ### Added
