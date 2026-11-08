@@ -76,8 +76,18 @@ img { image-rendering: pixelated; display: block; }
 }
 .hud-left { display: grid; gap: 4px; }
 .hp, .coins { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.bar { width: 132px; height: 16px; border: 3px solid var(--_fg); padding: 2px; }
-.bar-fill { height: 100%; background: var(--_green); }
+/* The HP bar is a button (opens the stats window): no button frame until hovered or focused. */
+.hp {
+  justify-self: start;
+  margin: -3px -7px;
+  padding: 3px 4px;
+  border-color: transparent;
+  background: transparent;
+}
+.hp:hover:not(:disabled) { color: var(--_fg); background: transparent; border-color: var(--_fg); }
+.hp:focus-visible { color: var(--_fg); background: transparent; outline: 3px solid var(--_yellow); outline-offset: 1px; }
+.bar { display: block; width: 132px; height: 16px; border: 3px solid var(--_fg); padding: 2px; }
+.bar-fill { display: block; height: 100%; background: var(--_green); }
 .bar-fill.low { background: var(--_red); }
 .hud-center { text-align: center; font-weight: bold; white-space: nowrap; }
 .boss { color: var(--_purple); }
@@ -101,6 +111,7 @@ img { image-rendering: pixelated; display: block; }
   .hud-right { grid-column: 2; grid-row: 1 / span 3; flex-direction: column; gap: 6px; }
   .icon-btn { width: 44px; height: 44px; }
   .bar { width: 104px; }
+  .hp { min-height: 44px; margin: -11px -7px; }
   .auto-btn { min-height: 44px; }
 }
 

@@ -44,6 +44,7 @@ import { createMenu, MENU_STYLES } from './ui/menu';
 import { Dialogs, MODAL_STYLES } from './ui/modal';
 import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
+import { createStatsWindow, STATS_STYLES } from './ui/stats';
 import { createToast, GEAR_STYLES } from './ui/gear';
 import { createNowPlaying, NOW_PLAYING_STYLES } from './ui/now-playing';
 
@@ -75,10 +76,10 @@ const HTML = `
     <canvas aria-hidden="true"></canvas>
     <div class="hud">
       <div class="hud-left">
-        <div class="hp" title="Hero HP">
-          <div class="bar"><div class="bar-fill"></div></div>
+        <button class="hp" type="button" data-act="stats" aria-haspopup="dialog" aria-label="Hero stats" title="Hero HP · click for stats">
+          <span class="bar"><span class="bar-fill"></span></span>
           <span class="hp-text"></span>
-        </div>
+        </button>
         <div class="coins" title="Coins"><img class="coin-icon" width="16" height="16" alt="" /><span class="coin-text"></span></div>
       </div>
       <div class="hud-center"><span class="stage"></span></div>
@@ -99,7 +100,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${NOW_PLAYING_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${STATS_STYLES}${NOW_PLAYING_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -107,6 +108,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   const startButton = $<HTMLButtonElement>('.start');
   const menuButton = $<HTMLButtonElement>('[data-act="menu"]');
   const soundButton = $<HTMLButtonElement>('[data-act="sound"]');
+  const statsButton = $<HTMLButtonElement>('[data-act="stats"]');
   const autoButton = $<HTMLButtonElement>('[data-act="auto"]');
   const pauseButton = $<HTMLButtonElement>('[data-act="pause"]');
   const musicButton = $<HTMLButtonElement>('[data-act="music"]');
@@ -183,7 +185,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     },
     audioSettings,
   );
-  autoButton.before(menu.el, sound.el);
+  const stats = createStatsWindow();
+  autoButton.before(menu.el, sound.el, stats.el);
   const toast = createToast(box, { iconUrl });
   const noteEl = document.createElement('div');
   noteEl.className = 'now-playing';
@@ -282,6 +285,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     scene.draw(ctx, state, view, palette, sprites);
     refreshHud();
     if (dialogs.isOpen(menu.el)) menu.refresh(state);
+    if (dialogs.isOpen(stats.el)) stats.refresh(state);
     if (opts.debug) drawDebug();
   }
 
@@ -305,6 +309,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   function refreshUi(): void {
     refreshHud();
     if (dialogs.isOpen(menu.el)) menu.refresh(state);
+    if (dialogs.isOpen(stats.el)) stats.refresh(state);
   }
 
   function refreshAudioButtons(): void {
@@ -418,6 +423,14 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         } else {
           menu.refresh(state);
           dialogs.open(menu.el, menuButton, menu.focusTarget);
+        }
+        return;
+      case 'stats':
+        if (dialogs.isOpen(stats.el)) {
+          dialogs.close();
+        } else {
+          stats.refresh(state);
+          dialogs.open(stats.el, statsButton);
         }
         return;
       case 'auto':
