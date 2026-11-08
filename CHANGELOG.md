@@ -7,6 +7,38 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-08
+
+### Added
+
+- **Music: "Gaming Time" by Otrebil**, used with the author's written
+  permission. It is the default track for new players and plays as the full
+  song with a seamless loop. Credit and link: in the sound popover, in
+  Menu → Credits and in the README.
+- **Bulk buy**: one amount button (×1 / ×10 / ×100 / MAX) with a popover
+  next to every Buy and Upgrade button.
+- **Share link**: copy a link ending in `#save=AFK1…` that loads your save
+  on another device, with a preview and a confirm first. The UI now says
+  plainly that a save can be edited by anyone who reads the code.
+- **One-tab guard**: only one browser tab runs the game and writes the save,
+  so two open tabs can't overwrite each other.
+- Demo pages link to each other (game, sprites, music & SFX); the music page
+  lists every track in the registry.
+- Art test: a PixelLab demon-woman boss sprite in `art/pixellab/` (not used
+  in the game yet).
+
+### Changed
+
+- **Upgrades are bought in the Shop** for weapons and the crow, not only
+  in Inventory.
+- **Help is a small pixel (i) button** instead of a menu tab; it opens
+  Credits.
+- Docs: owner decisions, plan and backlog updates.
+
+### Fixed
+
+- The sound popover's close button no longer overlaps the on/off button.
+
 ## [0.3.0] - 2026-11-02
 
 ### Added
@@ -166,7 +198,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Project docs: README with embed instructions, v1 plan, roadmap, decision
   log, and this changelog.
 
-[Unreleased]: https://github.com/ohwelleu/browser-afk-game/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ohwelleu/browser-afk-game/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ohwelleu/browser-afk-game/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ohwelleu/browser-afk-game/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ohwelleu/browser-afk-game/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ohwelleu/browser-afk-game/releases/tag/v0.1.0
