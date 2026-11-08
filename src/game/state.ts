@@ -9,6 +9,7 @@ import { TICK_RATE } from '../loop';
 import { weaponAttack, windup } from './attacks';
 import {
   bulkQuote,
+  capCritChance,
   companionAutoInterval,
   companionDamage,
   companionDmgCost,
@@ -16,6 +17,8 @@ import {
   companionSpeedCost,
   characterCost,
   COMPANIONS,
+  critDamage,
+  critFromLevel,
   defenceFromLevel,
   DUEL,
   HERO_MAX_HP,
@@ -39,6 +42,7 @@ import {
 } from './balance';
 import { gearTotals, mobHitDamage, newGear, onKill, type Gear, type Item } from './items';
 import { revealedWeapons, revealWeapons } from './reveal';
+import { nextFloat } from './rng';
 
 export type Phase = 'intro' | 'fighting' | 'mobDying' | 'heroDying' | 'transition';
 
@@ -78,11 +82,18 @@ export type Companion = {
 };
 
 /** Character upgrade levels (0 = not bought). Saved as is. */
-export type Character = { defenceLevel: number };
+export type Character = { defenceLevel: number; critLevel: number };
 
 export type GameEvent =
   | { type: 'sfx'; name: SfxName }
-  | { type: 'damage'; target: 'hero' | 'mob'; amount: number; source?: 'companion' }
+  | {
+      type: 'damage';
+      target: 'hero' | 'mob';
+      amount: number;
+      source?: 'companion';
+      /** A critical hero hit: shown bigger, with its own sound. */
+      crit?: true;
+    }
   | { type: 'coins'; amount: number }
   /** An item dropped; `soldFor` > 0 when the bag was full and it was sold at once. */
   | { type: 'item'; item: Item; soldFor: number }
@@ -111,6 +122,11 @@ export type GameState = {
   companion: Companion | null;
   /** Coin upgrades bought in Shop → Character. */
   character: Character;
+  /**
+   * Crit RNG state (uint32, mulberry32 like the drop RNG). Not saved: it is
+   * derived from the drop seed on load. Tests can set it to fix the rolls.
+   */
+  critRng: number;
   /** `ticks` of the last click peck, for the click cooldown (not saved). */
   companionClickTick: number | null;
   /** Fighting ticks since the last auto peck (not saved). */
@@ -154,7 +170,7 @@ export function newProgress(): Progress {
     maxDps: 0,
     items: newGear(),
     companion: null,
-    character: { defenceLevel: 0 },
+    character: { defenceLevel: 0, critLevel: 0 },
   };
 }
 
@@ -173,6 +189,7 @@ export function createState(progress: Progress = newProgress()): GameState {
     maxDps: Math.max(progress.maxDps, heroDps(progress)),
     companion: progress.companion ? { ...progress.companion } : null,
     character: { ...progress.character },
+    critRng: critSeed(progress.items),
     companionClickTick: null,
     companionAutoCharge: 0,
     // The first duel after Start/Continue always gets the full intro.
@@ -180,6 +197,9 @@ export function createState(progress: Progress = newProgress()): GameState {
     events: [],
   };
 }
+
+/** Crit RNG seed for a loaded game: the drop seed, scrambled so the two streams differ. */
+const critSeed = (g: Pick<Gear, 'rng'>): number => (g.rng ^ 0x9e3779b9) >>> 0;
 
 export function newDuel(world: number, stage: number, fullIntro: boolean): Duel {
   const hp = mobHp(world, stage);
@@ -232,6 +252,14 @@ export function heroDps(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number
 /** Total defence: equipped items plus the coin upgrade. */
 export function heroDefence(s: Partial<Pick<GameState, 'items' | 'character'>>): number {
   return safeInt(gearTotals(s.items).defence + defenceFromLevel(s.character?.defenceLevel ?? 0));
+}
+
+/**
+ * Chance (0–`CRIT.maxChance`) that a hero hit is a critical hit: the coin
+ * upgrade plus equipped items, capped.
+ */
+export function critChance(s: Partial<Pick<GameState, 'items' | 'character'>>): number {
+  return capCritChance(critFromLevel(s.character?.critLevel ?? 0) + gearTotals(s.items).crit);
 }
 
 /** Raises `maxDps` to the current DPS if it's higher (mutates a draft). */
@@ -332,12 +360,21 @@ function combat(s: GameState): void {
     s.events.push({ type: 'sfx', name: 'swing' });
   }
   if (t >= d.heroNextHit) {
-    const dmg = heroDamage(s);
+    // Always one roll per hero hit, so the RNG stream doesn't depend on the chance.
+    const rng = { state: s.critRng };
+    const crit = nextFloat(rng) < critChance(s);
+    s.critRng = rng.state;
+    const dmg = crit ? critDamage(heroDamage(s)) : heroDamage(s);
     d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
     d.mobHurtTick = t;
     d.heroNextHit += Math.max(1, secToTicks(attack.interval / (1 + gear.speed)));
     d.heroSwung = false;
-    s.events.push({ type: 'damage', target: 'mob', amount: dmg }, { type: 'sfx', name: 'hit' });
+    s.events.push(
+      crit
+        ? { type: 'damage', target: 'mob', amount: dmg, crit: true }
+        : { type: 'damage', target: 'mob', amount: dmg },
+      { type: 'sfx', name: crit ? 'crit' : 'hit' },
+    );
   }
   companionCombat(s);
   if (d.mob.hp <= 0) {
@@ -459,6 +496,7 @@ export const buyUpgrade = (s: GameState): GameState =>
 export type UpgradeTarget =
   | { type: 'weapon'; tier: number }
   | { type: 'defence' }
+  | { type: 'crit' }
   | { type: 'companion'; kind: 'dmg' | 'speed' };
 
 type Track = {
@@ -490,6 +528,14 @@ function track(
         costAt: (l) => characterCost('defence', l),
         set: (n, l) => {
           n.character = { ...n.character, defenceLevel: l };
+        },
+      };
+    case 'crit':
+      return {
+        level: s.character.critLevel,
+        costAt: (l) => characterCost('crit', l),
+        set: (n, l) => {
+          n.character = { ...n.character, critLevel: l };
         },
       };
     case 'companion': {
@@ -648,12 +694,18 @@ export function upgradeCompanion(s: GameState, kind: CompanionUpgrade): GameStat
 export const defenceCost = (s: Pick<GameState, 'character'>): number =>
   characterCost('defence', s.character.defenceLevel);
 
+export const critCost = (s: Pick<GameState, 'character'>): number =>
+  characterCost('crit', s.character.critLevel);
+
 export function canBuyDefence(s: GameState): boolean {
   return s.coins >= defenceCost(s);
 }
 
 /** Buys one defence level. */
 export const buyDefence = (s: GameState): GameState => buyUpgrades(s, { type: 'defence' }, 1);
+
+/** Buys one crit chance level. */
+export const buyCrit = (s: GameState): GameState => buyUpgrades(s, { type: 'crit' }, 1);
 
 function purchase(s: GameState, cost: number, apply: (next: GameState) => void): GameState {
   const next = draft(s);

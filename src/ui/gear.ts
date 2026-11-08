@@ -53,6 +53,7 @@ const STAT_LABEL: Record<ItemStat, (v: number) => string> = {
   defence: (v) => `+${formatNumber(v)} def`,
   speed: (v) => `+${pct(v)} speed`,
   itemFind: (v) => `+${pct(v)} item find`,
+  crit: (v) => `+${pct(v)} crit`,
 };
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const SLOT_NAME: Record<ItemSlot, string> = { ring: 'Ring', pendant: 'Pendant' };

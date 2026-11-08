@@ -69,7 +69,11 @@ describe('buyDefence', () => {
         stats: { defence: 3 },
       },
     };
-    const s = createState({ ...newProgress(), items, character: { defenceLevel: 2 } });
+    const s = createState({
+      ...newProgress(),
+      items,
+      character: { defenceLevel: 2, critLevel: 0 },
+    });
     expect(heroDefence(s)).toBe(3 + defenceFromLevel(2));
   });
 
@@ -85,7 +89,7 @@ describe('buyDefence', () => {
     const at = { ...newProgress(), world: 5, stage: 1, best: 25 };
     const raw = mobDamage(5, 1);
     expect(firstHit(createState(at))).toBe(raw);
-    const s = createState({ ...at, character: { defenceLevel: 4 } });
+    const s = createState({ ...at, character: { defenceLevel: 4, critLevel: 0 } });
     expect(firstHit(s)).toBe(defendedDamage(raw, defenceFromLevel(4)));
     expect(firstHit(s)).toBeLessThan(raw);
   });

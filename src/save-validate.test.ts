@@ -75,10 +75,22 @@ describe('validateSaveData', () => {
     }
   });
 
-  it('checks character.defenceLevel strictly', () => {
-    const ok = validateSaveData({ ...valid(), character: { defenceLevel: 4 } }, TRACKS);
-    expect(ok.ok && ok.progress.character).toEqual({ defenceLevel: 4 });
-    for (const character of [null, [], { defenceLevel: -1 }, { defenceLevel: 1.5 }, {}]) {
+  it('checks character levels strictly', () => {
+    const ok = validateSaveData(
+      { ...valid(), character: { defenceLevel: 4, critLevel: 2 } },
+      TRACKS,
+    );
+    expect(ok.ok && ok.progress.character).toEqual({ defenceLevel: 4, critLevel: 2 });
+    for (const character of [
+      null,
+      [],
+      { defenceLevel: -1, critLevel: 0 },
+      { defenceLevel: 1.5, critLevel: 0 },
+      { defenceLevel: 0, critLevel: -1 },
+      { defenceLevel: 0, critLevel: 2.5 },
+      { defenceLevel: 0 },
+      {},
+    ]) {
       const r = validateSaveData({ ...valid(), character }, TRACKS);
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.errors.join(' ')).toContain('character');

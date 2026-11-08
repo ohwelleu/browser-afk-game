@@ -162,7 +162,7 @@ describe('gearTotals', () => {
       ring: item({ stats: { damage: 3, speed: 0.2, itemFind: 0.6 } }),
       pendant: item({ slot: 'pendant', stats: { defence: 2, speed: 0.2, itemFind: 0.6 } }),
     };
-    expect(gearTotals(g)).toEqual({ damage: 3, defence: 2, speed: 0.25, itemFind: 1 });
+    expect(gearTotals(g)).toEqual({ crit: 0, damage: 3, defence: 2, speed: 0.25, itemFind: 1 });
   });
 
   it('a mob hit never goes below 1', () => {

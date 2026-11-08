@@ -13,7 +13,7 @@ import {
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
-import { heroDamage, heroDefence } from '../game/state';
+import { critChance, heroDamage, heroDefence } from '../game/state';
 import {
   crispSize,
   DEFAULT_FONT,
@@ -88,6 +88,8 @@ const FIELDS: Field[] = [
   { key: 'kills', label: 'Kills', kind: 'int' },
   { key: 'deaths', label: 'Deaths', kind: 'int' },
   { key: 'maxDps', label: 'Max DPS', kind: 'int' },
+  { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
+  { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
   { key: 'companion.owned', label: 'Crow owned', kind: 'bool' },
   { key: 'companion.dmgLevel', label: 'Crow damage level', kind: 'int' },
   { key: 'companion.autoUnlocked', label: 'Crow auto attack', kind: 'bool' },
@@ -319,6 +321,7 @@ export function createDebugPanel(
       revealedWeapons: [],
       audio: {},
       companion: {},
+      character: {},
     };
     for (const f of FIELDS) {
       const c = control(f.key);
@@ -630,7 +633,7 @@ export function extraStats(data: SaveData, dropForced = false): string {
   return (
     `${crow}\n` +
     `items dmg +${formatNumber(t.damage)} def +${formatNumber(t.defence)} (total ${formatNumber(heroDefence(data))}) ` +
-    `spd +${percent(t.speed)} find +${percent(t.itemFind)}\n` +
+    `spd +${percent(t.speed)} find +${percent(t.itemFind)} crit ${percent(critChance(data))}\n` +
     `drop ${drop} bag ${data.items.bag.length}/${ITEMS.inventorySize}`
   );
 }

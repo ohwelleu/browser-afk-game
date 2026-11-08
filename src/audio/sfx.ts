@@ -10,6 +10,8 @@ export const SFX: Record<SfxName, ZzfxParams> = {
   swing: [0.35, 0.1, 320, 0.01, 0.02, 0.06, 0, 1, 14, , , , , 1.2],
   // dull tan-wave thud, sliding down
   hit: [0.45, 0.08, 200, 0, 0.01, 0.08, 3, 1.5, -15, , , , , 0.4],
+  // critical hit: the hit thud pitched up, with a bright pitch-jump tick on top
+  crit: [0.5, 0.06, 400, 0, 0.01, 0.1, 3, 1.5, -12, , 300, 0.03, , 0.3],
   // crunchy falling squelch
   mobDeath: [0.6, 0.05, 420, 0, 0.04, 0.25, 1, 1, -3, , , , , 0.3, , 0.05],
   // classic two-tone ding (B5 → E6)
