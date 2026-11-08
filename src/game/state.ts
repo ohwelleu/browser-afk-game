@@ -430,7 +430,7 @@ function companionCombat(s: GameState): void {
   const due = d.companionPecks.filter((at) => at <= t);
   if (!due.length) return;
   d.companionPecks = d.companionPecks.filter((at) => at > t);
-  const dmg = companionDamage(def, s.companion.dmgLevel);
+  const dmg = companionDamage(def, s.companion.dmgLevel, heroDamage(s));
   for (let i = 0; i < due.length && d.mob.hp > 0; i++) {
     d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
     d.mobHurtTick = t;

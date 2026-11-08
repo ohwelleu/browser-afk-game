@@ -21,6 +21,7 @@ import {
   buyCompanion,
   buyUpgrades,
   critChance,
+  heroDamage,
   heroDefence,
   buyWeapon,
   canBuyCompanion,
@@ -822,9 +823,10 @@ export function createMenu(deps: MenuDeps): Menu {
     const name = q('.comp-name');
     if (name) show(name, def.name);
     show(q('.comp-level')!, formatNumber(c.dmgLevel));
-    show(q('.comp-dmg')!, formatNumber(companionDamage(def, c.dmgLevel)));
+    const hit = heroDamage(state);
+    show(q('.comp-dmg')!, formatNumber(companionDamage(def, c.dmgLevel, hit)));
     const next = q('.comp-next');
-    if (next) show(next, formatNumber(companionDamage(def, c.dmgLevel + 1)));
+    if (next) show(next, formatNumber(companionDamage(def, c.dmgLevel + 1, hit)));
     const interval = companionAutoInterval(def, c.speedLevel).toFixed(1);
     show(q('.comp-auto')!, c.autoUnlocked ? `Auto every ${interval} s` : 'Auto attack: locked');
   }

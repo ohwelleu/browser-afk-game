@@ -13,7 +13,7 @@ import {
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
-import { critChance, heroDefence } from '../game/state';
+import { critChance, heroDamage, heroDefence } from '../game/state';
 import {
   crispSize,
   DEFAULT_FONT,
@@ -25,6 +25,7 @@ import {
   useFont,
   type FontCandidate,
 } from './font';
+import { mountRainbowDemo, RAINBOW_DEMO_HTML, RAINBOW_DEMO_STYLES } from './rainbow-demo';
 import {
   backupKey,
   decodeSave,
@@ -148,7 +149,7 @@ const STYLES = `
 .dbg-err { margin: 0; color: var(--_red); white-space: pre-wrap; }
 .dbg-ok { margin: 0; color: var(--_green); }
 .dbg [hidden] { display: none; }
-`;
+${RAINBOW_DEMO_STYLES}`;
 
 /**
  * Bottom-left debugger: live stats, reset, an editor for every saved value
@@ -185,7 +186,7 @@ export function createDebugPanel(
       <details class="dbg-compare">
         <summary>Compare all fonts</summary>
         <div class="dbg-compare-list">${FONT_CANDIDATES.map(compareRowHtml).join('')}</div>
-      </details>
+      </details>${RAINBOW_DEMO_HTML}
       <div class="dbg-row">
         <button type="button" data-dbg="load">Load current</button>
         <button type="button" data-dbg="reset">Reset all progress</button>
@@ -276,6 +277,7 @@ export function createDebugPanel(
     }
   });
   pickFont(findFont(storage?.getItem(FONT_KEY) ?? null), false);
+  const stopRainbow = mountRainbowDemo(el);
 
   function fieldHtml(f: Field): string {
     const id = `dbg-${f.key.replace(/\./g, '-')}`;
@@ -477,6 +479,7 @@ export function createDebugPanel(
       if (stats.textContent !== full) stats.textContent = full;
     },
     destroy() {
+      stopRainbow();
       el.remove();
       style.remove();
     },
@@ -618,7 +621,7 @@ export function extraStats(data: SaveData, dropForced = false): string {
   let crow = 'crow none';
   if (c) {
     const def = COMPANIONS[c.id];
-    const dmg = companionDamage(def, c.dmgLevel);
+    const dmg = companionDamage(def, c.dmgLevel, heroDamage(data));
     const every = companionAutoInterval(def, c.speedLevel);
     crow = c.autoUnlocked
       ? `crow dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`

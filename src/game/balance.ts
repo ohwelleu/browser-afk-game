@@ -203,8 +203,14 @@ export type CompanionDef = {
   price: number;
   /** Shows up in the shop once `best` reaches this stage level (2 = 1.1 cleared). */
   unlockLevel: number;
-  /** `damage = baseDmg × dmgLevel × attack.damageMult`. */
+  /** Flat part of a peck: `baseDmg × dmgLevel × attack.damageMult`. */
   baseDmg: number;
+  /**
+   * Share of the hero's hit damage added to every peck: `base + perLevel ×
+   * (dmgLevel − 1)`, never above `max`. Keeps the companion useful as the
+   * hero's weapons grow.
+   */
+  heroShare: { base: number; perLevel: number; max: number };
   /** `hitFrame / fps` is the fly-out time before the peck lands. */
   attack: AttackDef;
   /** Seconds between click pecks. Clicks during the cooldown are ignored. */
@@ -231,6 +237,7 @@ export const COMPANIONS: Record<CompanionId, CompanionDef> = {
     price: 25,
     unlockLevel: 2,
     baseDmg: 1,
+    heroShare: { base: 0.1, perLevel: 0.005, max: 0.3 },
     attack: {
       id: 'peck',
       heroAnim: 'peck',
@@ -251,9 +258,20 @@ export const COMPANIONS: Record<CompanionId, CompanionDef> = {
   },
 };
 
-/** `damage = baseDmg × dmgLevel` (flat, its own levels). */
-export function companionDamage(def: CompanionDef, dmgLevel: number): number {
-  return safeInt(def.baseDmg * dmgLevel * def.attack.damageMult);
+/** Share of the hero's hit the companion adds at `dmgLevel`: 10 % +0.5 % per level, max 30 %. */
+export function companionHeroShare(def: CompanionDef, dmgLevel: number): number {
+  const { base, perLevel, max } = def.heroShare;
+  return Math.min(max, base + perLevel * Math.max(0, dmgLevel - 1));
+}
+
+/**
+ * `damage = baseDmg × dmgLevel × damageMult + heroShare × heroHit`, rounded
+ * down once. `heroHit` is the hero's current hit (weapon + items, before
+ * crit and defence), so the crow keeps up with the hero's weapons.
+ */
+export function companionDamage(def: CompanionDef, dmgLevel: number, heroHit: number): number {
+  const flat = def.baseDmg * dmgLevel * def.attack.damageMult;
+  return safeInt(flat + companionHeroShare(def, dmgLevel) * heroHit);
 }
 
 /** `autoInterval = max(autoMinInterval, autoStart − autoStep × (speedLevel − 1))`, in seconds. */
