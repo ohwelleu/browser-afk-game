@@ -89,6 +89,16 @@ Each line below is its own thread, in this order.
       sparkles (PR #15, #17).
 - [ ] Item defence is weak under the % formula (1–4 % per item): raise
       `ITEMS.stats.defence.base`? → **decide after the simulator**.
+- [ ] **Early-game drops come faster**: the first items should drop
+      sooner (owner, 2026-11-08). Raise the drop chance or add a guaranteed
+      early drop in the first stages, then keep later drops as they are.
+      Tune with the simulator.
+- [ ] **Rainbow colour** (animated, for S-tier things): demo in the debug
+      panel first (thread `ui/rainbow-colour-demo`), where to use it is
+      decided later.
+- [ ] **Character stats window**: damage per second, crit chance, best
+      weapon (name and tier) and highest stage. Starts after crit chance
+      lands. (Same item as the stats panel below.)
 - [ ] **Item names that say what they do**: name parts from the stats,
       e.g. "Lucky Ring" = more item find, "Ring of Haste" = speed, "Sharp
       Pendant of Fortune" = damage + item find. Tier in the name or frame
