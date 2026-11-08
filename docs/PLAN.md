@@ -489,5 +489,8 @@ The owner finds progress too fast. Before changing numbers:
 3. Tune in `src/game/balance.ts` only. The levers are mob HP growth (1.28),
    upgrade cost growth (1.15), coins per kill (1.30) and weapon price
    steps (×30).
-4. Defence, ascend and speed upgrades change the curve, so re-run the sim
+4. **Early game drops faster**: items should drop sooner in the first
+   stages (owner, 2026-11-08). Lever: drop chance per kill and/or a
+   guaranteed first drop, only for the early stages.
+5. Defence, ascend and speed upgrades change the curve, so re-run the sim
    after each.
