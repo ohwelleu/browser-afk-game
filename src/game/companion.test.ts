@@ -5,6 +5,7 @@ import {
   companionAutoInterval,
   companionDamage,
   companionDmgCost,
+  companionHeroShare,
   companionMaxSpeedLevel,
   companionSpeedCost,
   COMPANIONS,
@@ -15,6 +16,7 @@ import {
   companionCooldown,
   companionUpgradeCost,
   createState,
+  heroDamage,
   newProgress,
   secToTicks,
   shopCompanion,
@@ -65,9 +67,48 @@ function toFighting(s: GameState) {
 const flyOut = secToTicks(windup(crow.attack));
 
 describe('crow balance', () => {
-  it('flat damage: 1 × level', () => {
-    expect(companionDamage(crow, 1)).toBe(1);
-    expect(companionDamage(crow, 7)).toBe(7);
+  it('flat damage: 1 × level (no hero share while the hero hits for 0)', () => {
+    expect(companionDamage(crow, 1, 0)).toBe(1);
+    expect(companionDamage(crow, 7, 0)).toBe(7);
+  });
+
+  it('hero share: 10 % at level 1, +0.5 % per level, capped at 30 %', () => {
+    expect(companionHeroShare(crow, 1)).toBeCloseTo(0.1);
+    expect(companionHeroShare(crow, 5)).toBeCloseTo(0.12);
+    expect(companionHeroShare(crow, 41)).toBeCloseTo(0.3);
+    expect(companionHeroShare(crow, 500)).toBe(0.3);
+  });
+
+  it('damage = flat + share of the hero hit, rounded down once', () => {
+    expect(companionDamage(crow, 1, 100)).toBe(11); // 1 + 10
+    expect(companionDamage(crow, 1, 19)).toBe(2); // 1 + 1.9 → 2
+    expect(companionDamage(crow, 11, 1000)).toBe(11 + 150); // 15 % at level 11
+    expect(companionDamage(crow, 100, 1000)).toBe(100 + 300); // share capped
+  });
+
+  it('early game guard: a fresh crow hits for 1 until the hero hits for 10', () => {
+    // Stage 1.1: stick levels 1-9 (hit 1-9) and the first wooden sword levels.
+    for (let hit = 0; hit < 10; hit++) expect(companionDamage(crow, 1, hit)).toBe(1);
+    expect(companionDamage(crow, 1, 6)).toBe(1); // wooden sword level 1
+    // Never more than 1 + 10 % of the hero hit, so at most a few points over today.
+    for (const hit of [1, 6, 12, 30]) {
+      expect(companionDamage(crow, 1, hit)).toBeLessThanOrEqual(1 + Math.floor(hit * 0.1));
+    }
+  });
+
+  it('uses the hero weapon: bigger weapons give a bigger peck', () => {
+    const hit = (equipped: number, level: number) =>
+      heroDamage({
+        equipped,
+        weaponLevels: [0, 0, 0, 0, 0].map((_, i) => (i === equipped ? level : 0)),
+      });
+    const peck = (equipped: number, level: number) =>
+      companionDamage(crow, 1, hit(equipped, level));
+    expect(peck(0, 1)).toBe(1); // stick lv 1: hit 1
+    expect(peck(1, 1)).toBe(1); // wooden sword lv 1: hit 6 → 1.6
+    expect(peck(2, 1)).toBe(4); // stone sword lv 1: hit 36 → 4.6
+    expect(peck(3, 1)).toBe(22); // iron sword lv 1: hit 216 → 22.6
+    expect(peck(4, 10)).toBe(1297); // gold sword lv 10: hit 12960 → 1 + 1296
   });
 
   it('auto interval: 3.0 s, −0.1 s per speed level, floor 1.0 s at level 21', () => {
@@ -234,5 +275,20 @@ describe('crow auto attack', () => {
     s = run(s, 3, hits);
     expect(hits).toHaveLength(1);
     expect(s.kills).toBe(1);
+  });
+});
+
+describe('crow in a duel', () => {
+  it('pecks for flat + share of the equipped weapon hit', () => {
+    let s = tanky({ dmgLevel: 1 }, { equipped: 3, weaponLevels: [1, 1, 1, 1, 0] });
+    s = toFighting(s);
+    s = companionClick(s);
+    const amounts: number[] = [];
+    for (let i = 0; i < secToTicks(2); i++) {
+      s = update(s, TICK);
+      for (const e of crowHits(s.events)) if (e.type === 'damage') amounts.push(e.amount);
+    }
+    expect(amounts).toEqual([companionDamage(crow, 1, heroDamage(s))]);
+    expect(amounts[0]).toBe(22); // iron sword lv 1: 1 + 21.6
   });
 });

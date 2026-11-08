@@ -13,7 +13,7 @@ import {
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
-import { heroDefence } from '../game/state';
+import { heroDamage, heroDefence } from '../game/state';
 import {
   crispSize,
   DEFAULT_FONT,
@@ -618,7 +618,7 @@ export function extraStats(data: SaveData, dropForced = false): string {
   let crow = 'crow none';
   if (c) {
     const def = COMPANIONS[c.id];
-    const dmg = companionDamage(def, c.dmgLevel);
+    const dmg = companionDamage(def, c.dmgLevel, heroDamage(data));
     const every = companionAutoInterval(def, c.speedLevel);
     crow = c.autoUnlocked
       ? `crow dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`
