@@ -3,6 +3,7 @@ import { TICK } from '../loop';
 import {
   ITEM_TIERS,
   ITEMS,
+  dropChance,
   itemRarityWeights,
   itemSellPrice,
   itemStatValue,
@@ -128,9 +129,27 @@ describe('rollDrop', () => {
     return drops / N;
   };
 
-  it('drops 0.5 % on normal mobs and 3 % on bosses', () => {
-    expect(dropRate(1)).toBeCloseTo(0.005, 3);
+  it('drops 0.5 % on normal mobs and 3 % on bosses (outside the early boost)', () => {
+    expect(dropRate(5)).toBeCloseTo(0.005, 3);
     expect(dropRate(6)).toBeCloseTo(0.03, 2);
+  });
+
+  it('mob drops are boosted early in world 1 and fade to 0.5 % by stage 5', () => {
+    const chances = [1, 2, 3, 4, 5].map((st) => dropChance(1, st));
+    expect(chances[0]).toBe(ITEMS.earlyDrop.mob);
+    expect(chances[4]).toBe(ITEMS.dropChance.mob);
+    for (let i = 1; i < chances.length; i++) expect(chances[i]).toBeLessThan(chances[i - 1]);
+    expect(1 / chances[0]).toBeLessThan(40); // first item at stage 1.1 in well under 40 kills
+    expect(dropRate(1, 100_000)).toBeCloseTo(ITEMS.earlyDrop.mob, 2);
+  });
+
+  it('later drops are unchanged: late world 1, later worlds, and bosses', () => {
+    expect(dropChance(1, 5)).toBe(0.005);
+    expect(dropChance(1, 6)).toBe(0.03);
+    for (const world of [2, 3, 10]) {
+      for (const stage of [1, 2, 3, 4, 5]) expect(dropChance(world, stage)).toBe(0.005);
+      expect(dropChance(world, 6)).toBe(0.03);
+    }
   });
 
   it('is deterministic for a seed', () => {
