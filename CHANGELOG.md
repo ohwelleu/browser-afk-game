@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-09
+
 ### Added
 
 - **Critical chance**: an upgrade in Shop → Character and an item stat,
@@ -25,6 +27,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Weapon compare** in Shop → Weapons: current damage vs. the weapon you
   are about to buy, e.g. `1 → 6 (+5)` (#61).
 - A small hero icon next to the HP bar opens the stats window (#65).
+- **S+ tier items** (rainbow frame and name): exactly 2× the stats of S, much
+  rarer (1 in 2000 drops), sell for 2× S. The debug "Give item" can give
+  them (#71).
 
 ### Changed
 
@@ -34,6 +39,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   1.5 (about 25 kills to the first item instead of about 200) (#59).
 - The menu button uses a pixel "rank up" icon instead of ☰ (#60).
 - Item grade colours: A is green, B is blue, on frames and names (#66).
+- The crit chance you can buy in the Shop is capped at 40 % (shows MAX).
+  Crit from rings and pendants still adds on top, up to the 75 % total cap
+  (#69).
+- The HUD icon buttons look the same size: pause/resume is a pixel icon, the
+  sound icon is fuller and the menu icon a bit smaller (#68).
 - The crow's damage now adds a share of the hero's hit, so it stays useful
   later on (#49).
 
@@ -228,7 +238,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Project docs: README with embed instructions, v1 plan, roadmap, decision
   log, and this changelog.
 
-[Unreleased]: https://github.com/ohwelleu/browser-afk-game/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ohwelleu/browser-afk-game/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ohwelleu/browser-afk-game/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ohwelleu/browser-afk-game/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ohwelleu/browser-afk-game/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ohwelleu/browser-afk-game/compare/v0.1.0...v0.2.0
