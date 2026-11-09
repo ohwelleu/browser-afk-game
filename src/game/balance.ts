@@ -335,6 +335,12 @@ export const CHARACTER: Record<
 
 // ── Critical hits (hero hits only for now) ─────────────────────────────────
 
+/**
+ * The most crit chance (in %) the Shop upgrade can give. Raise it later; items
+ * add on top of it, up to `CRIT.maxChance` in total.
+ */
+export const CRIT_BUY_MAX_PERCENT = 40;
+
 export const CRIT = {
   /** The total crit chance (items + upgrade) never goes above this. */
   maxChance: 0.75,
@@ -342,9 +348,18 @@ export const CRIT = {
   damageMult: 2,
 };
 
-/** Crit chance from the coin upgrade at `level`, kept to 0.01 % steps. */
+/** Highest crit upgrade level that can be bought (the one that reaches `CRIT_BUY_MAX_PERCENT`). */
+export const CRIT_MAX_LEVEL = Math.floor(
+  (CRIT_BUY_MAX_PERCENT / 100 / CHARACTER.crit.perLevel) * (1 + 1e-9),
+);
+
+/**
+ * Crit chance from the coin upgrade at `level`, kept to 0.01 % steps. Levels
+ * past `CRIT_MAX_LEVEL` (old or debug saves) count as the cap, not more.
+ */
 export const critFromLevel = (level: number): number =>
-  Math.round(CHARACTER.crit.perLevel * Math.max(0, level) * 10_000) / 10_000;
+  Math.round(CHARACTER.crit.perLevel * Math.min(CRIT_MAX_LEVEL, Math.max(0, level)) * 10_000) /
+  10_000;
 
 /** Total crit chance (0–`CRIT.maxChance`) from the raw sum of upgrade and item chances. */
 export const capCritChance = (chance: number): number =>
@@ -357,6 +372,8 @@ export const critDamage = (dmg: number): number => safeInt(dmg * CRIT.damageMult
 export function characterCost(id: CharacterUpgradeId, level: number): number {
   const p = CHARACTER[id];
   if (!(level >= 0)) return Number.MAX_SAFE_INTEGER;
+  // Crit is capped: MAX_SAFE_INTEGER means "can't buy" (bulk buys stop there).
+  if (id === 'crit' && level >= CRIT_MAX_LEVEL) return Number.MAX_SAFE_INTEGER;
   return safeInt(Math.ceil(p.base * p.growth ** level));
 }
 

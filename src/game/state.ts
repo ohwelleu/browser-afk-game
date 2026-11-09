@@ -587,6 +587,15 @@ export function upgradeQuote(
   return tr ? bulkQuote(tr.costAt, tr.level, amount, s.coins) : { levels: 0, cost: 0 };
 }
 
+/** True when the upgrade is bought up as far as it goes (e.g. crit at its cap). */
+export function upgradeMaxed(
+  s: Pick<GameState, 'weaponLevels' | 'character' | 'companion'>,
+  t: UpgradeTarget,
+): boolean {
+  const tr = track(s, t);
+  return !!tr && tr.costAt(tr.level) >= Number.MAX_SAFE_INTEGER;
+}
+
 export function canBuyUpgrades(s: GameState, t: UpgradeTarget, amount: BuyAmount): boolean {
   const q = upgradeQuote(s, t, amount);
   return q.levels > 0 && s.coins >= q.cost;

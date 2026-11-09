@@ -3,6 +3,8 @@ import { TICK } from '../loop';
 import {
   CHARACTER,
   CRIT,
+  CRIT_BUY_MAX_PERCENT,
+  CRIT_MAX_LEVEL,
   capCritChance,
   characterCost,
   critDamage,
@@ -21,6 +23,7 @@ import {
   heroDamage,
   newProgress,
   update,
+  upgradeMaxed,
   upgradeQuote,
   type GameEvent,
   type GameState,
@@ -124,9 +127,60 @@ describe('critChance', () => {
   });
 
   it('is capped at 75 % however it is reached', () => {
-    expect(critChance(game(75))).toBe(0.75);
-    expect(critChance(game(500))).toBe(0.75);
-    expect(critChance(game(70, [0.04, 0.04]))).toBe(0.75);
+    expect(critChance(game(CRIT_MAX_LEVEL, [0.5])).toFixed(2)).toBe('0.75');
+    expect(critChance(game(500, [0.5]))).toBe(0.75);
+    expect(critChance(game(CRIT_MAX_LEVEL, [0.2, 0.2]))).toBeCloseTo(0.75);
+  });
+});
+
+describe('crit buy cap', () => {
+  const coins = (critLevel: number, c = 1e15): GameState => ({ ...game(critLevel), coins: c });
+
+  it('the Shop upgrade tops out at CRIT_BUY_MAX_PERCENT (40 %)', () => {
+    expect(CRIT_BUY_MAX_PERCENT).toBe(40);
+    expect(CRIT_MAX_LEVEL).toBe(40);
+    expect(critFromLevel(CRIT_MAX_LEVEL - 1)).toBe(0.39);
+    expect(critFromLevel(CRIT_MAX_LEVEL)).toBe(0.4);
+    expect(critChance(game(CRIT_MAX_LEVEL))).toBe(0.4);
+  });
+
+  it('the last level is buyable, the next one is rejected', () => {
+    const last = coins(CRIT_MAX_LEVEL - 1);
+    expect(upgradeMaxed(last, { type: 'crit' })).toBe(false);
+    const done = buyCrit(last);
+    expect(done.character.critLevel).toBe(CRIT_MAX_LEVEL);
+    expect(upgradeMaxed(done, { type: 'crit' })).toBe(true);
+    expect(buyCrit(done)).toBe(done);
+    expect(buyUpgrades(done, { type: 'crit' }, 1)).toBe(done);
+    expect(characterCost('crit', CRIT_MAX_LEVEL)).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it('bulk buys never go past the cap', () => {
+    const near = coins(CRIT_MAX_LEVEL - 3);
+    // ×10 near the cap buys just the 3 remaining levels (same as other capped upgrades).
+    expect(upgradeQuote(near, { type: 'crit' }, 10).levels).toBe(3);
+    expect(upgradeQuote(near, { type: 'crit' }, 100).levels).toBe(3);
+    expect(upgradeQuote(near, { type: 'crit' }, 'max').levels).toBe(3);
+    expect(buyUpgrades(near, { type: 'crit' }, 100).character.critLevel).toBe(CRIT_MAX_LEVEL);
+    expect(upgradeQuote(coins(0), { type: 'crit' }, 'max').levels).toBe(CRIT_MAX_LEVEL);
+    expect(upgradeQuote(coins(CRIT_MAX_LEVEL), { type: 'crit' }, 'max')).toEqual({
+      levels: 0,
+      cost: 0,
+    });
+  });
+
+  it('an over-cap save keeps its level but only counts 40 %', () => {
+    const over = coins(500);
+    expect(over.character.critLevel).toBe(500);
+    expect(critFromLevel(500)).toBe(0.4);
+    expect(critChance(over)).toBe(0.4);
+    expect(upgradeMaxed(over, { type: 'crit' })).toBe(true);
+    expect(buyCrit(over)).toBe(over);
+  });
+
+  it('item chance still adds on top of the capped upgrade', () => {
+    expect(critChance(game(CRIT_MAX_LEVEL, [0.05, 0.03]))).toBeCloseTo(0.48);
+    expect(critChance(game(500, [0.05]))).toBeCloseTo(0.45);
   });
 });
 
@@ -183,9 +237,9 @@ describe('hero crits in combat', () => {
       expect(firstHeroHit(game(0, [], seed)).hit.crit).toBeUndefined();
     }
     const under = seedWhere((r) => r > 0.7 && r < 0.75);
-    expect(firstHeroHit(game(500, [], under)).hit.crit).toBe(true);
+    expect(firstHeroHit(game(500, [0.5], under)).hit.crit).toBe(true);
     const over = seedWhere((r) => r >= 0.75);
-    expect(firstHeroHit(game(500, [], over)).hit.crit).toBeUndefined();
+    expect(firstHeroHit(game(500, [0.5], over)).hit.crit).toBeUndefined();
   });
 
   it('item crit counts: the same roll crits with a ring and not without', () => {

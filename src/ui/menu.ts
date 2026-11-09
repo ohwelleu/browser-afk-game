@@ -5,6 +5,8 @@ import {
   companionMaxSpeedLevel,
   COMPANIONS,
   CRIT,
+  CRIT_BUY_MAX_PERCENT,
+  CRIT_MAX_LEVEL,
   critFromLevel,
   defenceFromLevel,
   defenceReduction,
@@ -37,6 +39,7 @@ import {
   type CompanionUpgrade,
   nextWeapon,
   type GameState,
+  upgradeMaxed,
   upgradeQuote,
   type UpgradeTarget,
 } from '../game/state';
@@ -212,9 +215,9 @@ export function pixelSvg(rows: readonly string[]): string {
   return `<svg viewBox="0 0 ${w} ${rows.length}" aria-hidden="true" focusable="false"><path fill="currentColor" d="${rects.join('')}"/></svg>`;
 }
 
-/** A bulk buy button: label, level count (`.buy-n`) and total price (`.buy-cost`). */
+/** A bulk buy button: label (`.buy-label`), level count (`.buy-n`) and total price (`.buy-cost`). */
 const bulkButton = (label: string, attrs: string) =>
-  `<button type="button" ${attrs}>${label} <span class="buy-n"></span> ${price('buy-cost')}</button>`;
+  `<button type="button" ${attrs}><span class="buy-label" data-label="${label}">${label}</span> <span class="buy-n"></span> ${price('buy-cost')}</button>`;
 
 /** "1.1" for stage level 1, "2.1" for level 7. */
 export function stageName(level: number): string {
@@ -356,7 +359,10 @@ const CHARACTER_ROWS: readonly CharacterRow[] = [
       return {
         now: critPct(now),
         next: critPct(next),
-        effect: `Crits hit for ×${CRIT.damageMult} damage`,
+        effect:
+          s.character.critLevel >= CRIT_MAX_LEVEL
+            ? `Shop max reached (items add on top)`
+            : `Crits hit for ×${CRIT.damageMult} damage`,
       };
     },
     target: { type: 'crit' },
@@ -386,7 +392,7 @@ export const SHOP = {
         </div>
       </li>`,
     ).join('')}</ul>
-    <p class="note">Defence and crit chance from rings and pendants count too. A hit always does at least 1. Crit chance tops out at ${critPct(CRIT.maxChance)}.</p>`,
+    <p class="note">Defence and crit chance from rings and pendants count too. A hit always does at least 1. The Shop upgrade gives up to ${CRIT_BUY_MAX_PERCENT}% crit chance; with items it tops out at ${critPct(CRIT.maxChance)}.</p>`,
   weapons: `${weaponRows(
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
@@ -706,6 +712,10 @@ export function createMenu(deps: MenuDeps): Menu {
       btn.querySelector('.buy-n')!,
       q.levels > 0 ? `×${formatNumber(q.levels)}` : amountLabel(amount),
     );
+    // Bought up to its cap: the label says MAX and there is no price.
+    const maxed = shown.levels === 0 && upgradeMaxed(state, t);
+    const label = btn.querySelector<HTMLElement>('.buy-label')!;
+    show(label, maxed ? 'MAX' : (label.dataset.label ?? ''));
     show(btn.querySelector('.buy-cost')!, formatNumber(shown.cost));
     setFlag(btn.querySelector('.price')!, 'hidden', shown.levels === 0);
     setFlag(btn.querySelector('.buy-n')!, 'hidden', shown.levels === 0);
