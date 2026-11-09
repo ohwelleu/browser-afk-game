@@ -14,8 +14,8 @@ import { createShow, setFlag } from './dom';
 export const GEAR_STYLES = `
 .tier { --_tier: var(--_fg); flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 3px solid var(--_tier); position: relative; }
 .tier img { width: 24px; height: 24px; }
-.tc-B { --_tier: var(--_green); }
-.tc-A { --_tier: var(--_blue); }
+.tc-B { --_tier: var(--_blue); }
+.tc-A { --_tier: var(--_green); }
 .tc-S { --_tier: var(--_yellow); }
 .tier.tc-S { box-shadow: 0 0 6px 1px var(--_yellow); }
 .tier.tc-S::after { content: '✦'; position: absolute; top: -10px; right: -8px; color: var(--_yellow); font-size: 12px; animation: afk-sparkle 0.9s steps(2) infinite; }
