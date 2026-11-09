@@ -8,6 +8,7 @@ import {
   critFromLevel,
   defenceFromLevel,
   defenceReduction,
+  hpFromLevel,
   STAGES_PER_WORLD,
   weaponDamage,
   WEAPONS,
@@ -23,6 +24,7 @@ import {
   critChance,
   heroDamage,
   heroDefence,
+  heroMaxHp,
   buyWeapon,
   canBuyCompanion,
   canUpgradeCompanion,
@@ -306,6 +308,21 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 const critPct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 
 const CHARACTER_ROWS: readonly CharacterRow[] = [
+  {
+    id: 'hp',
+    name: 'Max HP',
+    level: (s) => s.character.hpLevel,
+    stat: (s) => {
+      const now = heroMaxHp(s);
+      const next = now + hpFromLevel(s.character.hpLevel + 1) - hpFromLevel(s.character.hpLevel);
+      return {
+        now: formatNumber(now),
+        next: formatNumber(next),
+        effect: `+${formatNumber(next - now)} HP per level`,
+      };
+    },
+    target: { type: 'hp' },
+  },
   {
     id: 'defence',
     name: 'Defence',

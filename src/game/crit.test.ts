@@ -45,7 +45,7 @@ const game = (critLevel: number, crits: number[] = [], critRng = 1): GameState =
   ...createState({
     ...newProgress(),
     items: gearWith(...crits),
-    character: { defenceLevel: 0, critLevel },
+    character: { defenceLevel: 0, critLevel, hpLevel: 0 },
   }),
   critRng,
 });
@@ -223,7 +223,7 @@ describe('crit chance upgrade', () => {
     const s = withCoins(1000);
     const t = buyCrit(s);
     expect(t.coins).toBe(1000 - characterCost('crit', 0));
-    expect(t.character).toEqual({ defenceLevel: 0, critLevel: 1 });
+    expect(t.character).toEqual({ defenceLevel: 0, critLevel: 1, hpLevel: 0 });
     expect(critChance(t)).toBe(0.01);
     expect(s.character.critLevel).toBe(0);
     expect(t.events).toEqual([{ type: 'sfx', name: 'purchase' }, { type: 'save' }]);

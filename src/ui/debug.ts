@@ -90,6 +90,7 @@ const FIELDS: Field[] = [
   { key: 'maxDps', label: 'Max DPS', kind: 'int' },
   { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
   { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
+  { key: 'character.hpLevel', label: 'Max HP upgrade level', kind: 'int' },
   { key: 'companion.owned', label: 'Crow owned', kind: 'bool' },
   { key: 'companion.dmgLevel', label: 'Crow damage level', kind: 'int' },
   { key: 'companion.autoUnlocked', label: 'Crow auto attack', kind: 'bool' },
