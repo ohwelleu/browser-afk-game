@@ -237,6 +237,29 @@ export const iconSfxOff: SpriteDef = {
   ],
 };
 
+/** Menu button: "rank up" symbol, three stacked upward chevrons. */
+export const iconMenu: SpriteDef = {
+  name: 'icon-menu',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '.....##.....',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+      '.....##.....',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+      '.....##.....',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+    ],
+  ],
+};
+
 export const icons = {
   damage: iconDamage,
   speed: iconSpeed,
@@ -246,4 +269,5 @@ export const icons = {
   sfx: iconSfx,
   musicOff: iconMusicOff,
   sfxOff: iconSfxOff,
+  menu: iconMenu,
 } satisfies Record<string, SpriteDef>;
