@@ -76,10 +76,22 @@ img { image-rendering: pixelated; display: block; }
 }
 .hud-left { display: grid; gap: 4px; }
 .hp, .coins { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.bar { width: 132px; height: 16px; border: 3px solid var(--_fg); padding: 2px; }
-.bar-fill { height: 100%; background: var(--_green); }
+/* The HP bar is a button (opens the stats window): no button frame until hovered or focused. */
+.hp {
+  justify-self: start;
+  margin: -3px -7px;
+  padding: 3px 4px;
+  border-color: transparent;
+  background: transparent;
+}
+.hp:hover:not(:disabled) { color: var(--_fg); background: transparent; border-color: var(--_fg); }
+.hp:hover:not(:disabled) img, .hp:focus-visible img { filter: none; }
+.hp:focus-visible { color: var(--_fg); background: transparent; outline: 3px solid var(--_yellow); outline-offset: 1px; }
+.bar { display: block; width: 132px; height: 16px; border: 3px solid var(--_fg); padding: 2px; }
+.bar-fill { display: block; height: 100%; background: var(--_green); }
 .bar-fill.low { background: var(--_red); }
-.hud-center { text-align: center; font-weight: bold; white-space: nowrap; }
+.hud-center { display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: bold; white-space: nowrap; }
+.stage-btn { width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 1em; }
 .boss { color: var(--_purple); }
 .hud-right { display: flex; justify-content: flex-end; gap: 4px; }
 .icon-btn {
@@ -97,10 +109,12 @@ img { image-rendering: pixelated; display: block; }
 @container (max-width: 767px) {
   .hud { grid-template-columns: 1fr auto; grid-template-rows: auto auto 1fr; }
   .hud-left { grid-column: 1; grid-row: 1; }
-  .hud-center { grid-column: 1; grid-row: 2; text-align: left; }
+  .hud-center { grid-column: 1; grid-row: 2; justify-content: flex-start; }
+  .stage-btn { width: 44px; height: 44px; }
   .hud-right { grid-column: 2; grid-row: 1 / span 3; flex-direction: column; gap: 6px; }
   .icon-btn { width: 44px; height: 44px; }
   .bar { width: 104px; }
+  .hp { min-height: 44px; margin: -11px -7px; }
   .auto-btn { min-height: 44px; }
 }
 

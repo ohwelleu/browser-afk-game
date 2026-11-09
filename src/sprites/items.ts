@@ -145,6 +145,75 @@ export const iconAutoAdvance: SpriteDef = {
   ],
 };
 
+/** Hero stats: head and shoulders. */
+export const iconHero: SpriteDef = {
+  name: 'icon-hero',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '....####....',
+      '...######...',
+      '...######...',
+      '...######...',
+      '....####....',
+      '..########..',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '............',
+    ],
+  ],
+};
+
+/** Pause button: two bars, same 10-row extent as the music icon. */
+export const iconPause: SpriteDef = {
+  name: 'icon-pause',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '............',
+    ],
+  ],
+};
+
+/** Resume button: right-pointing triangle, same 10-row extent as the music icon. */
+export const iconPlay: SpriteDef = {
+  name: 'icon-play',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '.##.........',
+      '.####.......',
+      '.######.....',
+      '.########...',
+      '.##########.',
+      '.##########.',
+      '.########...',
+      '.######.....',
+      '.####.......',
+      '.##.........',
+      '............',
+    ],
+  ],
+};
+
 /** Music volume: two beamed notes. */
 export const iconMusic: SpriteDef = {
   name: 'icon-music',
@@ -176,16 +245,16 @@ export const iconSfx: SpriteDef = {
   frames: [
     [
       '............',
-      '.....#......',
-      '....##...#..',
-      '...###.#..#.',
+      '.....#...#..',
+      '....##....#.',
+      '...###.#...#',
       '######..#..#',
       '######..#..#',
       '######..#..#',
       '######..#..#',
-      '...###.#..#.',
-      '....##...#..',
-      '.....#......',
+      '...###.#...#',
+      '....##....#.',
+      '.....#...#..',
       '............',
     ],
   ],
@@ -237,13 +306,40 @@ export const iconSfxOff: SpriteDef = {
   ],
 };
 
+/** Menu button: "rank up" symbol, three stacked upward chevrons. */
+export const iconMenu: SpriteDef = {
+  name: 'icon-menu',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+      '............',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+      '............',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+    ],
+  ],
+};
+
 export const icons = {
   damage: iconDamage,
   speed: iconSpeed,
   weapon: iconWeapon,
   autoAdvance: iconAutoAdvance,
+  hero: iconHero,
   music: iconMusic,
   sfx: iconSfx,
   musicOff: iconMusicOff,
   sfxOff: iconSfxOff,
+  pause: iconPause,
+  play: iconPlay,
+  menu: iconMenu,
 } satisfies Record<string, SpriteDef>;

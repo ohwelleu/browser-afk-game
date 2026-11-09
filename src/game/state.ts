@@ -9,6 +9,7 @@ import { TICK_RATE } from '../loop';
 import { weaponAttack, windup } from './attacks';
 import {
   bulkQuote,
+  capCritChance,
   companionAutoInterval,
   companionDamage,
   companionDmgCost,
@@ -16,9 +17,12 @@ import {
   companionSpeedCost,
   characterCost,
   COMPANIONS,
+  critDamage,
+  critFromLevel,
   defenceFromLevel,
   DUEL,
   HERO_MAX_HP,
+  hpFromLevel,
   isBoss,
   MOB_KINDS,
   mobCoins,
@@ -39,6 +43,7 @@ import {
 } from './balance';
 import { gearTotals, mobHitDamage, newGear, onKill, type Gear, type Item } from './items';
 import { revealedWeapons, revealWeapons } from './reveal';
+import { nextFloat } from './rng';
 
 export type Phase = 'intro' | 'fighting' | 'mobDying' | 'heroDying' | 'transition';
 
@@ -78,11 +83,18 @@ export type Companion = {
 };
 
 /** Character upgrade levels (0 = not bought). Saved as is. */
-export type Character = { defenceLevel: number };
+export type Character = { defenceLevel: number; critLevel: number; hpLevel: number };
 
 export type GameEvent =
   | { type: 'sfx'; name: SfxName }
-  | { type: 'damage'; target: 'hero' | 'mob'; amount: number; source?: 'companion' }
+  | {
+      type: 'damage';
+      target: 'hero' | 'mob';
+      amount: number;
+      source?: 'companion';
+      /** A critical hero hit: shown bigger, with its own sound. */
+      crit?: true;
+    }
   | { type: 'coins'; amount: number }
   /** An item dropped; `soldFor` > 0 when the bag was full and it was sold at once. */
   | { type: 'item'; item: Item; soldFor: number }
@@ -111,6 +123,11 @@ export type GameState = {
   companion: Companion | null;
   /** Coin upgrades bought in Shop → Character. */
   character: Character;
+  /**
+   * Crit RNG state (uint32, mulberry32 like the drop RNG). Not saved: it is
+   * derived from the drop seed on load. Tests can set it to fix the rolls.
+   */
+  critRng: number;
   /** `ticks` of the last click peck, for the click cooldown (not saved). */
   companionClickTick: number | null;
   /** Fighting ticks since the last auto peck (not saved). */
@@ -154,7 +171,7 @@ export function newProgress(): Progress {
     maxDps: 0,
     items: newGear(),
     companion: null,
-    character: { defenceLevel: 0 },
+    character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
   };
 }
 
@@ -173,15 +190,24 @@ export function createState(progress: Progress = newProgress()): GameState {
     maxDps: Math.max(progress.maxDps, heroDps(progress)),
     companion: progress.companion ? { ...progress.companion } : null,
     character: { ...progress.character },
+    critRng: critSeed(progress.items),
     companionClickTick: null,
     companionAutoCharge: 0,
     // The first duel after Start/Continue always gets the full intro.
-    duel: newDuel(progress.world, progress.stage, true),
+    duel: newDuel(progress.world, progress.stage, true, heroMaxHp(progress)),
     events: [],
   };
 }
 
-export function newDuel(world: number, stage: number, fullIntro: boolean): Duel {
+/** Crit RNG seed for a loaded game: the drop seed, scrambled so the two streams differ. */
+const critSeed = (g: Pick<Gear, 'rng'>): number => (g.rng ^ 0x9e3779b9) >>> 0;
+
+export function newDuel(
+  world: number,
+  stage: number,
+  fullIntro: boolean,
+  maxHp: number = HERO_MAX_HP,
+): Duel {
   const hp = mobHp(world, stage);
   const introTicks = secToTicks(fullIntro ? DUEL.intro : DUEL.shortIntro);
   return {
@@ -190,7 +216,7 @@ export function newDuel(world: number, stage: number, fullIntro: boolean): Duel 
     phaseTick: 0,
     introTicks,
     outcome: null,
-    heroHp: HERO_MAX_HP,
+    heroHp: maxHp,
     mob: {
       kind: mobKind(stage),
       hp,
@@ -229,9 +255,22 @@ export function heroDps(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number
   return safeInt(heroDamage(s) / weaponAttack(s.equipped).interval);
 }
 
+/** Max HP: the base plus the coin upgrade. */
+export function heroMaxHp(s: Partial<Pick<GameState, 'character'>>): number {
+  return safeInt(HERO_MAX_HP + hpFromLevel(s.character?.hpLevel ?? 0));
+}
+
 /** Total defence: equipped items plus the coin upgrade. */
 export function heroDefence(s: Partial<Pick<GameState, 'items' | 'character'>>): number {
   return safeInt(gearTotals(s.items).defence + defenceFromLevel(s.character?.defenceLevel ?? 0));
+}
+
+/**
+ * Chance (0–`CRIT.maxChance`) that a hero hit is a critical hit: the coin
+ * upgrade plus equipped items, capped.
+ */
+export function critChance(s: Partial<Pick<GameState, 'items' | 'character'>>): number {
+  return capCritChance(critFromLevel(s.character?.critLevel ?? 0) + gearTotals(s.items).crit);
 }
 
 /** Raises `maxDps` to the current DPS if it's higher (mutates a draft). */
@@ -302,7 +341,7 @@ function step(s: GameState): void {
         const level = stageLevel(s.world, s.stage);
         const isNew = level > s.best;
         s.best = Math.max(s.best, level);
-        s.duel = newDuel(s.world, s.stage, isNew);
+        s.duel = newDuel(s.world, s.stage, isNew, heroMaxHp(s));
         if (isBoss(s.stage)) s.events.push({ type: 'sfx', name: 'bossAppear' });
       }
       return;
@@ -332,12 +371,21 @@ function combat(s: GameState): void {
     s.events.push({ type: 'sfx', name: 'swing' });
   }
   if (t >= d.heroNextHit) {
-    const dmg = heroDamage(s);
+    // Always one roll per hero hit, so the RNG stream doesn't depend on the chance.
+    const rng = { state: s.critRng };
+    const crit = nextFloat(rng) < critChance(s);
+    s.critRng = rng.state;
+    const dmg = crit ? critDamage(heroDamage(s)) : heroDamage(s);
     d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
     d.mobHurtTick = t;
     d.heroNextHit += Math.max(1, secToTicks(attack.interval / (1 + gear.speed)));
     d.heroSwung = false;
-    s.events.push({ type: 'damage', target: 'mob', amount: dmg }, { type: 'sfx', name: 'hit' });
+    s.events.push(
+      crit
+        ? { type: 'damage', target: 'mob', amount: dmg, crit: true }
+        : { type: 'damage', target: 'mob', amount: dmg },
+      { type: 'sfx', name: crit ? 'crit' : 'hit' },
+    );
   }
   companionCombat(s);
   if (d.mob.hp <= 0) {
@@ -393,7 +441,7 @@ function companionCombat(s: GameState): void {
   const due = d.companionPecks.filter((at) => at <= t);
   if (!due.length) return;
   d.companionPecks = d.companionPecks.filter((at) => at > t);
-  const dmg = companionDamage(def, s.companion.dmgLevel);
+  const dmg = companionDamage(def, s.companion.dmgLevel, heroDamage(s));
   for (let i = 0; i < due.length && d.mob.hp > 0; i++) {
     d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
     d.mobHurtTick = t;
@@ -423,7 +471,7 @@ export function companionCooldown(s: GameState): number {
   return total > 0 ? Math.max(0, 1 - (s.ticks - s.companionClickTick) / total) : 0;
 }
 
-function advanceStage(s: GameState): void {
+function advanceStage(s: { world: number; stage: number }): void {
   if (s.stage >= STAGES_PER_WORLD) {
     s.world++;
     s.stage = 1;
@@ -433,7 +481,7 @@ function advanceStage(s: GameState): void {
 }
 
 /** One stage back: 2.1 → 1.6, 1.1 stays 1.1. */
-function rollbackStage(s: GameState): void {
+function rollbackStage(s: { world: number; stage: number }): void {
   if (s.stage > 1) s.stage--;
   else if (s.world > 1) {
     s.world--;
@@ -459,6 +507,8 @@ export const buyUpgrade = (s: GameState): GameState =>
 export type UpgradeTarget =
   | { type: 'weapon'; tier: number }
   | { type: 'defence' }
+  | { type: 'crit' }
+  | { type: 'hp' }
   | { type: 'companion'; kind: 'dmg' | 'speed' };
 
 type Track = {
@@ -492,6 +542,25 @@ function track(
           n.character = { ...n.character, defenceLevel: l };
         },
       };
+    case 'crit':
+      return {
+        level: s.character.critLevel,
+        costAt: (l) => characterCost('crit', l),
+        set: (n, l) => {
+          n.character = { ...n.character, critLevel: l };
+        },
+      };
+    case 'hp':
+      return {
+        level: s.character.hpLevel,
+        costAt: (l) => characterCost('hp', l),
+        set: (n, l) => {
+          // The new max HP is healed in too, so the bar doesn't lag behind mid-duel.
+          const before = heroMaxHp(n);
+          n.character = { ...n.character, hpLevel: l };
+          if (n.duel.heroHp > 0) n.duel.heroHp += heroMaxHp(n) - before;
+        },
+      };
     case 'companion': {
       const c = s.companion;
       const def = companionDef(s);
@@ -516,6 +585,15 @@ export function upgradeQuote(
 ): BulkQuote {
   const tr = track(s, t);
   return tr ? bulkQuote(tr.costAt, tr.level, amount, s.coins) : { levels: 0, cost: 0 };
+}
+
+/** True when the upgrade is bought up as far as it goes (e.g. crit at its cap). */
+export function upgradeMaxed(
+  s: Pick<GameState, 'weaponLevels' | 'character' | 'companion'>,
+  t: UpgradeTarget,
+): boolean {
+  const tr = track(s, t);
+  return !!tr && tr.costAt(tr.level) >= Number.MAX_SAFE_INTEGER;
 }
 
 export function canBuyUpgrades(s: GameState, t: UpgradeTarget, amount: BuyAmount): boolean {
@@ -562,6 +640,65 @@ export function equip(s: GameState, tier: number): GameState {
   next.equipped = tier;
   trackMaxDps(next);
   next.events.push({ type: 'save' });
+  return next;
+}
+
+// ── Stage switch ───────────────────────────────────────────────────────────
+
+/**
+ * Highest stage level the player may switch to now: `best`, plus the stage a
+ * win that is still resolving is about to unlock. In `mobDying` with
+ * auto-advance on, that is the next stage; in `transition` the stage has
+ * already moved on but `best` only catches up when the next duel starts.
+ * Switching away must not lose that unlock.
+ */
+function unlockedLevel(
+  s: Pick<GameState, 'world' | 'stage' | 'best' | 'autoAdvance' | 'duel'>,
+): number {
+  const level = stageLevel(s.world, s.stage);
+  if (s.duel.phase === 'transition') return Math.max(s.best, level);
+  if (s.duel.phase === 'mobDying' && s.autoAdvance) return Math.max(s.best, level + 1);
+  return s.best;
+}
+
+/**
+ * Where a stage switch would go: one stage back (same as the death rollback,
+ * 1.1 stays 1.1) or forward (1.6 → 2.1). `null` when there is nowhere to go,
+ * when the target is locked (above the highest stage reached), or while the
+ * hero is dying: the death still has to roll back a stage and turn
+ * auto-advance off, so it can't be dodged by switching.
+ */
+export function stageSwitchTarget(
+  s: Pick<GameState, 'world' | 'stage' | 'best' | 'autoAdvance' | 'duel'>,
+  dir: 'prev' | 'next',
+): { world: number; stage: number } | null {
+  if (s.duel.phase === 'heroDying') return null;
+  const to = { world: s.world, stage: s.stage };
+  if (dir === 'prev') rollbackStage(to);
+  else advanceStage(to);
+  const level = stageLevel(to.world, to.stage);
+  if (level === stageLevel(s.world, s.stage) || level > unlockedLevel(s)) return null;
+  return to;
+}
+
+/**
+ * Moves to the previous or next stage and starts a fresh duel there. Coins,
+ * items and upgrades stay, and no stage-clear reward or sound plays. Auto-advance
+ * is left as it is: farming an earlier stage is fine, and only a death turns it
+ * off. Returns the same state when the switch is not allowed.
+ */
+export function switchStage(s: GameState, dir: 'prev' | 'next'): GameState {
+  const to = stageSwitchTarget(s, dir);
+  if (!to) return s;
+  const next = draft(s);
+  const level = stageLevel(to.world, to.stage);
+  next.world = to.world;
+  next.stage = to.stage;
+  next.best = Math.max(unlockedLevel(s), level);
+  // Same rule as the transition: the full intro only for a stage reached for the first time.
+  next.duel = newDuel(to.world, to.stage, level > s.best);
+  next.events.push({ type: 'save' });
+  if (isBoss(to.stage)) next.events.push({ type: 'sfx', name: 'bossAppear' });
   return next;
 }
 
@@ -648,12 +785,24 @@ export function upgradeCompanion(s: GameState, kind: CompanionUpgrade): GameStat
 export const defenceCost = (s: Pick<GameState, 'character'>): number =>
   characterCost('defence', s.character.defenceLevel);
 
+export const critCost = (s: Pick<GameState, 'character'>): number =>
+  characterCost('crit', s.character.critLevel);
+
+export const hpCost = (s: Pick<GameState, 'character'>): number =>
+  characterCost('hp', s.character.hpLevel);
+
 export function canBuyDefence(s: GameState): boolean {
   return s.coins >= defenceCost(s);
 }
 
 /** Buys one defence level. */
 export const buyDefence = (s: GameState): GameState => buyUpgrades(s, { type: 'defence' }, 1);
+
+/** Buys one max HP level. */
+export const buyHp = (s: GameState): GameState => buyUpgrades(s, { type: 'hp' }, 1);
+
+/** Buys one crit chance level. */
+export const buyCrit = (s: GameState): GameState => buyUpgrades(s, { type: 'crit' }, 1);
 
 function purchase(s: GameState, cost: number, apply: (next: GameState) => void): GameState {
   const next = draft(s);

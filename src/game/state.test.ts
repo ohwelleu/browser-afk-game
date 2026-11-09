@@ -11,6 +11,8 @@ import {
   newProgress,
   secToTicks,
   setAutoAdvance,
+  stageSwitchTarget,
+  switchStage,
   update,
   type GameEvent,
   type GameState,
@@ -262,5 +264,118 @@ describe('max DPS', () => {
   it('fighting does not change it', () => {
     const s = run(strong(), 10);
     expect(s.maxDps).toBe(1000);
+  });
+});
+
+describe('stage switch', () => {
+  const at = (world: number, stage: number, best: number, p: Partial<Progress> = {}) =>
+    weak({ world, stage, best, ...p });
+  const pos = (s: GameState) => [s.world, s.stage];
+
+  it('back at 1.1 stays put', () => {
+    const s = at(1, 1, 1);
+    expect(switchStage(s, 'prev')).toBe(s);
+    expect(stageSwitchTarget(s, 'prev')).toBeNull();
+  });
+
+  it('back goes one stage, and across a world boundary 2.1 → 1.6', () => {
+    expect(pos(switchStage(at(1, 4, 4), 'prev'))).toEqual([1, 3]);
+    expect(pos(switchStage(at(2, 1, 7), 'prev'))).toEqual([1, 6]);
+  });
+
+  it('next is locked above the best stage', () => {
+    const s = at(1, 3, 3);
+    expect(switchStage(s, 'next')).toBe(s);
+    expect(stageSwitchTarget(s, 'next')).toBeNull();
+    const boss = at(1, 6, 6);
+    expect(switchStage(boss, 'next')).toBe(boss);
+  });
+
+  it('next works when unlocked', () => {
+    expect(pos(switchStage(at(1, 2, 5), 'next'))).toEqual([1, 3]);
+    expect(stageSwitchTarget(at(1, 5, 5), 'next')).toBeNull();
+  });
+
+  it('next crosses a world boundary 1.6 → 2.1 when unlocked', () => {
+    expect(pos(switchStage(at(1, 6, 7), 'next'))).toEqual([2, 1]);
+    // 2.1 is level 7: best 6 keeps it locked.
+    expect(stageSwitchTarget(at(1, 6, 6), 'next')).toBeNull();
+  });
+
+  it('starts a fresh short duel, keeps the haul and plays no stage clear', () => {
+    const base = at(3, 3, 16, { coins: 123, autoAdvance: true });
+    const hurt = run(base, 2.2);
+    expect(hurt.duel.phase).toBe('fighting');
+    const s = switchStage(hurt, 'next');
+    expect(pos(s)).toEqual([3, 4]);
+    expect(s.duel.phase).toBe('intro');
+    expect(s.duel.tick).toBe(0);
+    expect(s.duel.heroHp).toBe(HERO_MAX_HP);
+    expect(s.duel.mob.hp).toBe(mobHp(3, 4));
+    expect(s.duel.introTicks).toBe(secToTicks(DUEL.shortIntro));
+    expect(s.coins).toBe(hurt.coins);
+    expect(s.weaponLevels).toEqual(hurt.weaponLevels);
+    expect(s.best).toBe(16);
+    expect(s.events).toEqual([{ type: 'save' }]);
+  });
+
+  it('leaves auto-advance as it is', () => {
+    expect(switchStage(at(1, 3, 5, { autoAdvance: true }), 'prev').autoAdvance).toBe(true);
+    expect(switchStage(at(1, 3, 5, { autoAdvance: false }), 'prev').autoAdvance).toBe(false);
+  });
+
+  it('is not allowed while the hero is dying (the rollback still applies)', () => {
+    const dead = runUntil(
+      weak({ world: 3, stage: 2, best: 14 }),
+      (x) => x.duel.phase === 'heroDying',
+    );
+    expect(stageSwitchTarget(dead, 'prev')).toBeNull();
+    expect(switchStage(dead, 'prev')).toBe(dead);
+    // After the death the hero is on the rolled-back stage and may switch again.
+    const gap = runUntil(dead, (x) => x.duel.phase === 'transition');
+    expect(pos(gap)).toEqual([3, 1]);
+    expect(pos(switchStage(gap, 'prev'))).toEqual([2, 6]);
+  });
+
+  it('a win still resolving keeps its unlock when the player switches away', () => {
+    // Auto on, mob dying on 1.3 (best 3): going back must still unlock 1.4.
+    const won = runUntil(strong({ stage: 3, best: 3 }), (x) => x.duel.phase === 'mobDying');
+    expect(won.stage).toBe(3);
+    const back = switchStage(won, 'prev');
+    expect(pos(back)).toEqual([1, 2]);
+    expect(back.best).toBe(4);
+    expect(pos(switchStage(back, 'next'))).toEqual([1, 3]);
+    // 1.4 is a new stage: the full intro, like the normal advance.
+    const fwd = switchStage(won, 'next');
+    expect(pos(fwd)).toEqual([1, 4]);
+    expect(fwd.duel.introTicks).toBe(secToTicks(DUEL.intro));
+    expect(fwd.best).toBe(4);
+    // Auto off: no advance was pending, so 1.4 stays locked.
+    const off = runUntil(
+      strong({ stage: 3, best: 3, autoAdvance: false }),
+      (x) => x.duel.phase === 'mobDying',
+    );
+    expect(stageSwitchTarget(off, 'next')).toBeNull();
+    expect(switchStage(off, 'prev').best).toBe(3);
+  });
+
+  it('in the transition after a win the advanced stage counts as reached', () => {
+    const gap = runUntil(strong({ stage: 3, best: 3 }), (x) => x.duel.phase === 'transition');
+    expect(pos(gap)).toEqual([1, 4]);
+    const back = switchStage(gap, 'prev');
+    expect(pos(back)).toEqual([1, 3]);
+    expect(back.best).toBe(4);
+  });
+
+  it('does not mutate the old state', () => {
+    const s = at(1, 4, 4);
+    switchStage(s, 'prev');
+    expect(pos(s)).toEqual([1, 4]);
+  });
+
+  it('a death after switching still rolls back and turns auto off', () => {
+    let s = switchStage(at(3, 3, 16, { autoAdvance: true }), 'next');
+    s = runUntil(s, (x) => x.duel.phase === 'transition');
+    expect([s.world, s.stage, s.autoAdvance]).toEqual([3, 3, false]);
   });
 });

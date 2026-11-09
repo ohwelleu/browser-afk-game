@@ -1,10 +1,16 @@
 import {
+  capCritChance,
   companionAutoInterval,
   companionDamage,
   companionMaxSpeedLevel,
   COMPANIONS,
+  CRIT,
+  CRIT_BUY_MAX_PERCENT,
+  CRIT_MAX_LEVEL,
+  critFromLevel,
   defenceFromLevel,
   defenceReduction,
+  hpFromLevel,
   STAGES_PER_WORLD,
   weaponDamage,
   WEAPONS,
@@ -17,7 +23,10 @@ import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
   buyCompanion,
   buyUpgrades,
+  critChance,
+  heroDamage,
   heroDefence,
+  heroMaxHp,
   buyWeapon,
   canBuyCompanion,
   canUpgradeCompanion,
@@ -30,6 +39,7 @@ import {
   type CompanionUpgrade,
   nextWeapon,
   type GameState,
+  upgradeMaxed,
   upgradeQuote,
   type UpgradeTarget,
 } from '../game/state';
@@ -38,6 +48,7 @@ import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '..
 import { createShow, html, setClass, setFlag } from './dom';
 import { musicCreditsHtml } from './credits';
 import { createGearView, GEAR_HTML } from './gear';
+import { showWeaponCompare, WEAPON_COMPARE_HTML } from './weapon-compare';
 import {
   AMOUNT_BUTTON,
   AMOUNT_POPOVER,
@@ -204,9 +215,9 @@ export function pixelSvg(rows: readonly string[]): string {
   return `<svg viewBox="0 0 ${w} ${rows.length}" aria-hidden="true" focusable="false"><path fill="currentColor" d="${rects.join('')}"/></svg>`;
 }
 
-/** A bulk buy button: label, level count (`.buy-n`) and total price (`.buy-cost`). */
+/** A bulk buy button: label (`.buy-label`), level count (`.buy-n`) and total price (`.buy-cost`). */
 const bulkButton = (label: string, attrs: string) =>
-  `<button type="button" ${attrs}>${label} <span class="buy-n"></span> ${price('buy-cost')}</button>`;
+  `<button type="button" ${attrs}><span class="buy-label" data-label="${label}">${label}</span> <span class="buy-n"></span> ${price('buy-cost')}</button>`;
 
 /** "1.1" for stage level 1, "2.1" for level 7. */
 export function stageName(level: number): string {
@@ -235,6 +246,8 @@ export type Menu = {
   /** Re-renders the pixel icons (theme change). */
   refreshIcons(): void;
   select(tab: MenuTab, focus?: boolean): void;
+  /** Selects a sub tab, e.g. `selectSub('shop', 'companions')`. */
+  selectSub(tab: string, sub: string, focus?: boolean): void;
 };
 
 /** Icons are drawn at a whole-number scale only (pixel art). */
@@ -297,8 +310,25 @@ type CharacterRow = {
 };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
+/** Crit chances can be fractions of a percent (items): one decimal at most. */
+const critPct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 
 const CHARACTER_ROWS: readonly CharacterRow[] = [
+  {
+    id: 'hp',
+    name: 'Max HP',
+    level: (s) => s.character.hpLevel,
+    stat: (s) => {
+      const now = heroMaxHp(s);
+      const next = now + hpFromLevel(s.character.hpLevel + 1) - hpFromLevel(s.character.hpLevel);
+      return {
+        now: formatNumber(now),
+        next: formatNumber(next),
+        effect: `+${formatNumber(next - now)} HP per level`,
+      };
+    },
+    target: { type: 'hp' },
+  },
   {
     id: 'defence',
     name: 'Defence',
@@ -316,6 +346,26 @@ const CHARACTER_ROWS: readonly CharacterRow[] = [
       };
     },
     target: { type: 'defence' },
+  },
+  {
+    id: 'crit',
+    name: 'Crit chance',
+    level: (s) => s.character.critLevel,
+    stat: (s) => {
+      const now = critChance(s);
+      const next = capCritChance(
+        now + critFromLevel(s.character.critLevel + 1) - critFromLevel(s.character.critLevel),
+      );
+      return {
+        now: critPct(now),
+        next: critPct(next),
+        effect:
+          s.character.critLevel >= CRIT_MAX_LEVEL
+            ? `Shop max reached (items add on top)`
+            : `Crits hit for ×${CRIT.damageMult} damage`,
+      };
+    },
+    target: { type: 'crit' },
   },
 ];
 
@@ -342,12 +392,13 @@ export const SHOP = {
         </div>
       </li>`,
     ).join('')}</ul>
-    <p class="note">Defence from rings and pendants counts too. A hit always does at least 1.</p>`,
+    <p class="note">Defence and crit chance from rings and pendants count too. A hit always does at least 1. The Shop upgrade gives up to ${CRIT_BUY_MAX_PERCENT}% crit chance; with items it tops out at ${critPct(CRIT.maxChance)}.</p>`,
   weapons: `${weaponRows(
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
       `<span class="shop-lv">Lv <span class="shop-level"></span></span>` +
-      `<span class="shop-up-dmg">Damage <span class="shop-cur"></span> → <span class="dmg-next shop-next"></span></span>`,
+      `<span class="shop-up-dmg">Damage <span class="shop-cur"></span> → <span class="dmg-next shop-next"></span></span>` +
+      WEAPON_COMPARE_HTML,
     (i) =>
       `<span class="tag on shop-equipped">Equipped</span>` +
       `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
@@ -416,7 +467,7 @@ const HELP = `
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
-      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A or the rare S). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed or item find.</p>
+      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A, S or the very rare S+). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. Click or tap anywhere on the game to make it peck the monster.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <div class="save-slot"></div>
@@ -661,6 +712,10 @@ export function createMenu(deps: MenuDeps): Menu {
       btn.querySelector('.buy-n')!,
       q.levels > 0 ? `×${formatNumber(q.levels)}` : amountLabel(amount),
     );
+    // Bought up to its cap: the label says MAX and there is no price.
+    const maxed = shown.levels === 0 && upgradeMaxed(state, t);
+    const label = btn.querySelector<HTMLElement>('.buy-label')!;
+    show(label, maxed ? 'MAX' : (label.dataset.label ?? ''));
     show(btn.querySelector('.buy-cost')!, formatNumber(shown.cost));
     setFlag(btn.querySelector('.price')!, 'hidden', shown.levels === 0);
     setFlag(btn.querySelector('.buy-n')!, 'hidden', shown.levels === 0);
@@ -746,6 +801,8 @@ export function createMenu(deps: MenuDeps): Menu {
       show(lockTag, locked ? `Buy ${WEAPONS[i - 1].name} first` : '', 'title');
       const buy = li.querySelector<HTMLButtonElement>('.shop-buy')!;
       setFlag(buy, 'hidden', !isNext);
+      setFlag(li.querySelector('.shop-compare')!, 'hidden', !isNext);
+      if (isNext) showWeaponCompare(li, state, i, show);
       setFlag(buy, 'disabled', isNext && !affordable);
       show(buy, isNext && !affordable ? 'Not enough coins' : '', 'title');
     }
@@ -799,9 +856,10 @@ export function createMenu(deps: MenuDeps): Menu {
     const name = q('.comp-name');
     if (name) show(name, def.name);
     show(q('.comp-level')!, formatNumber(c.dmgLevel));
-    show(q('.comp-dmg')!, formatNumber(companionDamage(def, c.dmgLevel)));
+    const hit = heroDamage(state);
+    show(q('.comp-dmg')!, formatNumber(companionDamage(def, c.dmgLevel, hit)));
     const next = q('.comp-next');
-    if (next) show(next, formatNumber(companionDamage(def, c.dmgLevel + 1)));
+    if (next) show(next, formatNumber(companionDamage(def, c.dmgLevel + 1, hit)));
     const interval = companionAutoInterval(def, c.speedLevel).toFixed(1);
     show(q('.comp-auto')!, c.autoUnlocked ? `Auto every ${interval} s` : 'Auto attack: locked');
   }
@@ -855,5 +913,6 @@ export function createMenu(deps: MenuDeps): Menu {
     refresh,
     refreshIcons,
     select,
+    selectSub,
   };
 }

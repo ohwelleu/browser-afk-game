@@ -7,14 +7,17 @@ import {
   trackName,
 } from './audio';
 import type { SfxName } from './audio/types';
-import { HERO_MAX_HP, isBoss } from './game/balance';
+import { isBoss } from './game/balance';
 import { formatNumber } from './game/format';
 import {
   companionClick,
   createState,
   heroDamage,
   heroDps,
+  heroMaxHp,
   setAutoAdvance,
+  stageSwitchTarget,
+  switchStage,
   update,
   type GameEvent,
   type GameState,
@@ -39,13 +42,16 @@ import { coinSpin, icons, type SpriteDef } from './sprites';
 import { STYLES } from './styles';
 import { createBrowserTabGuard, TAB_LOCK_STYLES } from './tab-guard';
 import { buildPalette, resolveTheme, type Palette, type ThemeMode } from './theme';
-import { createShow } from './ui/dom';
+import { createShow, setFlag } from './ui/dom';
 import { createMenu, MENU_STYLES } from './ui/menu';
 import { Dialogs, MODAL_STYLES } from './ui/modal';
 import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
+import { createStatsWindow, STATS_STYLES } from './ui/stats';
 import { createToast, GEAR_STYLES } from './ui/gear';
+import { RAINBOW_STYLES } from './ui/rainbow';
 import { createNowPlaying, NOW_PLAYING_STYLES } from './ui/now-playing';
+import { createQuest, QUEST_STYLES } from './ui/quest';
 
 export type GameOptions = {
   saveKey: string;
@@ -75,18 +81,23 @@ const HTML = `
     <canvas aria-hidden="true"></canvas>
     <div class="hud">
       <div class="hud-left">
-        <div class="hp" title="Hero HP">
-          <div class="bar"><div class="bar-fill"></div></div>
+        <button class="hp" type="button" data-act="stats" aria-haspopup="dialog" aria-label="Hero stats" title="Hero HP · click for stats">
+          <img class="hero-icon" width="24" height="24" alt="" />
+          <span class="bar"><span class="bar-fill"></span></span>
           <span class="hp-text"></span>
-        </div>
+        </button>
         <div class="coins" title="Coins"><img class="coin-icon" width="16" height="16" alt="" /><span class="coin-text"></span></div>
       </div>
-      <div class="hud-center"><span class="stage"></span></div>
+      <div class="hud-center">
+        <button class="stage-btn" type="button" data-act="stage-prev" aria-label="Previous stage" title="Previous stage">◀</button>
+        <span class="stage"></span>
+        <button class="stage-btn" type="button" data-act="stage-next" aria-label="Next stage" title="Next stage">▶</button>
+      </div>
       <div class="hud-right">
-        <button class="icon-btn" type="button" data-act="pause" aria-label="Pause">❚❚</button>
+        <button class="icon-btn" type="button" data-act="pause" aria-label="Pause"><img width="24" height="24" alt="" /></button>
         <button class="icon-btn" type="button" data-act="music"><img width="24" height="24" alt="" /></button>
         <button class="icon-btn" type="button" data-act="sound" aria-label="Sound settings" aria-haspopup="dialog"><img width="24" height="24" alt="" /></button>
-        <button class="icon-btn" type="button" data-act="menu" aria-label="Menu" aria-haspopup="dialog">☰</button>
+        <button class="icon-btn" type="button" data-act="menu" aria-label="Menu" aria-haspopup="dialog"><img width="24" height="24" alt="" /></button>
       </div>
     </div>
     <button class="auto-btn toggle" type="button" data-act="auto" title="Auto-advance: go to the next stage after a win"></button>
@@ -99,7 +110,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${NOW_PLAYING_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${RAINBOW_STYLES}${GEAR_STYLES}${STATS_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -107,7 +118,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   const startButton = $<HTMLButtonElement>('.start');
   const menuButton = $<HTMLButtonElement>('[data-act="menu"]');
   const soundButton = $<HTMLButtonElement>('[data-act="sound"]');
+  const statsButton = $<HTMLButtonElement>('[data-act="stats"]');
   const autoButton = $<HTMLButtonElement>('[data-act="auto"]');
+  const prevStageButton = $<HTMLButtonElement>('[data-act="stage-prev"]');
+  const nextStageButton = $<HTMLButtonElement>('[data-act="stage-next"]');
   const pauseButton = $<HTMLButtonElement>('[data-act="pause"]');
   const musicButton = $<HTMLButtonElement>('[data-act="music"]');
   const ctx = canvas.getContext('2d')!;
@@ -183,8 +197,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     },
     audioSettings,
   );
-  autoButton.before(menu.el, sound.el);
+  const stats = createStatsWindow();
+  autoButton.before(menu.el, sound.el, stats.el);
   const toast = createToast(box, { iconUrl });
+  const quest = createQuest(box, menuButton, menu.el);
   const noteEl = document.createElement('div');
   noteEl.className = 'now-playing';
   noteEl.setAttribute('role', 'status');
@@ -246,7 +262,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     sprites.setPalette(palette);
     for (const [k, v] of Object.entries(palette)) box.style.setProperty(`--_${k}`, v);
     $<HTMLImageElement>('.coin-icon').src = iconUrl(coinSpin);
+    $<HTMLImageElement>('.hero-icon').src = iconUrl(icons.hero);
     menu.refreshIcons();
+    menuButton.querySelector('img')!.src = iconUrl(icons.menu);
+    refreshPauseButton();
     refreshAudioButtons();
     if (!loop.running) draw();
   }
@@ -282,6 +301,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     scene.draw(ctx, state, view, palette, sprites);
     refreshHud();
     if (dialogs.isOpen(menu.el)) menu.refresh(state);
+    if (dialogs.isOpen(stats.el)) stats.refresh(state);
     if (opts.debug) drawDebug();
   }
 
@@ -289,15 +309,19 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   function refreshHud(): void {
     const hp = state.duel.heroHp;
+    const maxHp = heroMaxHp(state);
     const fill = $('.bar-fill');
-    const pct = Math.max(0, Math.min(100, (hp / HERO_MAX_HP) * 100));
+    const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
     fill.style.width = `${pct}%`;
     fill.classList.toggle('low', pct < 30);
-    show($('.hp-text'), `${hp}/${HERO_MAX_HP}`);
+    show($('.hp-text'), `${hp}/${maxHp}`);
     show($('.coin-text'), formatNumber(state.coins));
     const stage = $('.stage');
     show(stage, `${isBoss(state.stage) ? 'BOSS' : 'STAGE'} ${state.world}.${state.stage}`);
     stage.classList.toggle('boss', isBoss(state.stage));
+    setFlag(prevStageButton, 'disabled', !stageSwitchTarget(state, 'prev'));
+    setFlag(nextStageButton, 'disabled', !stageSwitchTarget(state, 'next'));
+    quest.refresh(state);
     show(autoButton, state.autoAdvance ? 'AUTO ON' : 'AUTO OFF');
     autoButton.setAttribute('aria-pressed', String(state.autoAdvance));
   }
@@ -305,6 +329,12 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   function refreshUi(): void {
     refreshHud();
     if (dialogs.isOpen(menu.el)) menu.refresh(state);
+    if (dialogs.isOpen(stats.el)) stats.refresh(state);
+  }
+
+  function refreshPauseButton(): void {
+    pauseButton.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+    pauseButton.querySelector('img')!.src = iconUrl(paused ? icons.play : icons.pause);
   }
 
   function refreshAudioButtons(): void {
@@ -396,8 +426,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     switch (target?.dataset.act) {
       case 'pause':
         paused = !paused;
-        pauseButton.textContent = paused ? '▶' : '❚❚';
-        pauseButton.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+        refreshPauseButton();
         syncRunning();
         return;
       case 'music': {
@@ -420,8 +449,29 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
           dialogs.open(menu.el, menuButton, menu.focusTarget);
         }
         return;
+      case 'quest':
+        // Straight to Shop → Companions.
+        menu.select('shop');
+        menu.selectSub('shop', 'companions');
+        menu.refresh(state);
+        if (!dialogs.isOpen(menu.el)) dialogs.open(menu.el, menuButton, menu.focusTarget);
+        return;
+      case 'stats':
+        if (dialogs.isOpen(stats.el)) {
+          dialogs.close();
+        } else {
+          stats.refresh(state);
+          dialogs.open(stats.el, statsButton);
+        }
+        return;
       case 'auto':
         act((s) => setAutoAdvance(s, !s.autoAdvance));
+        return;
+      case 'stage-prev':
+        act((s) => switchStage(s, 'prev'));
+        return;
+      case 'stage-next':
+        act((s) => switchStage(s, 'next'));
         return;
       case 'take-over':
         tabGuard.claim();
@@ -538,6 +588,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       dialogs.destroy();
       debugPanel?.destroy();
       toast.destroy();
+      quest.destroy();
       nowPlaying.destroy();
       noteEl.remove();
       loop.stop();

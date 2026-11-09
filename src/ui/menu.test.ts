@@ -96,6 +96,17 @@ describe('upgrade buttons live in the Shop', () => {
     expect(SHOP.character).toContain(`${AMOUNT_BUTTON}<button type="button" data-act="buy-char"`);
   });
 
+  it('lists Max HP, Defence and Crit chance, each with an amount button and a Buy button', () => {
+    expect(SHOP.character).toContain('data-char="hp"');
+    expect(SHOP.character).toContain('data-char="defence"');
+    expect(SHOP.character).toContain('data-char="crit"');
+    expect(count(SHOP.character, /data-act="buy-char"/)).toBe(3);
+    expect(count(SHOP.character, /data-act="amount-menu"/)).toBe(3);
+    expect(SHOP.character.indexOf('data-char="defence"')).toBeLessThan(
+      SHOP.character.indexOf('data-char="crit"'),
+    );
+  });
+
   it('has no old four-button amount row anywhere in the shop', () => {
     const shop = Object.values(SHOP).join('');
     expect(shop).not.toContain('class="amounts"');

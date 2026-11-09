@@ -48,13 +48,22 @@ Each line below is its own thread, in this order.
       plus Equip in the shop (PR #9).
 - [x] **Defence upgrade** in Shop → Character:
       `taken = dmg × 100 / (100 + defence)`, at least 1 (PR #26).
-- [ ] **HP and mob damage grow**: the hero's max HP grows (per stage
+- [x] **HP and mob damage grow**: the hero's max HP grows (per stage
       and/or an HP upgrade) and mob damage scales with the stage. Today it's
       almost flat (stage 5 mobs still hit for ~12). Bigger numbers on both
-      sides feel better. Tune with the simulator.
-- [ ] **Critical chance**: a crit chance stat (and crit damage ×), bought
+      sides feel better. Shipped with conservative numbers (PR #63),
+      re-tune with the simulator.
+- [x] **Critical chance**: a crit chance stat (and crit damage ×), bought
       in Shop → Character and found on items. Crits get their own damage
       number style.
+- [ ] **Character select**: more than one playable character, each with
+      different base stats (e.g. HP, damage, defence, crit, attack speed)
+      and its own sprite (owner, 2026-11-09). Design first in
+      `docs/design/characters.md`: how many characters at the start, how a
+      new one is unlocked (stage, ascend, coins), whether progress and items
+      are shared or per character, where you pick (start screen or a Shop /
+      menu tab), and how the saves work (one save with several characters
+      vs. one per character). Needs the simulator for balance.
 - [ ] **Speed upgrade** (attack speed), after ascend lands, because it
       multiplies everything.
 
@@ -66,10 +75,10 @@ Each line below is its own thread, in this order.
 - [x] **Remove the cooldown ring** ("loader") around the crow (PR #20).
 - [x] Real crow sprites instead of the placeholder (PR #16, #20).
 - [x] **Show when the crow becomes buyable** in the shop (PR #23).
-- [ ] **Companion damage scales with the hero's damage** (e.g. a % of the
+- [x] **Companion damage scales with the hero's damage** (e.g. a % of the
       hero's hit, raised by crow upgrades), so the crow stays useful later
       on.
-- [ ] **Companion upgrades in Shop and Inventory**: crow upgrades can be
+- [x] **Companion upgrades in Shop and Inventory**: crow upgrades can be
       bought from Shop → Companions too, not only from Inventory (same as
       weapons).
 - [ ] **More companions**: other animals with their own attack and upgrades
@@ -89,6 +98,27 @@ Each line below is its own thread, in this order.
       sparkles (PR #15, #17).
 - [ ] Item defence is weak under the % formula (1–4 % per item): raise
       `ITEMS.stats.defence.base`? → **decide after the simulator**.
+- [x] **Early-game drops come faster**: the first items should drop
+      sooner (owner, 2026-11-08). Raise the drop chance or add a guaranteed
+      early drop in the first stages, then keep later drops as they are.
+      Tune with the simulator.
+- [~] **Rainbow colour** (animated, for S-tier things): demo in the debug
+      panel first (thread `ui/rainbow-colour-demo`), where to use it is
+      decided later.
+- [x] **S+ tier items** (2× S stats, rainbow frame and name, much rarer;
+      PR #71).
+- [ ] **Rainbow rain for equipped S+ items** (owner, 2026-11-09): while the
+      hero wears an S+ item, thin rainbow-coloured lines fall like rain in
+      the background of the scene and appear in different places. The more
+      S+ items equipped, the more lines (e.g. one more line per item, with a
+      cap). Behind the hero and mobs, never covering the HUD or the numbers.
+      Cheap on the canvas (a few pooled lines, no per-frame allocation), uses
+      `rainbowStep`/`rainbowColor` from `src/ui/rainbow.ts`, and shows still
+      or off under `prefers-reduced-motion`. Open: does a worn S tier item
+      also get a (smaller) effect, and is there a debug toggle to preview it.
+- [x] **Character stats window**: damage per second, crit chance, best
+      weapon (name and tier) and highest stage. Starts after crit chance
+      lands. (Same item as the stats panel below.)
 - [ ] **Item names that say what they do**: name parts from the stats,
       e.g. "Lucky Ring" = more item find, "Ring of Haste" = speed, "Sharp
       Pendant of Fortune" = damage + item find. Tier in the name or frame
@@ -115,12 +145,21 @@ Each line below is its own thread, in this order.
 
 ## Active play
 
-- [ ] **Starter quest: buy the companion**. At the start, a small quest
+- [x] **Starter quest: buy the companion**. At the start, a small quest
       ("Buy the crow to start clicking") points to Shop → Companions, so new
       players learn clicking early. Reward or highlight when done.
 - [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
       (PR #20). Still open: click the mob for bonus damage (cap clicks per second so
       autoclickers don't break the balance).
+- [ ] **Roguelike stage picks** (owner, 2026-11-09): on a stage, the player
+      picks one upgrade from a few random choices, like in roguelike games.
+      Design first in `docs/design/stage-picks.md`: when the choice appears
+      (every stage, every few stages, boss kills), how many options (e.g.
+      3), what the options are (temporary buffs for the run vs. permanent
+      ones, small stat boosts, skills, companion perks), rarity and
+      rerolls, what happens on death and on ascend, and whether it pauses
+      the fight. Needs the simulator and ties in with ascend. Then build in
+      small PRs (choice logic and save, pick UI, first set of options).
 - [ ] **Skills**: big effects on long cooldowns (e.g. 60 s), activated by
       clicking their icon. Unlocked or upgraded in the shop.
 
@@ -130,18 +169,21 @@ Each line below is its own thread, in this order.
       soon), Inventory (Weapons · Companions · Accessories) with upgrades,
       no Upgrades tab (PR #23, #26). Third Shop tab is **Ascend**;
       accessories are drop-only, never sold (2026-11-02).
-- [ ] **Help behind a small ⓘ icon** instead of a menu tab (thread
-      `ui/help-icon`).
-- [ ] **Bulk buy** ×10 / ×100 / MAX (thread `code/bulk-buy`).
-- [ ] **Compare before buying a weapon**: the shop shows the current
+- [x] **Help behind a small ⓘ icon** instead of a menu tab (opens Credits, 0.4.0).
+- [x] **Bulk buy** ×10 / ×100 / MAX (amount button + popover, 0.4.0).
+- [x] **New menu icon**: change the menu button icon to something like a
+      "rank up" symbol (stacked upward chevrons), pixel style, fits the
+      palette (owner, 2026-11-08). Check which button the owner means
+      (menu open button vs. tab icons) before drawing.
+- [x] **Compare before buying a weapon**: the shop shows the current
       damage vs. the new weapon's damage (e.g. `12 → 30 (+18)`).
 - [ ] **Equipped first**: equipped weapons (and items) are listed at the
       top in Inventory.
 - [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
       on top while scrolling, like the main tabs.
-- [ ] **Fix: sound settings**: the [X] close button overlaps the on/off
+- [x] **Fix: sound settings**: the [X] close button overlaps the on/off
       button in the sound settings popover. Move it so both are usable.
-- [ ] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
+- [x] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
       defence, crit/speed, crow DPS, item totals, kills, deaths).
 - [x] Pixel font: Pixelify Sans, with Lithuanian letters (PR #12).
 - [x] **Sharper font**: font picker in the debugger, Press Start 2P is the
@@ -155,10 +197,9 @@ Each line below is its own thread, in this order.
       (PR #11).
 - [x] **Save and load in Help**: copy/paste and download/upload, with a
       preview and a confirm (PR #25).
-- [ ] One-tab guard (thread `code/one-tab-guard`).
-- [ ] **Share progress**: a "Copy link" like
-      `…/en/game#save=AFK1…` that loads the save on another device (thread
-      `code/share-link`, together with the honesty note below).
+- [x] One-tab guard (0.4.0).
+- [x] **Share progress**: a "Copy link" like
+      `…/en/game#save=AFK1…` that loads the save on another device (0.4.0).
 - [ ] Be honest in the UI: the checksum stops typos and casual edits.
       Anyone can read the JS and **decode or forge a save**, and no amount of
       time or hashing changes that on the client. Real protection needs a
@@ -178,7 +219,7 @@ Each line below is its own thread, in this order.
 
 ## Music & sound
 
-- [~] **New music**: "Gaming Time" by Otrebil, with written permission
+- [x] **New music**: "Gaming Time" by Otrebil, with written permission
       (2026-11-03, see [DECISIONS.md](DECISIONS.md)). Thread
       `audio/otrebil-track`: seamless loop, OGG, credit, default for new
       players. Our own original 8-bit synthwave track is optional now.

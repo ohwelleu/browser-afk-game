@@ -65,14 +65,14 @@ export const WEAPON_REVEAL_FRACTION = 0.9;
 export const UPGRADE_GROWTH = 1.15;
 
 const MOB_HP = { base: 10, growth: 1.28, boss: 5 };
-const MOB_DMG = { base: 4, growth: 1.05, boss: 2 };
+const MOB_DMG = { base: 5, growth: 1.07, boss: 2 };
 const MOB_COINS = { base: 4, growth: 1.3, boss: 5 };
 /**
  * World 1 is a tutorial: mob HP and damage × these. HP is cut hard so a fresh
  * stick (1 dmg) kills a normal mob in 2–3 hits (1.1–1.5: 2, 2, 2, 3, 3 HP).
  */
 const WORLD_1_HP_MULT = 0.11;
-const WORLD_1_DMG_MULT = 0.5;
+const WORLD_1_DMG_MULT = 0.8;
 
 /**
  * Integer guard for HP, damage and coins: NaN → 0, ±Infinity and anything
@@ -131,21 +131,42 @@ export function upgradeCost(tier: number, level: number): number {
 // ── Items: ring and pendant (docs/design/active-play.md → 2. Items) ────────
 
 export type ItemSlot = 'ring' | 'pendant';
-export type ItemTier = 'C' | 'B' | 'A' | 'S';
-export type ItemStat = 'damage' | 'defence' | 'speed' | 'itemFind';
+/** `SS` is the internal id of tier S+ (shown to the player as "S+"; "+" is awkward in CSS classes). */
+export type ItemTier = 'C' | 'B' | 'A' | 'S' | 'SS';
+export type ItemStat = 'damage' | 'defence' | 'speed' | 'itemFind' | 'crit';
 
 export const ITEM_SLOTS: readonly ItemSlot[] = ['ring', 'pendant'];
-export const ITEM_TIERS: readonly ItemTier[] = ['C', 'B', 'A', 'S'];
-export const ITEM_STATS: readonly ItemStat[] = ['damage', 'defence', 'speed', 'itemFind'];
+export const ITEM_TIERS: readonly ItemTier[] = ['C', 'B', 'A', 'S', 'SS'];
+
+/** What the player sees for each tier. */
+export const ITEM_TIER_LABEL: Record<ItemTier, string> = {
+  C: 'C',
+  B: 'B',
+  A: 'A',
+  S: 'S',
+  SS: 'S+',
+};
+
+/** S+ is S with every stat value × this. Everything else about S+ (stat lines, prices) follows S. */
+const S_PLUS_MULT = 2;
+/** How rare S+ is compared with S (its rarity weight = S × this). */
+const S_PLUS_RARITY = 0.05;
+export const ITEM_STATS: readonly ItemStat[] = ['damage', 'defence', 'speed', 'itemFind', 'crit'];
 
 export const ITEMS = {
-  /** How many different stats an item of each tier has (S = all 4). */
-  statCount: { C: 1, B: 2, A: 3, S: 4 } as Record<ItemTier, number>,
-  tierMult: { C: 1.0, B: 1.3, A: 1.6, S: 2.0 } as Record<ItemTier, number>,
-  /** Rarity weights of a drop, before item find. */
-  rarity: { C: 70, B: 22, A: 7, S: 1 } as Record<ItemTier, number>,
+  /** How many different stats an item of each tier has (drawn from `ITEM_STATS`). */
+  statCount: { C: 1, B: 2, A: 3, S: 4, SS: 4 } as Record<ItemTier, number>,
+  /** S+ = S × `S_PLUS_MULT`, so the two stay linked (also the sell price factor). */
+  tierMult: { C: 1.0, B: 1.3, A: 1.6, S: 2.0, SS: 2.0 * S_PLUS_MULT } as Record<ItemTier, number>,
+  /** Rarity weights of a drop, before item find. S+ is a small fraction of S (1 in 2000 drops). */
+  rarity: { C: 70, B: 22, A: 7, S: 1, SS: 1 * S_PLUS_RARITY } as Record<ItemTier, number>,
   /** Chance per kill that something drops at all (item find never changes this). */
   dropChance: { mob: 0.005, boss: 0.03 },
+  /**
+   * Early-game boost for mobs in world 1: `mob` chance on stage 1, fading
+   * linearly down to `dropChance.mob` on stage `untilStage` and after.
+   */
+  earlyDrop: { world: 1, mob: 0.04, untilStage: 5 },
   /** Every stat value is × a uniform roll in [min, max). */
   roll: { min: 0.8, max: 1.2 },
   /**
@@ -157,27 +178,47 @@ export const ITEMS = {
     defence: { base: 0.3, growth: 1.05, flat: true },
     speed: { base: 0.02, growth: 1, flat: false },
     itemFind: { base: 0.05, growth: 1, flat: false },
+    // Same base as speed: +1 % crit is worth about +1 % damage at the default ×2 crit.
+    crit: { base: 0.02, growth: 1, flat: false },
   } as Record<ItemStat, { base: number; growth: number; flat: boolean }>,
-  /** Caps on the total of both equipped items. */
+  /**
+   * Caps on the total of both equipped items. Crit has no item cap of its own:
+   * the total chance (items + upgrade) is capped by `CRIT.maxChance`.
+   */
   caps: { speed: 0.25, itemFind: 1.0 },
   inventorySize: 20,
   /** Sell price = `mobCoins(drop stage) × sellMult × tierMult`. */
   sellMult: 5,
 };
 
+/** Chance per kill that something drops on `world.stage` (boosted for mobs early in world 1). */
+export function dropChance(world: number, stage: number): number {
+  const { mob, boss } = ITEMS.dropChance;
+  if (isBoss(stage)) return boss;
+  const e = ITEMS.earlyDrop;
+  if (world !== e.world || stage >= e.untilStage) return mob;
+  const t = (Math.max(1, stage) - 1) / (e.untilStage - 1); // 0 on stage 1 → 1 on `untilStage`
+  return e.mob + (mob - e.mob) * t;
+}
+
 /** One stat roll on an item from stage level `L`. `roll` is the 0.8–1.2 factor. */
 export function itemStatValue(stat: ItemStat, L: number, tier: ItemTier, roll: number): number {
+  // S+ is exactly 2× the (already rounded) S value, so rounding can't make them drift apart.
+  if (tier === 'SS') {
+    const v = itemStatValue(stat, L, 'S', roll) * S_PLUS_MULT;
+    return ITEMS.stats[stat].flat ? safeInt(v) : Math.round(v * 10_000) / 10_000;
+  }
   const p = ITEMS.stats[stat];
   const v = p.base * p.growth ** (L - 1) * ITEMS.tierMult[tier] * roll;
   // % stats: kept to 0.01 % steps so saves and labels stay tidy.
   return p.flat ? Math.max(1, safeInt(v)) : Math.round(v * 10_000) / 10_000;
 }
 
-/** Rarity weights with item find: B/A/S × (1 + itemFind), C unchanged (normalise by the sum). */
+/** Rarity weights with item find: everything but C × (1 + itemFind) (normalise by the sum). */
 export function itemRarityWeights(itemFind: number): Record<ItemTier, number> {
   const f = 1 + Math.max(0, itemFind);
   const r = ITEMS.rarity;
-  return { C: r.C, B: r.B * f, A: r.A * f, S: r.S * f };
+  return { C: r.C, B: r.B * f, A: r.A * f, S: r.S * f, SS: r.SS * f };
 }
 
 export function itemSellPrice(world: number, stage: number, tier: ItemTier): number {
@@ -198,8 +239,14 @@ export type CompanionDef = {
   price: number;
   /** Shows up in the shop once `best` reaches this stage level (2 = 1.1 cleared). */
   unlockLevel: number;
-  /** `damage = baseDmg × dmgLevel × attack.damageMult`. */
+  /** Flat part of a peck: `baseDmg × dmgLevel × attack.damageMult`. */
   baseDmg: number;
+  /**
+   * Share of the hero's hit damage added to every peck: `base + perLevel ×
+   * (dmgLevel − 1)`, never above `max`. Keeps the companion useful as the
+   * hero's weapons grow.
+   */
+  heroShare: { base: number; perLevel: number; max: number };
   /** `hitFrame / fps` is the fly-out time before the peck lands. */
   attack: AttackDef;
   /** Seconds between click pecks. Clicks during the cooldown are ignored. */
@@ -226,6 +273,7 @@ export const COMPANIONS: Record<CompanionId, CompanionDef> = {
     price: 25,
     unlockLevel: 2,
     baseDmg: 1,
+    heroShare: { base: 0.1, perLevel: 0.005, max: 0.3 },
     attack: {
       id: 'peck',
       heroAnim: 'peck',
@@ -246,9 +294,20 @@ export const COMPANIONS: Record<CompanionId, CompanionDef> = {
   },
 };
 
-/** `damage = baseDmg × dmgLevel` (flat, its own levels). */
-export function companionDamage(def: CompanionDef, dmgLevel: number): number {
-  return safeInt(def.baseDmg * dmgLevel * def.attack.damageMult);
+/** Share of the hero's hit the companion adds at `dmgLevel`: 10 % +0.5 % per level, max 30 %. */
+export function companionHeroShare(def: CompanionDef, dmgLevel: number): number {
+  const { base, perLevel, max } = def.heroShare;
+  return Math.min(max, base + perLevel * Math.max(0, dmgLevel - 1));
+}
+
+/**
+ * `damage = baseDmg × dmgLevel × damageMult + heroShare × heroHit`, rounded
+ * down once. `heroHit` is the hero's current hit (weapon + items, before
+ * crit and defence), so the crow keeps up with the hero's weapons.
+ */
+export function companionDamage(def: CompanionDef, dmgLevel: number, heroHit: number): number {
+  const flat = def.baseDmg * dmgLevel * def.attack.damageMult;
+  return safeInt(flat + companionHeroShare(def, dmgLevel) * heroHit);
 }
 
 /** `autoInterval = max(autoMinInterval, autoStart − autoStep × (speedLevel − 1))`, in seconds. */
@@ -276,12 +335,12 @@ export function companionSpeedCost(def: CompanionDef, level: number): number {
 
 // ── Character upgrades (bought with coins in Shop → Character) ─────────────
 
-export type CharacterUpgradeId = 'defence';
+export type CharacterUpgradeId = 'defence' | 'crit' | 'hp';
 
 /**
  * Each upgrade: cost of buying level `n` is `base × growth^(n−1)` (level 0 =
- * not bought), and every level adds `perLevel` to the stat. HP and speed
- * go here later.
+ * not bought), and every level adds `perLevel` to the stat. Speed goes here
+ * later.
  */
 export const CHARACTER: Record<
   CharacterUpgradeId,
@@ -289,14 +348,59 @@ export const CHARACTER: Record<
 > = {
   // Mob coins grow 1.3× per stage, so the price keeps pace with progress.
   defence: { base: 50, growth: 1.3, perLevel: 5 },
+  // perLevel is a fraction: 0.01 = +1 % crit chance per level.
+  crit: { base: 100, growth: 1.3, perLevel: 0.01 },
+  // Flat max HP on top of `HERO_MAX_HP`: +10 per level (10 % of the starting 100).
+  hp: { base: 30, growth: 1.3, perLevel: 10 },
 };
+
+// ── Critical hits (hero hits only for now) ─────────────────────────────────
+
+/**
+ * The most crit chance (in %) the Shop upgrade can give. Raise it later; items
+ * add on top of it, up to `CRIT.maxChance` in total.
+ */
+export const CRIT_BUY_MAX_PERCENT = 40;
+
+export const CRIT = {
+  /** The total crit chance (items + upgrade) never goes above this. */
+  maxChance: 0.75,
+  /** A crit does this many times the normal hit damage. */
+  damageMult: 2,
+};
+
+/** Highest crit upgrade level that can be bought (the one that reaches `CRIT_BUY_MAX_PERCENT`). */
+export const CRIT_MAX_LEVEL = Math.floor(
+  (CRIT_BUY_MAX_PERCENT / 100 / CHARACTER.crit.perLevel) * (1 + 1e-9),
+);
+
+/**
+ * Crit chance from the coin upgrade at `level`, kept to 0.01 % steps. Levels
+ * past `CRIT_MAX_LEVEL` (old or debug saves) count as the cap, not more.
+ */
+export const critFromLevel = (level: number): number =>
+  Math.round(CHARACTER.crit.perLevel * Math.min(CRIT_MAX_LEVEL, Math.max(0, level)) * 10_000) /
+  10_000;
+
+/** Total crit chance (0–`CRIT.maxChance`) from the raw sum of upgrade and item chances. */
+export const capCritChance = (chance: number): number =>
+  Number.isFinite(chance) ? Math.min(CRIT.maxChance, Math.max(0, chance)) : 0;
+
+/** Damage of a crit that would otherwise hit for `dmg`. */
+export const critDamage = (dmg: number): number => safeInt(dmg * CRIT.damageMult);
 
 /** Cost to go from `level` to `level + 1`. */
 export function characterCost(id: CharacterUpgradeId, level: number): number {
   const p = CHARACTER[id];
   if (!(level >= 0)) return Number.MAX_SAFE_INTEGER;
+  // Crit is capped: MAX_SAFE_INTEGER means "can't buy" (bulk buys stop there).
+  if (id === 'crit' && level >= CRIT_MAX_LEVEL) return Number.MAX_SAFE_INTEGER;
   return safeInt(Math.ceil(p.base * p.growth ** level));
 }
+
+/** Extra max HP from the coin upgrade at `level`. */
+export const hpFromLevel = (level: number): number =>
+  safeInt(CHARACTER.hp.perLevel * Math.max(0, level));
 
 /** Defence points from the coin upgrade at `level`. */
 export const defenceFromLevel = (level: number): number =>

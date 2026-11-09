@@ -140,7 +140,7 @@ describe('writeSave / loadSave', () => {
       maxDps: 42,
       items: st.items,
       companion: null,
-      character: { defenceLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -308,6 +308,27 @@ describe('items in the save (v2)', () => {
     expect(loadSave(s, 'k').saved!.progress.items).toEqual(items);
   });
 
+  it('round-trips an S+ item (internal tier id SS)', () => {
+    const ss: Item = {
+      id: 1,
+      slot: 'pendant',
+      tier: 'SS',
+      world: 4,
+      stage: 3,
+      stats: { damage: 40, defence: 6, speed: 0.08, crit: 0.08 },
+    };
+    const items = {
+      ring: null,
+      pendant: ss,
+      bag: [{ ...ss, id: 2, slot: 'ring' as const }],
+      rng: 9,
+      nextId: 3,
+    };
+    const s = memory();
+    writeSave(s, 'k', toSaveData({ ...createState(), items }, audio, '0.2.0'));
+    expect(loadSave(s, 'k').saved!.progress.items).toEqual(items);
+  });
+
   it('migrates a v1 save (no items) to empty gear and keeps the rest', () => {
     const v1 = JSON.stringify({ version: 1, world: 2, stage: 3, coins: 50, weaponLevels: [4, 1] });
     const { progress } = load(v1);
@@ -370,7 +391,7 @@ describe('save migration', () => {
       version: SAVE_VERSION,
       coins: 5,
       companion: null,
-      character: { defenceLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       revealedWeapons: [true, false, false, false, false],
     };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
@@ -419,13 +440,20 @@ describe('save migration', () => {
 
 describe('character upgrades in the save (v4)', () => {
   it('keeps the defence level across a save round trip', () => {
-    const st = createState({ ...newProgress(), character: { defenceLevel: 7 } });
+    const st = createState({
+      ...newProgress(),
+      character: { defenceLevel: 7, critLevel: 3, hpLevel: 4 },
+    });
     const data = toSaveData(st, audio, '0.4.0');
     expect(data.version).toBe(SAVE_VERSION);
-    expect(data.character).toEqual({ defenceLevel: 7 });
+    expect(data.character).toEqual({ defenceLevel: 7, critLevel: 3, hpLevel: 4 });
     const s = memory();
     writeSave(s, 'k', data);
-    expect(loadSave(s, 'k').saved!.progress.character).toEqual({ defenceLevel: 7 });
+    expect(loadSave(s, 'k').saved!.progress.character).toEqual({
+      defenceLevel: 7,
+      critLevel: 3,
+      hpLevel: 4,
+    });
   });
 
   it('v3 → v4 adds character with defence level 0', () => {
@@ -433,7 +461,7 @@ describe('character upgrades in the save (v4)', () => {
     expect(migrateSave(v3)).toMatchObject({
       ...v3,
       version: SAVE_VERSION,
-      character: { defenceLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
     });
   });
 
@@ -441,9 +469,16 @@ describe('character upgrades in the save (v4)', () => {
     const char = (character: unknown) =>
       loadSave(memory({ k: JSON.stringify({ version: 3, character }) }), 'k').saved!.progress
         .character;
-    expect(char(undefined)).toEqual({ defenceLevel: 0 });
-    expect(char({ defenceLevel: -2 })).toEqual({ defenceLevel: 0 });
-    expect(char({ defenceLevel: 3 })).toEqual({ defenceLevel: 3 });
+    expect(char(undefined)).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
+    expect(char({ defenceLevel: -2 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
+    expect(char({ defenceLevel: 3 })).toEqual({ defenceLevel: 3, critLevel: 0, hpLevel: 0 });
+    expect(char({ defenceLevel: 3, critLevel: 5, hpLevel: 2 })).toEqual({
+      defenceLevel: 3,
+      critLevel: 5,
+      hpLevel: 2,
+    });
+    expect(char({ critLevel: 1.5 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
+    expect(char({ hpLevel: 1.5 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
   });
 });
 
@@ -459,7 +494,8 @@ describe('revealed weapons in the save (v5)', () => {
   it('v4 → v5 reveals owned weapons plus what the coins reach 90% of', () => {
     expect(migrateSave(v4(0))).toEqual({
       ...v4(0),
-      version: 5,
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      version: SAVE_VERSION,
       revealedWeapons: [true, true, false, false, false],
     });
     // 2,700 is 90% of the stone sword (3,000); not yet the iron sword.
@@ -510,5 +546,16 @@ describe('revealed weapons in the save (v5)', () => {
     expect(rev(undefined)).toEqual([true, true, false, false, false]);
     expect(rev('x')).toEqual([true, true, false, false, false]);
     expect(rev([false, false, false, true])).toEqual([true, true, false, true, false]);
+  });
+});
+
+describe('max HP upgrade in the save (v7)', () => {
+  it('v6 → v7 adds hpLevel 0 and keeps the other levels', () => {
+    const v6 = { version: 6, coins: 9, character: { defenceLevel: 3, critLevel: 2 } };
+    expect(migrateSave(v6)).toEqual({
+      ...v6,
+      version: SAVE_VERSION,
+      character: { defenceLevel: 3, critLevel: 2, hpLevel: 0 },
+    });
   });
 });

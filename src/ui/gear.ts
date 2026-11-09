@@ -1,4 +1,11 @@
-import { ITEM_SLOTS, ITEM_STATS, ITEMS, type ItemSlot, type ItemStat } from '../game/balance';
+import {
+  ITEM_SLOTS,
+  ITEM_STATS,
+  ITEM_TIER_LABEL,
+  ITEMS,
+  type ItemSlot,
+  type ItemStat,
+} from '../game/balance';
 import { formatNumber } from '../game/format';
 import { sellPrice, type Item } from '../game/items';
 import type { GameState } from '../game/state';
@@ -14,11 +21,15 @@ import { createShow, setFlag } from './dom';
 export const GEAR_STYLES = `
 .tier { --_tier: var(--_fg); flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 3px solid var(--_tier); position: relative; }
 .tier img { width: 24px; height: 24px; }
-.tc-B { --_tier: var(--_green); }
-.tc-A { --_tier: var(--_blue); }
+.tc-B { --_tier: var(--_blue); }
+.tc-A { --_tier: var(--_green); }
 .tc-S { --_tier: var(--_yellow); }
 .tier.tc-S { box-shadow: 0 0 6px 1px var(--_yellow); }
 .tier.tc-S::after { content: '✦'; position: absolute; top: -10px; right: -8px; color: var(--_yellow); font-size: 12px; animation: afk-sparkle 0.9s steps(2) infinite; }
+.tier.tc-SS { border-color: transparent; box-shadow: none; }
+.tier .sparkle { position: absolute; top: -13px; right: -10px; font-size: 18px; line-height: 1; animation: afk-sparkle 0.9s steps(2) infinite; pointer-events: none; }
+.tier .sparkle + .sparkle { top: auto; right: auto; bottom: -11px; left: -9px; font-size: 14px; animation-delay: -0.45s; }
+.tier-name.rainbow { color: transparent; }
 @keyframes afk-sparkle { 50% { opacity: 0.2; transform: scale(0.6); } }
 .tier-name { font-weight: bold; color: var(--_tier, inherit); }
 .gear-head { display: flex; align-items: baseline; gap: 8px; margin-top: 1em !important; }
@@ -43,7 +54,7 @@ export const GEAR_STYLES = `
 .toast[hidden] { display: flex; opacity: 0; }
 .toast .toast-text { display: grid; }
 @media (prefers-reduced-motion: reduce) {
-  .tier.tc-S::after { animation: none; }
+  .tier.tc-S::after, .tier .sparkle { animation: none; }
   .toast { transition: none; }
 }
 `;
@@ -53,11 +64,14 @@ const STAT_LABEL: Record<ItemStat, (v: number) => string> = {
   defence: (v) => `+${formatNumber(v)} def`,
   speed: (v) => `+${pct(v)} speed`,
   itemFind: (v) => `+${pct(v)} item find`,
+  crit: (v) => `+${pct(v)} crit`,
 };
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 const SLOT_NAME: Record<ItemSlot, string> = { ring: 'Ring', pendant: 'Pendant' };
 
-export const itemName = (it: Item) => `${SLOT_NAME[it.slot]} · ${it.tier}`;
+export const itemName = (it: Item) => `${SLOT_NAME[it.slot]} · ${ITEM_TIER_LABEL[it.tier]}`;
+/** Class of the name text: S+ is rainbow, the other tiers use their `tc-X` colour. */
+const nameClass = (it: Item) => (it.tier === 'SS' ? 'tier-name rainbow' : 'tier-name');
 export const itemStatsText = (it: Item) =>
   ITEM_STATS.filter((s) => it.stats[s] !== undefined)
     .map((s) => STAT_LABEL[s](it.stats[s]!))
@@ -69,8 +83,17 @@ export type GearDeps = { iconUrl(def: SpriteDef): string };
 
 /** Frame + icon for one item (or an empty slot). */
 function frame(deps: GearDeps, slot: ItemSlot, it: Item | null): string {
-  const cls = it ? `tier tc-${it.tier}` : 'tier gear-empty';
-  return `<span class="${cls}"><img alt="" src="${deps.iconUrl(gearIcons[slot])}" /></span>`;
+  // S+: the rainbow frame + glow use ::before/::after, so its sparkles are real elements.
+  const cls = !it
+    ? 'tier gear-empty'
+    : it.tier === 'SS'
+      ? 'tier tc-SS rainbow-frame rainbow-glow'
+      : `tier tc-${it.tier}`;
+  const sparkles =
+    it?.tier === 'SS'
+      ? '<span class="sparkle rainbow" aria-hidden="true">✦</span><span class="sparkle rainbow" aria-hidden="true">✦</span>'
+      : '';
+  return `<span class="${cls}"><img alt="" src="${deps.iconUrl(gearIcons[slot])}" />${sparkles}</span>`;
 }
 
 const coinPrice = (coin: string, n: number) =>
@@ -104,7 +127,7 @@ export function createGearView(
     <li class="item">
       ${frame(deps, slot, it)}
       <div class="item-body">
-        <span class="item-name ${it ? `tc-${it.tier}` : ''}"><span class="tier-name">${it ? esc(itemName(it)) : `${SLOT_NAME[slot]} · empty`}</span></span>
+        <span class="item-name ${it ? `tc-${it.tier}` : ''}"><span class="${it ? nameClass(it) : 'tier-name'}">${it ? esc(itemName(it)) : `${SLOT_NAME[slot]} · empty`}</span></span>
         <span class="item-stats">${it ? `<span>${esc(itemStatsText(it))}</span><span class="note">from ${it.world}.${it.stage}</span>` : ''}</span>
       </div>
       <div class="action">${action}</div>
@@ -150,7 +173,7 @@ export function createGearView(
   };
 }
 
-/** Drop toast: item icon in its tier frame, name and stats; S gets the sparkle. */
+/** Drop toast: item icon in its tier frame, name and stats; S gets the sparkle, S+ the rainbow. */
 export function createToast(box: HTMLElement, deps: GearDeps, ms = 3000) {
   const el = document.createElement('div');
   el.className = 'toast';
@@ -163,7 +186,7 @@ export function createToast(box: HTMLElement, deps: GearDeps, ms = 3000) {
       const line = soldFor
         ? `Bag full: sold for ${formatNumber(soldFor)} coins`
         : esc(itemStatsText(it));
-      el.innerHTML = `${frame(deps, it.slot, it)}<span class="toast-text"><span class="tc-${it.tier}"><b class="tier-name">${esc(itemName(it))}</b></span><span>${line}</span></span>`;
+      el.innerHTML = `${frame(deps, it.slot, it)}<span class="toast-text"><span class="tc-${it.tier}"><b class="${nameClass(it)}">${esc(itemName(it))}</b></span><span>${line}</span></span>`;
       el.hidden = false;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => (el.hidden = true), ms);

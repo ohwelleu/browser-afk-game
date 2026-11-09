@@ -37,6 +37,9 @@ const TEXT_LIFE = 0.9;
 const TEXT_RISE = 14;
 /** Companion damage numbers: an existing accent until the palette step picks a shade. */
 const COMPANION_DMG_COLOR: keyof Palette = 'blue';
+/** Critical hit numbers: an accent from the palette, `CRIT_SCALE` × the normal size. */
+const CRIT_DMG_COLOR: keyof Palette = 'yellow';
+const CRIT_SCALE = 1.5;
 /** Companion flight back to the perch after the peck's hit frame, in seconds. */
 const PECK_BACK = 0.23;
 /** Up-arc of the companion's flight, in art pixels. */
@@ -76,7 +79,15 @@ export function sceneContent(compact = false): { width: number; height: number }
   return { width: heroW + mobWidth() + margin * 3, height: tallest + GROUND + TOP_GAP };
 }
 
-type FloatText = { text: string; color: keyof Palette; x: number; y: number; born: number };
+type FloatText = {
+  text: string;
+  color: keyof Palette;
+  x: number;
+  y: number;
+  born: number;
+  /** Critical hit: drawn bigger. */
+  crit?: boolean;
+};
 type ClickMark = { x: number; y: number; born: number };
 
 const seconds = (ticks: number) => ticks / TICK_RATE;
@@ -99,11 +110,18 @@ export class SceneRenderer {
       if (e.type === 'damage') {
         const onMob = e.target === 'mob';
         this.texts.push({
-          text: formatNumber(e.amount),
-          color: e.source === 'companion' ? COMPANION_DMG_COLOR : onMob ? 'fg' : 'red',
+          text: e.crit ? `${formatNumber(e.amount)}!` : formatNumber(e.amount),
+          color: e.crit
+            ? CRIT_DMG_COLOR
+            : e.source === 'companion'
+              ? COMPANION_DMG_COLOR
+              : onMob
+                ? 'fg'
+                : 'red',
           x: (onMob ? l.mobX + l.mob.width / 2 : l.heroX + l.hero.width / 2) + jitter,
           y: (onMob ? l.mobY : l.heroY) - 6,
           born: s.ticks,
+          ...(e.crit ? { crit: true } : {}),
         });
       } else if (e.type === 'coins') {
         this.texts.push({
@@ -162,10 +180,19 @@ export class SceneRenderer {
       (t) => s.ticks >= t.born && seconds(s.ticks - t.born) < TEXT_LIFE,
     );
     const size = snapFontSize(v.scale * 5);
+    const critSize = snapFontSize(v.scale * 5 * CRIT_SCALE);
     for (const t of this.texts) {
       const age = seconds(s.ticks - t.born) / TEXT_LIFE;
       const y = t.y - TEXT_RISE * age;
-      text(ctx, t.text, t.x * v.scale, y * v.scale + v.offsetY, size, p[t.color], p.bg);
+      text(
+        ctx,
+        t.text,
+        t.x * v.scale,
+        y * v.scale + v.offsetY,
+        t.crit ? critSize : size,
+        p[t.color],
+        p.bg,
+      );
     }
   }
 }

@@ -5,7 +5,7 @@
  */
 import {
   defendedDamage,
-  isBoss,
+  dropChance,
   ITEM_STATS,
   ITEMS,
   itemRarityWeights,
@@ -48,9 +48,12 @@ export function newGear(seed: number = randomSeed()): Gear {
   return { ring: null, pendant: null, bag: [], rng: seed >>> 0, nextId: 1 };
 }
 
-/** Sum of both equipped items, with the speed and item find caps applied. */
+/**
+ * Sum of both equipped items, with the speed and item find caps applied.
+ * `crit` is the raw item sum: use `critChance` (state.ts) for the capped total.
+ */
 export function gearTotals(g: Gear | undefined): GearTotals {
-  const t: GearTotals = { damage: 0, defence: 0, speed: 0, itemFind: 0 };
+  const t: GearTotals = { damage: 0, defence: 0, speed: 0, itemFind: 0, crit: 0 };
   if (!g) return t;
   for (const item of [g.ring, g.pendant]) {
     if (!item) continue;
@@ -95,7 +98,7 @@ export type DropResult = { gear: Gear; item: Item | null; soldFor: number };
  */
 export function rollDrop(g: Gear, world: number, stage: number, force = false): DropResult {
   const rng: Rng = { state: g.rng };
-  const chance = isBoss(stage) ? ITEMS.dropChance.boss : ITEMS.dropChance.mob;
+  const chance = dropChance(world, stage);
   if (nextFloat(rng) >= chance && !force)
     return { gear: { ...g, rng: rng.state }, item: null, soldFor: 0 };
   const item = rollItem(rng, g.nextId, world, stage, gearTotals(g).itemFind);
@@ -126,7 +129,7 @@ export function onKill(s: GameState, world: number, stage: number): void {
   if (r.soldFor) s.coins = safeInt(s.coins + r.soldFor);
   s.events.push(
     { type: 'item', item: r.item, soldFor: r.soldFor },
-    { type: 'sfx', name: r.item.tier === 'S' ? 'itemDropS' : 'itemDrop' },
+    { type: 'sfx', name: r.item.tier === 'S' || r.item.tier === 'SS' ? 'itemDropS' : 'itemDrop' },
     { type: 'save' },
   );
 }

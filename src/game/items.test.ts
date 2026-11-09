@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
 import {
+  ITEM_STATS,
+  ITEM_TIER_LABEL,
   ITEM_TIERS,
   ITEMS,
+  dropChance,
   itemRarityWeights,
   itemSellPrice,
   itemStatValue,
@@ -69,8 +72,26 @@ describe('item balance', () => {
   });
 
   it('item find raises B/A/S weights only', () => {
-    expect(itemRarityWeights(0)).toEqual({ C: 70, B: 22, A: 7, S: 1 });
-    expect(itemRarityWeights(1)).toEqual({ C: 70, B: 44, A: 14, S: 2 });
+    expect(itemRarityWeights(0)).toEqual({ C: 70, B: 22, A: 7, S: 1, SS: 0.05 });
+    expect(itemRarityWeights(1)).toEqual({ C: 70, B: 44, A: 14, S: 2, SS: 0.1 });
+  });
+
+  it('S+ (id SS) is exactly 2× S for every stat, level and roll, with the same stat lines', () => {
+    for (const stat of ITEM_STATS)
+      for (const L of [1, 2, 7, 14, 40, 100])
+        for (const roll of [0.8, 0.93, 1, 1.07, 1.2])
+          expect(itemStatValue(stat, L, 'SS', roll)).toBe(itemStatValue(stat, L, 'S', roll) * 2);
+    expect(ITEMS.statCount.SS).toBe(ITEMS.statCount.S);
+    expect(ITEM_TIER_LABEL.SS).toBe('S+');
+  });
+
+  it('S+ is much rarer than S and sells for 2× S', () => {
+    for (const find of [0, 1, 5]) {
+      const w = itemRarityWeights(find);
+      expect(w.SS).toBeGreaterThan(0);
+      expect(w.SS).toBeLessThanOrEqual(w.S / 10);
+    }
+    expect(itemSellPrice(3, 4, 'SS')).toBe(itemSellPrice(3, 4, 'S') * 2);
   });
 
   it('sell price = mobCoins × 5 × tierMult', () => {
@@ -80,7 +101,7 @@ describe('item balance', () => {
 });
 
 describe('rollItem', () => {
-  it('has 1/2/3/4 distinct stats for C/B/A/S, each in the roll range', () => {
+  it('has 1/2/3/4/4 distinct stats for C/B/A/S/S+, each in the roll range', () => {
     const rng = { state: 1 };
     const seen = new Set<ItemTier>();
     for (let i = 0; i < 3000; i++) {
@@ -100,7 +121,7 @@ describe('rollItem', () => {
 
   it('rolls rarity 70/22/7/1 and ring/pendant 50/50', () => {
     const rng = { state: 2 };
-    const n: Record<string, number> = { C: 0, B: 0, A: 0, S: 0, ring: 0 };
+    const n: Record<string, number> = { C: 0, B: 0, A: 0, S: 0, SS: 0, ring: 0 };
     const N = 40_000;
     for (let i = 0; i < N; i++) {
       const it = rollItem(rng, i, 1, 1, 0);
@@ -113,6 +134,7 @@ describe('rollItem', () => {
     expect(n.S / N).toBeGreaterThan(0.005);
     expect(n.S / N).toBeLessThan(0.015);
     expect(n.ring / N).toBeCloseTo(0.5, 1);
+    expect(n.SS).toBeLessThan(n.S); // S+ is rarer than S (about 1 in 2000)
   });
 });
 
@@ -128,9 +150,27 @@ describe('rollDrop', () => {
     return drops / N;
   };
 
-  it('drops 0.5 % on normal mobs and 3 % on bosses', () => {
-    expect(dropRate(1)).toBeCloseTo(0.005, 3);
+  it('drops 0.5 % on normal mobs and 3 % on bosses (outside the early boost)', () => {
+    expect(dropRate(5)).toBeCloseTo(0.005, 3);
     expect(dropRate(6)).toBeCloseTo(0.03, 2);
+  });
+
+  it('mob drops are boosted early in world 1 and fade to 0.5 % by stage 5', () => {
+    const chances = [1, 2, 3, 4, 5].map((st) => dropChance(1, st));
+    expect(chances[0]).toBe(ITEMS.earlyDrop.mob);
+    expect(chances[4]).toBe(ITEMS.dropChance.mob);
+    for (let i = 1; i < chances.length; i++) expect(chances[i]).toBeLessThan(chances[i - 1]);
+    expect(1 / chances[0]).toBeLessThan(40); // first item at stage 1.1 in well under 40 kills
+    expect(dropRate(1, 100_000)).toBeCloseTo(ITEMS.earlyDrop.mob, 2);
+  });
+
+  it('later drops are unchanged: late world 1, later worlds, and bosses', () => {
+    expect(dropChance(1, 5)).toBe(0.005);
+    expect(dropChance(1, 6)).toBe(0.03);
+    for (const world of [2, 3, 10]) {
+      for (const stage of [1, 2, 3, 4, 5]) expect(dropChance(world, stage)).toBe(0.005);
+      expect(dropChance(world, 6)).toBe(0.03);
+    }
   });
 
   it('is deterministic for a seed', () => {
@@ -162,7 +202,7 @@ describe('gearTotals', () => {
       ring: item({ stats: { damage: 3, speed: 0.2, itemFind: 0.6 } }),
       pendant: item({ slot: 'pendant', stats: { defence: 2, speed: 0.2, itemFind: 0.6 } }),
     };
-    expect(gearTotals(g)).toEqual({ damage: 3, defence: 2, speed: 0.25, itemFind: 1 });
+    expect(gearTotals(g)).toEqual({ crit: 0, damage: 3, defence: 2, speed: 0.25, itemFind: 1 });
   });
 
   it('a mob hit never goes below 1', () => {

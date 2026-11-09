@@ -26,8 +26,11 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  * 4. + `character: { defenceLevel }` (coin upgrades); old saves start at 0
  * 5. + `revealedWeapons` (weapons shown in Shop → Weapons); old saves reveal
  *    owned weapons and any the current coins reach 90% of
+ * 6. + `character.critLevel` (crit chance upgrade); old saves start at 0. Items
+ *    may also have a `crit` stat (no migration: old items just lack it)
+ * 7. + `character.hpLevel` (max HP upgrade); old saves start at 0
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 7;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -45,6 +48,14 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   4: (d) => {
     const levels = Array.isArray(d.weaponLevels) ? d.weaponLevels : [];
     d.revealedWeapons = revealedWeapons(levels, isInt(d.coins, 0) ? d.coins : 0);
+  },
+  5: (d) => {
+    const ch = d.character;
+    d.character = ch && typeof ch === 'object' && !Array.isArray(ch) ? { ...ch, critLevel: 0 } : ch;
+  },
+  6: (d) => {
+    const ch = d.character;
+    d.character = ch && typeof ch === 'object' && !Array.isArray(ch) ? { ...ch, hpLevel: 0 } : ch;
   },
 };
 
@@ -190,7 +201,11 @@ function loadCompanion(v: unknown): Companion | null {
 /** Lenient character read: a missing or bad level falls back to 0. */
 function loadCharacter(v: unknown): Character {
   const c = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-  return { defenceLevel: isInt(c.defenceLevel, 0) ? c.defenceLevel : 0 };
+  return {
+    defenceLevel: isInt(c.defenceLevel, 0) ? c.defenceLevel : 0,
+    critLevel: isInt(c.critLevel, 0) ? c.critLevel : 0,
+    hpLevel: isInt(c.hpLevel, 0) ? c.hpLevel : 0,
+  };
 }
 
 export type Validated =
@@ -280,7 +295,10 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
   if (!ch || typeof ch !== 'object' || Array.isArray(ch)) {
     errors.push('character must be an object.');
   } else {
-    int('character.defenceLevel', (ch as Record<string, unknown>).defenceLevel, 0);
+    const co = ch as Record<string, unknown>;
+    int('character.defenceLevel', co.defenceLevel, 0);
+    int('character.critLevel', co.critLevel, 0);
+    int('character.hpLevel', co.hpLevel, 0);
   }
 
   const a = d.audio;
@@ -324,7 +342,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       maxDps: d.maxDps as number,
       items: items!,
       companion: c ? pickCompanion(c as Companion) : null,
-      character: { defenceLevel: (ch as Character).defenceLevel },
+      character: pickCharacter(ch as Character),
     },
     audio: {
       muted: au.muted,
@@ -334,6 +352,12 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     },
   };
 }
+
+const pickCharacter = (c: Character): Character => ({
+  defenceLevel: c.defenceLevel,
+  critLevel: c.critLevel,
+  hpLevel: c.hpLevel,
+});
 
 const pickCompanion = (c: Companion): Companion => ({
   id: c.id,
@@ -359,7 +383,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     maxDps: s.maxDps,
     items: saveGear(s.items),
     companion: s.companion ? pickCompanion(s.companion) : null,
-    character: { defenceLevel: s.character.defenceLevel },
+    character: pickCharacter(s.character),
     audio,
   };
 }

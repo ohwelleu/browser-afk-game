@@ -68,7 +68,7 @@ describe('crow fields', () => {
 describe('giveItem / clearBag', () => {
   it('adds an item of the chosen slot and tier that passes validation', () => {
     const data = save({ world: 3, stage: 2 });
-    for (const tier of ['C', 'B', 'A', 'S'] as const) {
+    for (const tier of ['C', 'B', 'A', 'S', 'SS'] as const) {
       const r = giveItem(data, 'pendant', tier);
       if (typeof r === 'string') throw new Error(r);
       const it = r.items.bag[0];

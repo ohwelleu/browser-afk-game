@@ -3,8 +3,9 @@ import {
   companionAutoInterval,
   companionDamage,
   companionMaxSpeedLevel,
-  isBoss,
+  dropChance,
   ITEM_SLOTS,
+  ITEM_TIER_LABEL,
   ITEM_TIERS,
   ITEMS,
   WEAPONS,
@@ -13,7 +14,7 @@ import {
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
-import { heroDefence } from '../game/state';
+import { critChance, heroDamage, heroDefence } from '../game/state';
 import {
   crispSize,
   DEFAULT_FONT,
@@ -25,6 +26,7 @@ import {
   useFont,
   type FontCandidate,
 } from './font';
+import { mountRainbowDemo, RAINBOW_DEMO_HTML, RAINBOW_DEMO_STYLES } from './rainbow-demo';
 import {
   backupKey,
   decodeSave,
@@ -87,6 +89,9 @@ const FIELDS: Field[] = [
   { key: 'kills', label: 'Kills', kind: 'int' },
   { key: 'deaths', label: 'Deaths', kind: 'int' },
   { key: 'maxDps', label: 'Max DPS', kind: 'int' },
+  { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
+  { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
+  { key: 'character.hpLevel', label: 'Max HP upgrade level', kind: 'int' },
   { key: 'companion.owned', label: 'Crow owned', kind: 'bool' },
   { key: 'companion.dmgLevel', label: 'Crow damage level', kind: 'int' },
   { key: 'companion.autoUnlocked', label: 'Crow auto attack', kind: 'bool' },
@@ -146,7 +151,7 @@ const STYLES = `
 .dbg-err { margin: 0; color: var(--_red); white-space: pre-wrap; }
 .dbg-ok { margin: 0; color: var(--_green); }
 .dbg [hidden] { display: none; }
-`;
+${RAINBOW_DEMO_STYLES}`;
 
 /**
  * Bottom-left debugger: live stats, reset, an editor for every saved value
@@ -183,7 +188,7 @@ export function createDebugPanel(
       <details class="dbg-compare">
         <summary>Compare all fonts</summary>
         <div class="dbg-compare-list">${FONT_CANDIDATES.map(compareRowHtml).join('')}</div>
-      </details>
+      </details>${RAINBOW_DEMO_HTML}
       <div class="dbg-row">
         <button type="button" data-dbg="load">Load current</button>
         <button type="button" data-dbg="reset">Reset all progress</button>
@@ -197,7 +202,7 @@ export function createDebugPanel(
       <div class="dbg-row"><button type="button" data-dbg="apply-form">Apply fields</button></div>
       <div class="dbg-row">
         <select name="slot" aria-label="Item slot">${ITEM_SLOTS.map((s) => `<option>${s}</option>`).join('')}</select>
-        <select name="tier" aria-label="Item tier">${ITEM_TIERS.map((t) => `<option>${t}</option>`).join('')}</select>
+        <select name="tier" aria-label="Item tier">${ITEM_TIERS.map((t) => `<option value="${t}">${ITEM_TIER_LABEL[t]}</option>`).join('')}</select>
         <button type="button" data-dbg="give">Give item</button>
       </div>
       <div class="dbg-row">
@@ -274,6 +279,7 @@ export function createDebugPanel(
     }
   });
   pickFont(findFont(storage?.getItem(FONT_KEY) ?? null), false);
+  const stopRainbow = mountRainbowDemo(el);
 
   function fieldHtml(f: Field): string {
     const id = `dbg-${f.key.replace(/\./g, '-')}`;
@@ -317,6 +323,7 @@ export function createDebugPanel(
       revealedWeapons: [],
       audio: {},
       companion: {},
+      character: {},
     };
     for (const f of FIELDS) {
       const c = control(f.key);
@@ -428,7 +435,7 @@ export function createDebugPanel(
         const tier = tierSelect.value as ItemTier;
         const data = giveItem(api.read(), slot, tier);
         if (typeof data === 'string') message([data]);
-        else apply(data, `Gave a tier ${tier} ${slot}.`);
+        else apply(data, `Gave a tier ${ITEM_TIER_LABEL[tier]} ${slot}.`);
         return;
       }
       case 'force':
@@ -474,6 +481,7 @@ export function createDebugPanel(
       if (stats.textContent !== full) stats.textContent = full;
     },
     destroy() {
+      stopRainbow();
       el.remove();
       style.remove();
     },
@@ -615,19 +623,19 @@ export function extraStats(data: SaveData, dropForced = false): string {
   let crow = 'crow none';
   if (c) {
     const def = COMPANIONS[c.id];
-    const dmg = companionDamage(def, c.dmgLevel);
+    const dmg = companionDamage(def, c.dmgLevel, heroDamage(data));
     const every = companionAutoInterval(def, c.speedLevel);
     crow = c.autoUnlocked
       ? `crow dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`
       : `crow dmg ${formatNumber(dmg)} dps 0 (no auto attack)`;
   }
   const t = gearTotals(data.items);
-  const chance = isBoss(data.stage) ? ITEMS.dropChance.boss : ITEMS.dropChance.mob;
+  const chance = dropChance(data.world, data.stage);
   const drop = dropForced ? '100% (forced)' : percent(chance);
   return (
     `${crow}\n` +
     `items dmg +${formatNumber(t.damage)} def +${formatNumber(t.defence)} (total ${formatNumber(heroDefence(data))}) ` +
-    `spd +${percent(t.speed)} find +${percent(t.itemFind)}\n` +
+    `spd +${percent(t.speed)} find +${percent(t.itemFind)} crit ${percent(critChance(data))}\n` +
     `drop ${drop} bag ${data.items.bag.length}/${ITEMS.inventorySize}`
   );
 }
