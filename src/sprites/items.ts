@@ -168,6 +168,52 @@ export const iconHero: SpriteDef = {
   ],
 };
 
+/** Pause button: two bars, same 10-row extent as the music icon. */
+export const iconPause: SpriteDef = {
+  name: 'icon-pause',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '..###..###..',
+      '............',
+    ],
+  ],
+};
+
+/** Resume button: right-pointing triangle, same 10-row extent as the music icon. */
+export const iconPlay: SpriteDef = {
+  name: 'icon-play',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '.##.........',
+      '.####.......',
+      '.######.....',
+      '.########...',
+      '.##########.',
+      '.##########.',
+      '.########...',
+      '.######.....',
+      '.####.......',
+      '.##.........',
+      '............',
+    ],
+  ],
+};
+
 /** Music volume: two beamed notes. */
 export const iconMusic: SpriteDef = {
   name: 'icon-music',
@@ -199,16 +245,16 @@ export const iconSfx: SpriteDef = {
   frames: [
     [
       '............',
-      '.....#......',
-      '....##...#..',
-      '...###.#..#.',
+      '.....#...#..',
+      '....##....#.',
+      '...###.#...#',
       '######..#..#',
       '######..#..#',
       '######..#..#',
       '######..#..#',
-      '...###.#..#.',
-      '....##...#..',
-      '.....#......',
+      '...###.#...#',
+      '....##....#.',
+      '.....#...#..',
       '............',
     ],
   ],
@@ -267,15 +313,15 @@ export const iconMenu: SpriteDef = {
   height: 12,
   frames: [
     [
-      '.....##.....',
+      '............',
       '....####....',
       '...##..##...',
       '..##....##..',
-      '.....##.....',
+      '............',
       '....####....',
       '...##..##...',
       '..##....##..',
-      '.....##.....',
+      '............',
       '....####....',
       '...##..##...',
       '..##....##..',
@@ -293,5 +339,7 @@ export const icons = {
   sfx: iconSfx,
   musicOff: iconMusicOff,
   sfxOff: iconSfxOff,
+  pause: iconPause,
+  play: iconPlay,
   menu: iconMenu,
 } satisfies Record<string, SpriteDef>;
