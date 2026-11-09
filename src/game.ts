@@ -77,6 +77,7 @@ const HTML = `
     <div class="hud">
       <div class="hud-left">
         <button class="hp" type="button" data-act="stats" aria-haspopup="dialog" aria-label="Hero stats" title="Hero HP · click for stats">
+          <img class="hero-icon" width="24" height="24" alt="" />
           <span class="bar"><span class="bar-fill"></span></span>
           <span class="hp-text"></span>
         </button>
@@ -249,6 +250,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     sprites.setPalette(palette);
     for (const [k, v] of Object.entries(palette)) box.style.setProperty(`--_${k}`, v);
     $<HTMLImageElement>('.coin-icon').src = iconUrl(coinSpin);
+    $<HTMLImageElement>('.hero-icon').src = iconUrl(icons.hero);
     menu.refreshIcons();
     refreshAudioButtons();
     if (!loop.running) draw();
