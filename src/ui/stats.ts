@@ -4,12 +4,18 @@ import {
   companionDamage,
   CRIT,
   defenceReduction,
-  HERO_MAX_HP,
   WEAPONS,
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { gearTotals } from '../game/items';
-import { companionDef, critChance, heroDamage, heroDefence, type GameState } from '../game/state';
+import {
+  companionDef,
+  critChance,
+  heroDamage,
+  heroDefence,
+  heroMaxHp,
+  type GameState,
+} from '../game/state';
 import { html } from './dom';
 import { stageName } from './menu';
 import { dialogHtml } from './modal';
@@ -53,7 +59,7 @@ export function characterStats(s: GameState): StatSection[] {
   const hero: StatSection = {
     title: 'Hero',
     rows: [
-      { label: 'HP', value: `${formatNumber(s.duel.heroHp)} / ${formatNumber(HERO_MAX_HP)}` },
+      { label: 'HP', value: `${formatNumber(s.duel.heroHp)} / ${formatNumber(heroMaxHp(s))}` },
       {
         label: 'Defence',
         value: `${formatNumber(defence)} (−${pct(defenceReduction(defence))} damage taken)`,

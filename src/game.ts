@@ -7,13 +7,14 @@ import {
   trackName,
 } from './audio';
 import type { SfxName } from './audio/types';
-import { HERO_MAX_HP, isBoss } from './game/balance';
+import { isBoss } from './game/balance';
 import { formatNumber } from './game/format';
 import {
   companionClick,
   createState,
   heroDamage,
   heroDps,
+  heroMaxHp,
   setAutoAdvance,
   update,
   type GameEvent,
@@ -296,11 +297,12 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   function refreshHud(): void {
     const hp = state.duel.heroHp;
+    const maxHp = heroMaxHp(state);
     const fill = $('.bar-fill');
-    const pct = Math.max(0, Math.min(100, (hp / HERO_MAX_HP) * 100));
+    const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
     fill.style.width = `${pct}%`;
     fill.classList.toggle('low', pct < 30);
-    show($('.hp-text'), `${hp}/${HERO_MAX_HP}`);
+    show($('.hp-text'), `${hp}/${maxHp}`);
     show($('.coin-text'), formatNumber(state.coins));
     const stage = $('.stage');
     show(stage, `${isBoss(state.stage) ? 'BOSS' : 'STAGE'} ${state.world}.${state.stage}`);

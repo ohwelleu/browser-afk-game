@@ -37,13 +37,17 @@ const crowOf = (c: Partial<Companion> = {}): Companion => ({
   ...c,
 });
 
-/** World 3 with a level-1 stick: a tanky mob (≈194 HP), so duels last ~12 s. */
+/**
+ * World 3 with a level-1 stick: a tanky mob (≈194 HP), so duels last ~12 s.
+ * The hero has plenty of max HP so a long duel never ends in his death.
+ */
 const tanky = (c: Partial<Companion> | null = {}, p: Partial<Progress> = {}) =>
   createState({
     ...newProgress(),
     world: 3,
     best: 13,
     companion: c ? crowOf(c) : null,
+    character: { defenceLevel: 0, critLevel: 0, hpLevel: 100 },
     ...p,
   });
 

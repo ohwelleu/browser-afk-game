@@ -77,17 +77,20 @@ describe('validateSaveData', () => {
 
   it('checks character levels strictly', () => {
     const ok = validateSaveData(
-      { ...valid(), character: { defenceLevel: 4, critLevel: 2 } },
+      { ...valid(), character: { defenceLevel: 4, critLevel: 2, hpLevel: 3 } },
       TRACKS,
     );
-    expect(ok.ok && ok.progress.character).toEqual({ defenceLevel: 4, critLevel: 2 });
+    expect(ok.ok && ok.progress.character).toEqual({ defenceLevel: 4, critLevel: 2, hpLevel: 3 });
     for (const character of [
       null,
       [],
-      { defenceLevel: -1, critLevel: 0 },
-      { defenceLevel: 1.5, critLevel: 0 },
-      { defenceLevel: 0, critLevel: -1 },
-      { defenceLevel: 0, critLevel: 2.5 },
+      { defenceLevel: -1, critLevel: 0, hpLevel: 0 },
+      { defenceLevel: 1.5, critLevel: 0, hpLevel: 0 },
+      { defenceLevel: 0, critLevel: -1, hpLevel: 0 },
+      { defenceLevel: 0, critLevel: 2.5, hpLevel: 0 },
+      { defenceLevel: 0, critLevel: 0, hpLevel: -1 },
+      { defenceLevel: 0, critLevel: 0, hpLevel: 2.5 },
+      { defenceLevel: 0, critLevel: 0 },
       { defenceLevel: 0 },
       {},
     ]) {
