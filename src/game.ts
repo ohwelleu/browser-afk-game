@@ -47,6 +47,7 @@ import { createDebugPanel, type DebugPanel } from './ui/debug';
 import { createStatsWindow, STATS_STYLES } from './ui/stats';
 import { createToast, GEAR_STYLES } from './ui/gear';
 import { createNowPlaying, NOW_PLAYING_STYLES } from './ui/now-playing';
+import { createQuest, QUEST_STYLES } from './ui/quest';
 
 export type GameOptions = {
   saveKey: string;
@@ -100,7 +101,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${STATS_STYLES}${NOW_PLAYING_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${STATS_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -188,6 +189,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   const stats = createStatsWindow();
   autoButton.before(menu.el, sound.el, stats.el);
   const toast = createToast(box, { iconUrl });
+  const quest = createQuest(box, menuButton, menu.el);
   const noteEl = document.createElement('div');
   noteEl.className = 'now-playing';
   noteEl.setAttribute('role', 'status');
@@ -302,6 +304,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     const stage = $('.stage');
     show(stage, `${isBoss(state.stage) ? 'BOSS' : 'STAGE'} ${state.world}.${state.stage}`);
     stage.classList.toggle('boss', isBoss(state.stage));
+    quest.refresh(state);
     show(autoButton, state.autoAdvance ? 'AUTO ON' : 'AUTO OFF');
     autoButton.setAttribute('aria-pressed', String(state.autoAdvance));
   }
@@ -424,6 +427,13 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
           menu.refresh(state);
           dialogs.open(menu.el, menuButton, menu.focusTarget);
         }
+        return;
+      case 'quest':
+        // Straight to Shop → Companions.
+        menu.select('shop');
+        menu.selectSub('shop', 'companions');
+        menu.refresh(state);
+        if (!dialogs.isOpen(menu.el)) dialogs.open(menu.el, menuButton, menu.focusTarget);
         return;
       case 'stats':
         if (dialogs.isOpen(stats.el)) {
@@ -551,6 +561,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       dialogs.destroy();
       debugPanel?.destroy();
       toast.destroy();
+      quest.destroy();
       nowPlaying.destroy();
       noteEl.remove();
       loop.stop();

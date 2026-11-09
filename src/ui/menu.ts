@@ -240,6 +240,8 @@ export type Menu = {
   /** Re-renders the pixel icons (theme change). */
   refreshIcons(): void;
   select(tab: MenuTab, focus?: boolean): void;
+  /** Selects a sub tab, e.g. `selectSub('shop', 'companions')`. */
+  selectSub(tab: string, sub: string, focus?: boolean): void;
 };
 
 /** Icons are drawn at a whole-number scale only (pixel art). */
@@ -880,5 +882,6 @@ export function createMenu(deps: MenuDeps): Menu {
     refresh,
     refreshIcons,
     select,
+    selectSub,
   };
 }
