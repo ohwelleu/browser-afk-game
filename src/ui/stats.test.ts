@@ -74,7 +74,10 @@ describe('characterStats', () => {
 
   it('caps the crit chance like the game does', () => {
     const s = characterStats(
-      stateOf({ character: { defenceLevel: 0, critLevel: 500, hpLevel: 0 } }),
+      stateOf({
+        items: { ...newGear(1), ring: item('ring', { crit: 0.9 }) },
+        character: { defenceLevel: 0, critLevel: 500, hpLevel: 0 },
+      }),
     );
     expect(value(s, 'Hero', 'Crit chance')).toContain(`${CRIT.maxChance * 100}%`);
   });
