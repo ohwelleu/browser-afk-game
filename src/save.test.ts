@@ -308,6 +308,27 @@ describe('items in the save (v2)', () => {
     expect(loadSave(s, 'k').saved!.progress.items).toEqual(items);
   });
 
+  it('round-trips an S+ item (internal tier id SS)', () => {
+    const ss: Item = {
+      id: 1,
+      slot: 'pendant',
+      tier: 'SS',
+      world: 4,
+      stage: 3,
+      stats: { damage: 40, defence: 6, speed: 0.08, crit: 0.08 },
+    };
+    const items = {
+      ring: null,
+      pendant: ss,
+      bag: [{ ...ss, id: 2, slot: 'ring' as const }],
+      rng: 9,
+      nextId: 3,
+    };
+    const s = memory();
+    writeSave(s, 'k', toSaveData({ ...createState(), items }, audio, '0.2.0'));
+    expect(loadSave(s, 'k').saved!.progress.items).toEqual(items);
+  });
+
   it('migrates a v1 save (no items) to empty gear and keeps the rest', () => {
     const v1 = JSON.stringify({ version: 1, world: 2, stage: 3, coins: 50, weaponLevels: [4, 1] });
     const { progress } = load(v1);

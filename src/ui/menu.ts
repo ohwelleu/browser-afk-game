@@ -467,7 +467,7 @@ const HELP = `
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
-      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A or the rare S). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
+      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A, S or the very rare S+). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. Click or tap anywhere on the game to make it peck the monster.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <div class="save-slot"></div>

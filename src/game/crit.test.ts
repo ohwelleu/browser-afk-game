@@ -106,7 +106,7 @@ describe('crit balance', () => {
 
   it('item crit values grow with the tier, are % stats and ignore the stage', () => {
     const values = ITEM_TIERS.map((t) => itemStatValue('crit', 1, t, 1));
-    expect(values).toEqual([0.02, 0.026, 0.032, 0.04]);
+    expect(values).toEqual([0.02, 0.026, 0.032, 0.04, 0.08]);
     expect(itemStatValue('crit', 40, 'A', 1)).toBe(itemStatValue('crit', 1, 'A', 1));
     expect(itemStatValue('crit', 1, 'C', ITEMS.roll.min)).toBe(0.016);
     expect(itemStatValue('crit', 1, 'S', ITEMS.roll.max)).toBe(0.048);
