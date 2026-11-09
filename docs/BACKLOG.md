@@ -131,6 +131,15 @@ Each line below is its own thread, in this order.
 - [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
       (PR #20). Still open: click the mob for bonus damage (cap clicks per second so
       autoclickers don't break the balance).
+- [ ] **Roguelike stage picks** (owner, 2026-11-09): on a stage, the player
+      picks one upgrade from a few random choices, like in roguelike games.
+      Design first in `docs/design/stage-picks.md`: when the choice appears
+      (every stage, every few stages, boss kills), how many options (e.g.
+      3), what the options are (temporary buffs for the run vs. permanent
+      ones, small stat boosts, skills, companion perks), rarity and
+      rerolls, what happens on death and on ascend, and whether it pauses
+      the fight. Needs the simulator and ties in with ascend. Then build in
+      small PRs (choice logic and save, pick UI, first set of options).
 - [ ] **Skills**: big effects on long cooldowns (e.g. 60 s), activated by
       clicking their icon. Unlocked or upgraded in the shop.
 
