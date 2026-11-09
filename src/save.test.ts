@@ -141,6 +141,8 @@ describe('writeSave / loadSave', () => {
       items: st.items,
       companion: null,
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      passives: [],
+      pick: null,
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -393,6 +395,8 @@ describe('save migration', () => {
       companion: null,
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       revealedWeapons: [true, false, false, false, false],
+      passives: [],
+      pick: null,
     };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
     expect(migrateSave({ version: 2, coins: 5 })).toEqual(want);
@@ -497,6 +501,8 @@ describe('revealed weapons in the save (v5)', () => {
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       version: SAVE_VERSION,
       revealedWeapons: [true, true, false, false, false],
+      passives: [],
+      pick: null,
     });
     // 2,700 is 90% of the stone sword (3,000); not yet the iron sword.
     expect(migrateSave(v4(2_700)).revealedWeapons).toEqual([true, true, true, false, false]);
@@ -556,6 +562,8 @@ describe('max HP upgrade in the save (v7)', () => {
       ...v6,
       version: SAVE_VERSION,
       character: { defenceLevel: 3, critLevel: 2, hpLevel: 0 },
+      passives: [],
+      pick: null,
     });
   });
 });

@@ -15,6 +15,14 @@ import {
 } from './game/state';
 import { revealedWeapons } from './game/reveal';
 import { loadGear, saveGear, validateGear } from './save-items';
+import {
+  loadPassives,
+  loadPick,
+  savePassives,
+  savePick,
+  validatePassives,
+  validatePick,
+} from './save-passives';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
 /**
@@ -29,8 +37,10 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  * 6. + `character.critLevel` (crit chance upgrade); old saves start at 0. Items
  *    may also have a `crit` stat (no migration: old items just lack it)
  * 7. + `character.hpLevel` (max HP upgrade); old saves start at 0
+ * 8. + `passives` (picked passive skills) and `pick` (the offer waiting for
+ *    the player, or null); old saves start with none
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -56,6 +66,10 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   6: (d) => {
     const ch = d.character;
     d.character = ch && typeof ch === 'object' && !Array.isArray(ch) ? { ...ch, hpLevel: 0 } : ch;
+  },
+  7: (d) => {
+    d.passives = [];
+    d.pick = null;
   },
 };
 
@@ -174,6 +188,8 @@ function repairV1(data: Record<string, unknown>): Loaded {
       items: loadGear(data.items),
       companion: loadCompanion(data.companion),
       character: loadCharacter(data.character),
+      passives: loadPassives(data.passives),
+      pick: loadPick(data.pick),
     },
     audio: {
       ...(typeof audio.muted === 'boolean' ? { muted: audio.muted } : {}),
@@ -248,6 +264,8 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
   int('maxDps', d.maxDps, 0);
   bool('autoAdvance', d.autoAdvance);
   const items = validateGear(d.items, errors);
+  const passives = validatePassives(d.passives, errors);
+  const pick = validatePick(d.pick, errors);
 
   const levels = d.weaponLevels;
   if (!Array.isArray(levels) || levels.length !== WEAPONS.length) {
@@ -343,6 +361,8 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       items: items!,
       companion: c ? pickCompanion(c as Companion) : null,
       character: pickCharacter(ch as Character),
+      passives: passives!,
+      pick,
     },
     audio: {
       muted: au.muted,
@@ -384,6 +404,8 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     items: saveGear(s.items),
     companion: s.companion ? pickCompanion(s.companion) : null,
     character: pickCharacter(s.character),
+    passives: savePassives(s.passives),
+    pick: savePick(s.pick),
     audio,
   };
 }
