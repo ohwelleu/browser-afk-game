@@ -106,18 +106,21 @@ describe('characterStats', () => {
       ...newGear(1),
       ring: item('ring', { defence: 3, itemFind: 0.12 }),
       pendant: item('pendant', { defence: 2, crit: 0.035 }),
+      earring: item('earring', { crit: 0.02, itemFind: 0.1 }),
+      belt: item('belt', { defence: 4, damage: 6 }),
     };
-    const rows = characterStats(stateOf({ items })).find((x) => x.title === 'Ring & pendant')!.rows;
+    const rows = characterStats(stateOf({ items })).find((x) => x.title === 'Accessories')!.rows;
     expect(rows).toEqual([
-      { label: 'Defence', value: '+5' },
-      { label: 'Item find', value: '+12%' },
-      { label: 'Crit chance', value: '+3.5%' },
+      { label: 'Damage', value: '+6' },
+      { label: 'Defence', value: '+9' },
+      { label: 'Item find', value: '+22%' },
+      { label: 'Crit chance', value: '+5.5%' },
     ]);
   });
 
-  it('says so when no ring or pendant bonus applies', () => {
+  it('says so when no accessory bonus applies', () => {
     const s = characterStats(stateOf());
-    expect(value(s, 'Ring & pendant', 'Bonuses')).toBe('None');
+    expect(value(s, 'Accessories', 'Bonuses')).toBe('None');
   });
 
   it('shows the best weapon owned (not the equipped one) and the highest stage reached', () => {

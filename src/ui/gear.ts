@@ -9,12 +9,12 @@ import {
 import { formatNumber } from '../game/format';
 import { sellPrice, type Item } from '../game/items';
 import type { GameState } from '../game/state';
-import { gearIcons } from '../sprites/gear-placeholder';
+import { itemIcons } from '../sprites/gear';
 import type { SpriteDef } from '../sprites';
 import { createShow, setFlag } from './dom';
 
 /**
- * Ring & pendant UI: the slots and the bag (menu → Inventory → Accessories) and
+ * Accessories UI (ring, pendant, earring, belt): the slots and the bag (menu → Inventory → Accessories) and
  * the drop toast. Tier frames use existing accents until the palette step
  * picks the C/B/A/S colours.
  */
@@ -67,7 +67,12 @@ const STAT_LABEL: Record<ItemStat, (v: number) => string> = {
   crit: (v) => `+${pct(v)} crit`,
 };
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
-const SLOT_NAME: Record<ItemSlot, string> = { ring: 'Ring', pendant: 'Pendant' };
+const SLOT_NAME: Record<ItemSlot, string> = {
+  ring: 'Ring',
+  pendant: 'Pendant',
+  earring: 'Earring',
+  belt: 'Belt',
+};
 
 export const itemName = (it: Item) => `${SLOT_NAME[it.slot]} · ${ITEM_TIER_LABEL[it.tier]}`;
 /** Class of the name text: S+ is rainbow, the other tiers use their `tc-X` colour. */
@@ -93,7 +98,7 @@ function frame(deps: GearDeps, slot: ItemSlot, it: Item | null): string {
     it?.tier === 'SS'
       ? '<span class="sparkle rainbow" aria-hidden="true">✦</span><span class="sparkle rainbow" aria-hidden="true">✦</span>'
       : '';
-  return `<span class="${cls}"><img alt="" src="${deps.iconUrl(gearIcons[slot])}" />${sparkles}</span>`;
+  return `<span class="${cls}"><img alt="" src="${deps.iconUrl(itemIcons[slot])}" />${sparkles}</span>`;
 }
 
 const coinPrice = (coin: string, n: number) =>
@@ -101,11 +106,11 @@ const coinPrice = (coin: string, n: number) =>
 
 /** Inventory → Accessories markup; `createGearView` fills it. */
 export const GEAR_HTML = `
-  <h3 class="gear-head">Ring &amp; pendant</h3>
+  <h3 class="gear-head">Accessories</h3>
   <ul class="list gear-list gear-slots"></ul>
   <h3 class="gear-head">Bag <span class="note gear-count"></span></h3>
   <ul class="list gear-list gear-bag"></ul>
-  <p class="note gear-hint">Rings and pendants drop from monsters now and then (bosses more often). When the bag is full, new drops are sold.</p>`;
+  <p class="note gear-hint">Rings, pendants, earrings and belts drop from monsters now and then (bosses more often). When the bag is full, new drops are sold.</p>`;
 
 export type GearView = { refresh(state: GameState): void; refreshIcons(): void };
 
@@ -136,12 +141,16 @@ export function createGearView(
   function refresh(s: GameState): void {
     const g = s.items;
     const bagFull = g.bag.length >= ITEMS.inventorySize;
-    const next = JSON.stringify([g.ring?.id, g.pendant?.id, g.bag.map((i) => i.id), bagFull]);
+    const next = JSON.stringify([
+      ITEM_SLOTS.map((slot) => g[slot]?.id),
+      g.bag.map((i) => i.id),
+      bagFull,
+    ]);
     show(root.querySelector('.gear-count')!, `${g.bag.length}/${ITEMS.inventorySize}`);
     setFlag(
       root.querySelector('.gear-hint')!,
       'hidden',
-      g.bag.length > 0 || !!g.ring || !!g.pendant,
+      g.bag.length > 0 || ITEM_SLOTS.some((slot) => !!g[slot]),
     );
     if (next === key) return;
     key = next;

@@ -311,6 +311,8 @@ function samples(game: Game): Sample[] {
     one('coin', s.coinSpin),
     one('ring', s.itemRing),
     one('pendant', s.itemPendant),
+    one('earring', s.itemEarring),
+    one('belt', s.itemBelt),
   ];
 }
 

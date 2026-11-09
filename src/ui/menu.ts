@@ -11,6 +11,7 @@ import {
   defenceFromLevel,
   defenceReduction,
   hpFromLevel,
+  ITEM_SLOTS,
   STAGES_PER_WORLD,
   weaponDamage,
   WEAPONS,
@@ -392,7 +393,7 @@ export const SHOP = {
         </div>
       </li>`,
     ).join('')}</ul>
-    <p class="note">Defence and crit chance from rings and pendants count too. A hit always does at least 1. The Shop upgrade gives up to ${CRIT_BUY_MAX_PERCENT}% crit chance; with items it tops out at ${critPct(CRIT.maxChance)}.</p>`,
+    <p class="note">Defence and crit chance from rings, pendants, earrings and belts count too. A hit always does at least 1. The Shop upgrade gives up to ${CRIT_BUY_MAX_PERCENT}% crit chance; with items it tops out at ${critPct(CRIT.maxChance)}.</p>`,
   weapons: `${weaponRows(
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
@@ -467,7 +468,7 @@ const HELP = `
       <h3>How to play</h3>
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
-      <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A, S or the very rare S+). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
+      <p>Monsters sometimes drop a <b>ring</b>, <b>pendant</b>, <b>earring</b> or <b>belt</b> (C, B, A, S or the very rare S+). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. Click or tap anywhere on the game to make it peck the monster.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <div class="save-slot"></div>
@@ -649,7 +650,9 @@ export function createMenu(deps: MenuDeps): Menu {
         deps.act((s) => sellItem(s, Number(target.dataset.id)));
         break;
       case 'item-unequip':
-        deps.act((s) => unequipItem(s, target.dataset.slot === 'ring' ? 'ring' : 'pendant'));
+        deps.act((s) =>
+          unequipItem(s, ITEM_SLOTS.find((slot) => slot === target.dataset.slot) ?? 'ring'),
+        );
         break;
       case 'buy-char': {
         const row = CHARACTER_ROWS.find((r) => r.id === target.dataset.char);

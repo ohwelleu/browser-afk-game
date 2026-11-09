@@ -128,14 +128,14 @@ export function upgradeCost(tier: number, level: number): number {
   return safeInt(Math.ceil(w.upgradeBase * UPGRADE_GROWTH ** (level - 1)));
 }
 
-// ── Items: ring and pendant (docs/design/active-play.md → 2. Items) ────────
+// ── Items: ring, pendant, earring and belt (docs/design/active-play.md → 2. Items) ──
 
-export type ItemSlot = 'ring' | 'pendant';
+export type ItemSlot = 'ring' | 'pendant' | 'earring' | 'belt';
 /** `SS` is the internal id of tier S+ (shown to the player as "S+"; "+" is awkward in CSS classes). */
 export type ItemTier = 'C' | 'B' | 'A' | 'S' | 'SS';
 export type ItemStat = 'damage' | 'defence' | 'speed' | 'itemFind' | 'crit';
 
-export const ITEM_SLOTS: readonly ItemSlot[] = ['ring', 'pendant'];
+export const ITEM_SLOTS: readonly ItemSlot[] = ['ring', 'pendant', 'earring', 'belt'];
 export const ITEM_TIERS: readonly ItemTier[] = ['C', 'B', 'A', 'S', 'SS'];
 
 /** What the player sees for each tier. */
@@ -167,6 +167,15 @@ export const ITEMS = {
    * linearly down to `dropChance.mob` on stage `untilStage` and after.
    */
   earlyDrop: { world: 1, mob: 0.04, untilStage: 5 },
+  /**
+   * Which stats a slot leans to. An item draws its stats without replacement,
+   * each stat weighted by this (default 1): earrings favour crit and item find,
+   * belts defence and damage. Ring and pendant stay uniform.
+   */
+  statWeights: {
+    earring: { crit: 3, itemFind: 3 },
+    belt: { defence: 3, damage: 3 },
+  } as Partial<Record<ItemSlot, Partial<Record<ItemStat, number>>>>,
   /** Every stat value is × a uniform roll in [min, max). */
   roll: { min: 0.8, max: 1.2 },
   /**
@@ -182,7 +191,7 @@ export const ITEMS = {
     crit: { base: 0.02, growth: 1, flat: false },
   } as Record<ItemStat, { base: number; growth: number; flat: boolean }>,
   /**
-   * Caps on the total of both equipped items. Crit has no item cap of its own:
+   * Caps on the total of all equipped items. Crit has no item cap of its own:
    * the total chance (items + upgrade) is capped by `CRIT.maxChance`.
    */
   caps: { speed: 0.25, itemFind: 1.0 },
