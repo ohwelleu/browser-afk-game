@@ -17,12 +17,23 @@ export const RAINBOW_DEMO_STYLES = `${RAINBOW_STYLES}
 .dbg-rainbow canvas { position: static; width: 192px; height: 36px; border: 3px solid var(--_fg); image-rendering: pixelated; }
 .dbg-rainbow label { display: flex; gap: 8px; align-items: center; }
 .dbg-rainbow input[type='range'] { flex: 1; accent-color: var(--_fg); }
+.dbg-rainbow input[type='checkbox'] { accent-color: var(--_fg); }
+/* Demo only: keep the flow even when the system asks for reduced motion (the game's rules in
+   rainbow.ts stay still). Higher specificity than the media query there. Removed by "Respect reduced motion". */
+.dbg-rainbow.dbg-rainbow-motion .rainbow,
+.dbg-rainbow.dbg-rainbow-motion .rainbow-fill,
+.dbg-rainbow.dbg-rainbow-motion .rainbow-frame::before,
+.dbg-rainbow.dbg-rainbow-motion .rainbow-glow::after {
+  animation: afk-rainbow-flow var(--afk-rainbow-period, 20s) ease-in-out infinite;
+  background-position: 0% 0%;
+}
 `;
 
 export const RAINBOW_DEMO_HTML = `
 <details class="dbg-compare dbg-rainbow">
   <summary>Rainbow (S-tier flowing gradient)</summary>
   <div class="dbg-rainbow-list">
+    <label><input type="checkbox" name="rainbow-respect" /> Respect reduced motion</label>
     <label>Cycle <input type="range" name="rainbow-speed" min="4" max="40" step="1" value="20" aria-label="Rainbow cycle length in seconds" /><span class="dbg-rainbow-secs">20s</span></label>
     <div class="dbg-rainbow-row">
       <span class="dbg-rainbow-slot rainbow-frame rainbow-glow"><span class="dbg-rainbow-item"></span></span>
@@ -39,9 +50,10 @@ export const RAINBOW_DEMO_HTML = `
 
 /**
  * Wires the section in `root`: the speed slider and the JS-drawn parts (the
- * CSS parts need no JS). The frame loop only runs while the section is open,
- * and not at all with `prefers-reduced-motion` (then the JS parts are drawn
- * once, still). Returns a function that stops everything.
+ * CSS parts need no JS). The frame loop only runs while the section is open.
+ * With `prefers-reduced-motion` the demo still animates (so it can be seen),
+ * unless "Respect reduced motion" is ticked: then everything is still, like in
+ * the game. Returns a function that stops everything.
  */
 export function mountRainbowDemo(root: HTMLElement): () => void {
   const q = <T extends Element>(sel: string) => root.querySelector<T>(sel)!;
@@ -50,6 +62,7 @@ export function mountRainbowDemo(root: HTMLElement): () => void {
   const secs = q<HTMLSpanElement>('.dbg-rainbow-secs');
   const js = q<HTMLElement>('.dbg-rainbow-js b');
   const canvas = q<HTMLCanvasElement>('.dbg-rainbow canvas');
+  const respect = q<HTMLInputElement>('[name="rainbow-respect"]');
   const note = q<HTMLElement>('.dbg-rainbow-note');
   const ctx = canvas.getContext('2d');
   const reduced = matchMedia?.('(prefers-reduced-motion: reduce)');
@@ -92,8 +105,14 @@ export function mountRainbowDemo(root: HTMLElement): () => void {
   }
   function sync(): void {
     stop();
-    const still = reduced?.matches ?? false;
-    note.textContent = still ? 'Reduced motion: animation is off.' : '';
+    const system = reduced?.matches ?? false;
+    const still = system && respect.checked;
+    details.classList.toggle('dbg-rainbow-motion', !respect.checked);
+    note.textContent = !system
+      ? 'System: reduced motion is off. Animating.'
+      : still
+        ? 'System prefers reduced motion. Respected: animation is off.'
+        : 'System prefers reduced motion. Demo overrides it: animating.';
     if (details.open) {
       if (still) draw(0, true);
       else raf = requestAnimationFrame(frame);
@@ -107,12 +126,14 @@ export function mountRainbowDemo(root: HTMLElement): () => void {
     if (!raf) draw(0, true);
   });
   details.addEventListener('toggle', sync);
+  respect.addEventListener('change', sync);
   reduced?.addEventListener?.('change', sync);
   sync();
 
   return () => {
     stop();
     details.removeEventListener('toggle', sync);
+    respect.removeEventListener('change', sync);
     reduced?.removeEventListener?.('change', sync);
   };
 }
