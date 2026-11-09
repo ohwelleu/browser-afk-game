@@ -15,6 +15,8 @@ import {
   heroDamage,
   heroDps,
   setAutoAdvance,
+  stageSwitchTarget,
+  switchStage,
   update,
   type GameEvent,
   type GameState,
@@ -39,7 +41,7 @@ import { coinSpin, icons, type SpriteDef } from './sprites';
 import { STYLES } from './styles';
 import { createBrowserTabGuard, TAB_LOCK_STYLES } from './tab-guard';
 import { buildPalette, resolveTheme, type Palette, type ThemeMode } from './theme';
-import { createShow } from './ui/dom';
+import { createShow, setFlag } from './ui/dom';
 import { createMenu, MENU_STYLES } from './ui/menu';
 import { Dialogs, MODAL_STYLES } from './ui/modal';
 import { createSoundPanel, SOUND_STYLES } from './ui/sound';
@@ -82,7 +84,11 @@ const HTML = `
         </button>
         <div class="coins" title="Coins"><img class="coin-icon" width="16" height="16" alt="" /><span class="coin-text"></span></div>
       </div>
-      <div class="hud-center"><span class="stage"></span></div>
+      <div class="hud-center">
+        <button class="stage-btn" type="button" data-act="stage-prev" aria-label="Previous stage" title="Previous stage">◀</button>
+        <span class="stage"></span>
+        <button class="stage-btn" type="button" data-act="stage-next" aria-label="Next stage" title="Next stage">▶</button>
+      </div>
       <div class="hud-right">
         <button class="icon-btn" type="button" data-act="pause" aria-label="Pause">❚❚</button>
         <button class="icon-btn" type="button" data-act="music"><img width="24" height="24" alt="" /></button>
@@ -110,6 +116,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   const soundButton = $<HTMLButtonElement>('[data-act="sound"]');
   const statsButton = $<HTMLButtonElement>('[data-act="stats"]');
   const autoButton = $<HTMLButtonElement>('[data-act="auto"]');
+  const prevStageButton = $<HTMLButtonElement>('[data-act="stage-prev"]');
+  const nextStageButton = $<HTMLButtonElement>('[data-act="stage-next"]');
   const pauseButton = $<HTMLButtonElement>('[data-act="pause"]');
   const musicButton = $<HTMLButtonElement>('[data-act="music"]');
   const ctx = canvas.getContext('2d')!;
@@ -302,6 +310,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     const stage = $('.stage');
     show(stage, `${isBoss(state.stage) ? 'BOSS' : 'STAGE'} ${state.world}.${state.stage}`);
     stage.classList.toggle('boss', isBoss(state.stage));
+    setFlag(prevStageButton, 'disabled', !stageSwitchTarget(state, 'prev'));
+    setFlag(nextStageButton, 'disabled', !stageSwitchTarget(state, 'next'));
     show(autoButton, state.autoAdvance ? 'AUTO ON' : 'AUTO OFF');
     autoButton.setAttribute('aria-pressed', String(state.autoAdvance));
   }
@@ -435,6 +445,12 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         return;
       case 'auto':
         act((s) => setAutoAdvance(s, !s.autoAdvance));
+        return;
+      case 'stage-prev':
+        act((s) => switchStage(s, 'prev'));
+        return;
+      case 'stage-next':
+        act((s) => switchStage(s, 'next'));
         return;
       case 'take-over':
         tabGuard.claim();

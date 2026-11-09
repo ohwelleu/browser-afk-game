@@ -460,7 +460,7 @@ export function companionCooldown(s: GameState): number {
   return total > 0 ? Math.max(0, 1 - (s.ticks - s.companionClickTick) / total) : 0;
 }
 
-function advanceStage(s: GameState): void {
+function advanceStage(s: { world: number; stage: number }): void {
   if (s.stage >= STAGES_PER_WORLD) {
     s.world++;
     s.stage = 1;
@@ -470,7 +470,7 @@ function advanceStage(s: GameState): void {
 }
 
 /** One stage back: 2.1 → 1.6, 1.1 stays 1.1. */
-function rollbackStage(s: GameState): void {
+function rollbackStage(s: { world: number; stage: number }): void {
   if (s.stage > 1) s.stage--;
   else if (s.world > 1) {
     s.world--;
@@ -608,6 +608,65 @@ export function equip(s: GameState, tier: number): GameState {
   next.equipped = tier;
   trackMaxDps(next);
   next.events.push({ type: 'save' });
+  return next;
+}
+
+// ── Stage switch ───────────────────────────────────────────────────────────
+
+/**
+ * Highest stage level the player may switch to now: `best`, plus the stage a
+ * win that is still resolving is about to unlock. In `mobDying` with
+ * auto-advance on, that is the next stage; in `transition` the stage has
+ * already moved on but `best` only catches up when the next duel starts.
+ * Switching away must not lose that unlock.
+ */
+function unlockedLevel(
+  s: Pick<GameState, 'world' | 'stage' | 'best' | 'autoAdvance' | 'duel'>,
+): number {
+  const level = stageLevel(s.world, s.stage);
+  if (s.duel.phase === 'transition') return Math.max(s.best, level);
+  if (s.duel.phase === 'mobDying' && s.autoAdvance) return Math.max(s.best, level + 1);
+  return s.best;
+}
+
+/**
+ * Where a stage switch would go: one stage back (same as the death rollback,
+ * 1.1 stays 1.1) or forward (1.6 → 2.1). `null` when there is nowhere to go,
+ * when the target is locked (above the highest stage reached), or while the
+ * hero is dying: the death still has to roll back a stage and turn
+ * auto-advance off, so it can't be dodged by switching.
+ */
+export function stageSwitchTarget(
+  s: Pick<GameState, 'world' | 'stage' | 'best' | 'autoAdvance' | 'duel'>,
+  dir: 'prev' | 'next',
+): { world: number; stage: number } | null {
+  if (s.duel.phase === 'heroDying') return null;
+  const to = { world: s.world, stage: s.stage };
+  if (dir === 'prev') rollbackStage(to);
+  else advanceStage(to);
+  const level = stageLevel(to.world, to.stage);
+  if (level === stageLevel(s.world, s.stage) || level > unlockedLevel(s)) return null;
+  return to;
+}
+
+/**
+ * Moves to the previous or next stage and starts a fresh duel there. Coins,
+ * items and upgrades stay, and no stage-clear reward or sound plays. Auto-advance
+ * is left as it is: farming an earlier stage is fine, and only a death turns it
+ * off. Returns the same state when the switch is not allowed.
+ */
+export function switchStage(s: GameState, dir: 'prev' | 'next'): GameState {
+  const to = stageSwitchTarget(s, dir);
+  if (!to) return s;
+  const next = draft(s);
+  const level = stageLevel(to.world, to.stage);
+  next.world = to.world;
+  next.stage = to.stage;
+  next.best = Math.max(unlockedLevel(s), level);
+  // Same rule as the transition: the full intro only for a stage reached for the first time.
+  next.duel = newDuel(to.world, to.stage, level > s.best);
+  next.events.push({ type: 'save' });
+  if (isBoss(to.stage)) next.events.push({ type: 'sfx', name: 'bossAppear' });
   return next;
 }
 
