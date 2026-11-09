@@ -43,6 +43,7 @@ import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '..
 import { createShow, html, setClass, setFlag } from './dom';
 import { musicCreditsHtml } from './credits';
 import { createGearView, GEAR_HTML } from './gear';
+import { showWeaponCompare, WEAPON_COMPARE_HTML } from './weapon-compare';
 import {
   AMOUNT_BUTTON,
   AMOUNT_POPOVER,
@@ -371,7 +372,8 @@ export const SHOP = {
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
       `<span class="shop-lv">Lv <span class="shop-level"></span></span>` +
-      `<span class="shop-up-dmg">Damage <span class="shop-cur"></span> → <span class="dmg-next shop-next"></span></span>`,
+      `<span class="shop-up-dmg">Damage <span class="shop-cur"></span> → <span class="dmg-next shop-next"></span></span>` +
+      WEAPON_COMPARE_HTML,
     (i) =>
       `<span class="tag on shop-equipped">Equipped</span>` +
       `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
@@ -770,6 +772,8 @@ export function createMenu(deps: MenuDeps): Menu {
       show(lockTag, locked ? `Buy ${WEAPONS[i - 1].name} first` : '', 'title');
       const buy = li.querySelector<HTMLButtonElement>('.shop-buy')!;
       setFlag(buy, 'hidden', !isNext);
+      setFlag(li.querySelector('.shop-compare')!, 'hidden', !isNext);
+      if (isNext) showWeaponCompare(li, state, i, show);
       setFlag(buy, 'disabled', isNext && !affordable);
       show(buy, isNext && !affordable ? 'Not enough coins' : '', 'title');
     }
