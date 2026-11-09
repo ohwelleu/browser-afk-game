@@ -93,7 +93,7 @@ const HTML = `
         <button class="stage-btn" type="button" data-act="stage-next" aria-label="Next stage" title="Next stage">▶</button>
       </div>
       <div class="hud-right">
-        <button class="icon-btn" type="button" data-act="pause" aria-label="Pause">❚❚</button>
+        <button class="icon-btn" type="button" data-act="pause" aria-label="Pause"><img width="24" height="24" alt="" /></button>
         <button class="icon-btn" type="button" data-act="music"><img width="24" height="24" alt="" /></button>
         <button class="icon-btn" type="button" data-act="sound" aria-label="Sound settings" aria-haspopup="dialog"><img width="24" height="24" alt="" /></button>
         <button class="icon-btn" type="button" data-act="menu" aria-label="Menu" aria-haspopup="dialog"><img width="24" height="24" alt="" /></button>
@@ -264,6 +264,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     $<HTMLImageElement>('.hero-icon').src = iconUrl(icons.hero);
     menu.refreshIcons();
     menuButton.querySelector('img')!.src = iconUrl(icons.menu);
+    refreshPauseButton();
     refreshAudioButtons();
     if (!loop.running) draw();
   }
@@ -328,6 +329,11 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     refreshHud();
     if (dialogs.isOpen(menu.el)) menu.refresh(state);
     if (dialogs.isOpen(stats.el)) stats.refresh(state);
+  }
+
+  function refreshPauseButton(): void {
+    pauseButton.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+    pauseButton.querySelector('img')!.src = iconUrl(paused ? icons.play : icons.pause);
   }
 
   function refreshAudioButtons(): void {
@@ -419,8 +425,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     switch (target?.dataset.act) {
       case 'pause':
         paused = !paused;
-        pauseButton.textContent = paused ? '▶' : '❚❚';
-        pauseButton.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+        refreshPauseButton();
         syncRunning();
         return;
       case 'music': {
