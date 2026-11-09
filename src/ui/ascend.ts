@@ -56,6 +56,7 @@ export const ASCEND_STYLES = `
 .ascend .asc-gate { font-weight: bold; }
 .ascend .asc-gate.open { color: var(--_green); }
 .ascend-confirm .panel { width: min(380px, 100%); }
+.ascend-confirm h2 { box-sizing: border-box; min-height: 36px; display: flex; align-items: center; }
 .ascend-confirm .buy-row { margin-bottom: 0; }
 .ascend-confirm .buy-row button { min-height: 42px; padding: 6px 12px; }
 .ascend-confirm ul { margin: 0 0 0.6em; padding-left: 1.3em; }

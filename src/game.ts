@@ -175,7 +175,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     act,
     iconUrl,
     // The confirm dialog takes the menu's place (one dialog at a time); No/Yes bring the menu back.
-    confirmAscend: () => dialogs.open(ascendConfirm.el, menuButton, ascendConfirm.noButton),
+    // Deferred: this runs inside the menu's click, and the box's click handler (Dialogs) would
+    // otherwise see that click as "outside" the new dialog and close it again.
+    confirmAscend: () =>
+      setTimeout(() => dialogs.open(ascendConfirm.el, menuButton, ascendConfirm.noButton), 0),
     save: {
       read: () => toSaveData(state, audioSettings, __VERSION__),
       apply: importSave,
