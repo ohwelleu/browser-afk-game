@@ -115,6 +115,17 @@ export const mobDamage = (world: number, stage: number) =>
   scaled(MOB_DMG, world, stage, WORLD_1_DMG_MULT);
 export const mobCoins = (world: number, stage: number) => scaled(MOB_COINS, world, stage, 1);
 
+// ── Ascend (prestige) ──────────────────────────────────────────────────────
+
+/** Ascend unlocks once the highest stage reached is this one (6.1 = `world.stage`) or higher. */
+export const ASCEND_GATE = { world: 6, stage: 1 };
+/** The gate as a stage level, comparable with `GameState.best`. */
+export const ASCEND_GATE_LEVEL = stageLevel(ASCEND_GATE.world, ASCEND_GATE.stage);
+/** The price is this many kills' worth of coins at the gate stage. */
+export const ASCEND_COST_KILLS = 100;
+/** Ascend price in coins: `ASCEND_COST_KILLS × mobCoins(gate stage)`. */
+export const ASCEND_COST = ASCEND_COST_KILLS * mobCoins(ASCEND_GATE.world, ASCEND_GATE.stage);
+
 /** `damage = baseDmg × level` (level 0 = not owned = no damage). */
 export function weaponDamage(tier: number, level: number): number {
   const w = WEAPONS[tier];

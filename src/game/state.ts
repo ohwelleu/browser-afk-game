@@ -41,7 +41,16 @@ import {
   type CompanionId,
   type MobKind,
 } from './balance';
-import { gearTotals, mobHitDamage, newGear, onKill, type Gear, type Item } from './items';
+import {
+  bestOwnedItem,
+  betterItem,
+  gearTotals,
+  mobHitDamage,
+  newGear,
+  onKill,
+  type Gear,
+  type Item,
+} from './items';
 import { revealedWeapons, revealWeapons } from './reveal';
 import { nextFloat } from './rng';
 
@@ -116,8 +125,14 @@ export type GameState = {
   equipped: number;
   kills: number;
   deaths: number;
-  /** Highest `heroDps` ever reached (local stat; the future ranking value). */
+  /** Highest `heroDps` ever reached (local stat; the future ranking value). Survives an ascend. */
   maxDps: number;
+  /** Times the player has ascended (game/ascend.ts). Plain count, 0 in a new game. */
+  ascends: number;
+  /** Highest stage level ever reached, across ascends (`best` is this run's). */
+  bestStage: number;
+  /** The best item ever owned (tier, then total stat value), even if it was sold. Survives an ascend. */
+  bestItem: Item | null;
   /** Ring, pendant, bag and the drop RNG (game/items.ts). */
   items: Gear;
   companion: Companion | null;
@@ -149,6 +164,9 @@ export type Progress = Pick<
   | 'kills'
   | 'deaths'
   | 'maxDps'
+  | 'ascends'
+  | 'bestStage'
+  | 'bestItem'
   | 'items'
   | 'companion'
   | 'character'
@@ -169,6 +187,9 @@ export function newProgress(): Progress {
     kills: 0,
     deaths: 0,
     maxDps: 0,
+    ascends: 0,
+    bestStage: 1,
+    bestItem: null,
     items: newGear(),
     companion: null,
     character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
@@ -188,6 +209,13 @@ export function createState(progress: Progress = newProgress()): GameState {
     ),
     // Old saves have no maxDps (0): start from what the hero does right now.
     maxDps: Math.max(progress.maxDps, heroDps(progress)),
+    // Old saves have no records: start them from what the player has now.
+    bestStage: Math.max(
+      progress.bestStage,
+      progress.best,
+      stageLevel(progress.world, progress.stage),
+    ),
+    bestItem: betterItem(progress.bestItem, bestOwnedItem(progress.items)),
     companion: progress.companion ? { ...progress.companion } : null,
     character: { ...progress.character },
     critRng: critSeed(progress.items),
@@ -251,8 +279,12 @@ export function heroDamage(
  * between attacks. Computed from weapon + level (not measured), so game
  * speed, pauses and intros can't inflate or deflate it. Whole number.
  */
-export function heroDps(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number {
-  return safeInt(heroDamage(s) / weaponAttack(s.equipped).interval);
+export function heroDps(
+  s: Pick<GameState, 'equipped' | 'weaponLevels'> & Partial<Pick<GameState, 'items'>>,
+): number {
+  return safeInt(
+    (heroDamage(s) * (1 + gearTotals(s.items).speed)) / weaponAttack(s.equipped).interval,
+  );
 }
 
 /** Max HP: the base plus the coin upgrade. */
@@ -278,11 +310,18 @@ function trackMaxDps(s: GameState): void {
   s.maxDps = Math.max(s.maxDps, heroDps(s));
 }
 
+/** Raises the all-time records (`maxDps`, `bestStage`) to the current values (mutates a draft). */
+function trackRecords(s: GameState): void {
+  trackMaxDps(s);
+  s.bestStage = Math.max(s.bestStage, s.best);
+}
+
 /** Advances `dt` seconds in whole fixed ticks (the loop always passes one tick). */
 export function update(state: GameState, dt: number): GameState {
   const n = Math.max(1, Math.round(dt * TICK_RATE));
   const s = draft(state);
   for (let i = 0; i < n; i++) step(s);
+  trackRecords(s);
   // Coins only go up while fighting (kills, auto-sold drops): an open shop updates.
   if (revealWeapons(s)) s.events.push({ type: 'save' });
   return s;
@@ -695,6 +734,7 @@ export function switchStage(s: GameState, dir: 'prev' | 'next'): GameState {
   next.world = to.world;
   next.stage = to.stage;
   next.best = Math.max(unlockedLevel(s), level);
+  trackRecords(next);
   // Same rule as the transition: the full intro only for a stage reached for the first time.
   next.duel = newDuel(to.world, to.stage, level > s.best);
   next.events.push({ type: 'save' });

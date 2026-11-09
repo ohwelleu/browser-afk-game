@@ -12,6 +12,7 @@ import {
   readSavePreview,
   SAVE_VERSION,
   toSaveData,
+  validateSaveData,
   writeSave,
   type AudioSettings,
 } from './save';
@@ -138,6 +139,9 @@ describe('writeSave / loadSave', () => {
       kills: 0,
       deaths: 0,
       maxDps: 42,
+      ascends: 0,
+      bestStage: 10, // the stage reached at save time (the test raised `best` by hand)
+      bestItem: null,
       items: st.items,
       companion: null,
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
@@ -233,7 +237,11 @@ describe('v1 migration (plain JSON saves)', () => {
     const again = loadSave(s, 'k');
     expect(again.status).toBe('ok');
     // A v1 save has no maxDps; createState raises it to the current DPS.
-    expect(again.saved!.progress).toEqual({ ...saved!.progress, maxDps: st.maxDps });
+    expect(again.saved!.progress).toEqual({
+      ...saved!.progress,
+      maxDps: st.maxDps,
+      bestStage: st.bestStage,
+    });
   });
 
   it('repairs bad v1 values instead of crashing', () => {
@@ -393,6 +401,9 @@ describe('save migration', () => {
       companion: null,
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       revealedWeapons: [true, false, false, false, false],
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
     };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
     expect(migrateSave({ version: 2, coins: 5 })).toEqual(want);
@@ -429,6 +440,7 @@ describe('save migration', () => {
       ...newProgress(),
       stage: 3,
       best: 3,
+      bestStage: 3,
       coins: 40,
       weaponLevels: [3, 0, 0, 0, 0],
       kills: 12,
@@ -497,6 +509,9 @@ describe('revealed weapons in the save (v5)', () => {
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       version: SAVE_VERSION,
       revealedWeapons: [true, true, false, false, false],
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
     });
     // 2,700 is 90% of the stone sword (3,000); not yet the iron sword.
     expect(migrateSave(v4(2_700)).revealedWeapons).toEqual([true, true, true, false, false]);
@@ -556,6 +571,68 @@ describe('max HP upgrade in the save (v7)', () => {
       ...v6,
       version: SAVE_VERSION,
       character: { defenceLevel: 3, critLevel: 2, hpLevel: 0 },
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
+    });
+  });
+});
+
+describe('ascend records in the save (v8)', () => {
+  const item: Item = {
+    id: 4,
+    slot: 'ring',
+    tier: 'B',
+    world: 2,
+    stage: 3,
+    stats: { damage: 9, crit: 0.03 },
+  };
+
+  it('v7 → v8 adds ascends 0, bestStage from best and no best item', () => {
+    const v7 = { version: 7, best: 15, coins: 9 };
+    expect(migrateSave(v7)).toEqual({
+      ...v7,
+      version: SAVE_VERSION,
+      ascends: 0,
+      bestStage: 15,
+      bestItem: null,
+    });
+  });
+
+  it('old saves load with safe defaults, and the best item comes from the items owned', () => {
+    const old = JSON.parse(JSON.stringify(toSaveData(createState(), audio, '0.5.0')));
+    old.version = 7;
+    old.items.bag = [item];
+    old.items.nextId = item.id + 1;
+    delete old.ascends;
+    delete old.bestStage;
+    delete old.bestItem;
+    const r = validateSaveData(old);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.progress).toMatchObject({ ascends: 0, bestStage: 1, bestItem: null });
+    expect(createState(r.progress).bestItem).toEqual(item);
+  });
+
+  it('round-trips ascends, bestStage and bestItem', () => {
+    const st = { ...createState(), ascends: 3, bestStage: 40, bestItem: item };
+    const s = memory();
+    writeSave(s, 'k', toSaveData(st, audio, '0.6.0'));
+    const { saved, status } = loadSave(s, 'k');
+    expect(status).toBe('ok');
+    expect(saved!.progress).toMatchObject({ ascends: 3, bestStage: 40, bestItem: item });
+  });
+
+  it('rejects a bad ascends count or best item, and repairs them in a v1 save', () => {
+    const base = JSON.parse(JSON.stringify(toSaveData(createState(), audio, '0.6.0')));
+    expect(validateSaveData({ ...base, ascends: -1 }).ok).toBe(false);
+    expect(validateSaveData({ ...base, bestStage: 0 }).ok).toBe(false);
+    expect(validateSaveData({ ...base, bestItem: { tier: 'Z' } }).ok).toBe(false);
+    const v1 = JSON.stringify({ coins: 5, ascends: 'many', bestStage: 2.5, bestItem: 7 });
+    expect(loadSave(memory({ k: v1 }), 'k').saved!.progress).toMatchObject({
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
     });
   });
 });

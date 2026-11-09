@@ -4,10 +4,11 @@ import {
   companionDamage,
   CRIT,
   defenceReduction,
+  ITEM_TIER_LABEL,
   WEAPONS,
 } from '../game/balance';
 import { formatNumber } from '../game/format';
-import { gearTotals } from '../game/items';
+import { bestOwnedItem, gearTotals, type Item } from '../game/items';
 import {
   companionDef,
   critChance,
@@ -36,6 +37,10 @@ function weaponText(s: Pick<GameState, 'weaponLevels'>, tier: number): string {
   const w = WEAPONS[tier];
   return w && level >= 1 ? `${w.name} · Lv ${formatNumber(level)}` : '—';
 }
+
+/** "S+ ring · 3.2" (tier, slot, where it dropped) or "—" when there is no item. */
+const itemText = (it: Item | null): string =>
+  it ? `${ITEM_TIER_LABEL[it.tier]} ${it.slot} · ${it.world}.${it.stage}` : '—';
 
 /** Highest weapon tier the player owns (the stick is always owned). */
 const bestWeaponTier = (s: Pick<GameState, 'weaponLevels'>): number =>
@@ -100,11 +105,25 @@ export function characterStats(s: GameState): StatSection[] {
   sections.push({
     title: 'Progress',
     rows: [
+      { label: 'Ascends', value: formatNumber(s.ascends) },
       { label: 'Equipped weapon', value: weaponText(s, s.equipped) },
       { label: 'Best weapon', value: weaponText(s, bestWeaponTier(s)) },
-      { label: 'Highest stage', value: stageName(s.best) },
       { label: 'Kills', value: formatNumber(s.kills) },
       { label: 'Deaths', value: formatNumber(s.deaths) },
+    ],
+  });
+
+  // This run (resets on ascend) next to the best ever (kept). Items stay on
+  // ascend, so "this run" for the item is the best one owned right now.
+  sections.push({
+    title: 'Records',
+    rows: [
+      { label: 'Highest stage (this run)', value: stageName(s.best) },
+      { label: 'Highest stage (best)', value: stageName(Math.max(s.bestStage, s.best)) },
+      { label: 'Best item (owned now)', value: itemText(bestOwnedItem(s.items)) },
+      { label: 'Best item (best)', value: itemText(s.bestItem) },
+      { label: 'Damage per second (now)', value: perSecond(dps) },
+      { label: 'Damage per second (best)', value: perSecond(Math.max(s.maxDps, dps)) },
     ],
   });
   return sections;

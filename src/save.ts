@@ -6,6 +6,7 @@ import {
   WEAPONS,
   type CompanionId,
 } from './game/balance';
+import type { Item } from './game/items';
 import {
   newProgress,
   type Character,
@@ -14,7 +15,7 @@ import {
   type Progress,
 } from './game/state';
 import { revealedWeapons } from './game/reveal';
-import { loadGear, saveGear, validateGear } from './save-items';
+import { loadGear, loadItem, saveGear, validateGear, validateItem } from './save-items';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
 /**
@@ -29,8 +30,11 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  * 6. + `character.critLevel` (crit chance upgrade); old saves start at 0. Items
  *    may also have a `crit` stat (no migration: old items just lack it)
  * 7. + `character.hpLevel` (max HP upgrade); old saves start at 0
+ * 8. + `ascends`, `bestStage`, `bestItem` (ascend count and all-time records);
+ *    old saves start at 0, their highest stage and null (the game then fills
+ *    `bestItem` from the items owned)
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -56,6 +60,11 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   6: (d) => {
     const ch = d.character;
     d.character = ch && typeof ch === 'object' && !Array.isArray(ch) ? { ...ch, hpLevel: 0 } : ch;
+  },
+  7: (d) => {
+    d.ascends = 0;
+    d.bestStage = isInt(d.best, 1) ? d.best : 1;
+    d.bestItem = null;
   },
 };
 
@@ -170,6 +179,13 @@ function repairV1(data: Record<string, unknown>): Loaded {
       kills: isInt(data.kills, 0) ? data.kills : 0,
       deaths: isInt(data.deaths, 0) ? data.deaths : 0,
       maxDps: isInt(data.maxDps, 0) ? data.maxDps : 0,
+      ascends: isInt(data.ascends, 0) ? data.ascends : 0,
+      bestStage: Math.max(
+        isInt(data.bestStage, 1) ? data.bestStage : 1,
+        isInt(data.best, 1) ? data.best : 1,
+        stageLevel(world, stage),
+      ),
+      bestItem: loadItem(data.bestItem),
       // Migration v1 → v2: no `items` yet, so loadGear starts empty with a new seed.
       items: loadGear(data.items),
       companion: loadCompanion(data.companion),
@@ -246,6 +262,9 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
   int('kills', d.kills, 0);
   int('deaths', d.deaths, 0);
   int('maxDps', d.maxDps, 0);
+  int('ascends', d.ascends, 0);
+  int('bestStage', d.bestStage, 1); // createState raises it to `best` if it is lower
+  const bestItem = validateItem(d.bestItem, 'bestItem', errors);
   bool('autoAdvance', d.autoAdvance);
   const items = validateGear(d.items, errors);
 
@@ -340,6 +359,9 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       kills: d.kills as number,
       deaths: d.deaths as number,
       maxDps: d.maxDps as number,
+      ascends: d.ascends as number,
+      bestStage: d.bestStage as number,
+      bestItem,
       items: items!,
       companion: c ? pickCompanion(c as Companion) : null,
       character: pickCharacter(ch as Character),
@@ -352,6 +374,8 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     },
   };
 }
+
+const saveBestItem = (it: Item): Item => ({ ...it, stats: { ...it.stats } });
 
 const pickCharacter = (c: Character): Character => ({
   defenceLevel: c.defenceLevel,
@@ -381,6 +405,9 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     kills: s.kills,
     deaths: s.deaths,
     maxDps: s.maxDps,
+    ascends: s.ascends,
+    bestStage: s.bestStage,
+    bestItem: s.bestItem && saveBestItem(s.bestItem),
     items: saveGear(s.items),
     companion: s.companion ? pickCompanion(s.companion) : null,
     character: pickCharacter(s.character),

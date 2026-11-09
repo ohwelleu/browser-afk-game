@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CRIT, HERO_MAX_HP } from '../game/balance';
+import { ascend } from '../game/ascend';
+import { ASCEND_COST, CRIT, HERO_MAX_HP } from '../game/balance';
 import { newGear, type Item } from '../game/items';
 import { createState, newProgress, type Progress } from '../game/state';
 import { characterStats, statsHtml, type StatSection } from './stats';
@@ -120,23 +121,87 @@ describe('characterStats', () => {
     expect(value(s, 'Ring & pendant', 'Bonuses')).toBe('None');
   });
 
-  it('shows the best weapon owned (not the equipped one) and the highest stage reached', () => {
+  it('shows the best weapon owned (not the equipped one), kills and deaths', () => {
     const s = characterStats(
       stateOf({
         weaponLevels: [7, 3, 12, 0, 0],
         equipped: 1,
-        world: 2,
-        stage: 2,
-        best: 9,
         kills: 1234,
         deaths: 5,
       }),
     );
     expect(value(s, 'Progress', 'Equipped weapon')).toBe('Wooden sword · Lv 3');
     expect(value(s, 'Progress', 'Best weapon')).toBe('Stone sword · Lv 12');
-    expect(value(s, 'Progress', 'Highest stage')).toBe('2.3');
     expect(value(s, 'Progress', 'Kills')).toBe('1.2K');
     expect(value(s, 'Progress', 'Deaths')).toBe('5');
+  });
+
+  it('shows the ascends', () => {
+    expect(value(characterStats(stateOf()), 'Progress', 'Ascends')).toBe('0');
+    expect(value(characterStats(stateOf({ ascends: 3 })), 'Progress', 'Ascends')).toBe('3');
+  });
+});
+
+describe('characterStats records (this run and best)', () => {
+  const ring: Item = {
+    id: 1,
+    slot: 'ring',
+    tier: 'A',
+    world: 3,
+    stage: 2,
+    stats: { damage: 9, defence: 2, crit: 0.03 },
+  };
+  const old: Item = { ...ring, id: 2, slot: 'pendant', tier: 'SS', world: 5, stage: 6 };
+  const row = (p: Partial<Progress>, label: string) =>
+    value(characterStats(stateOf(p)), 'Records', label);
+
+  it('starts with the same value for this run and best', () => {
+    expect(row({}, 'Highest stage (this run)')).toBe('1.1');
+    expect(row({}, 'Highest stage (best)')).toBe('1.1');
+    expect(row({}, 'Best item (owned now)')).toBe('—');
+    expect(row({}, 'Best item (best)')).toBe('—');
+    expect(row({}, 'Damage per second (now)')).toBe('1');
+    expect(row({}, 'Damage per second (best)')).toBe('1');
+  });
+
+  it('shows the highest stage of this run next to the best ever', () => {
+    const p = { world: 2, stage: 2, best: 9, bestStage: 40 };
+    expect(row(p, 'Highest stage (this run)')).toBe('2.3');
+    expect(row(p, 'Highest stage (best)')).toBe('7.4');
+  });
+
+  it('never shows a best stage below this run', () => {
+    expect(row({ best: 9, bestStage: 2 }, 'Highest stage (best)')).toBe('2.3');
+  });
+
+  it('shows the best item owned now and the best ever (which may be gone)', () => {
+    const items = { ...newGear(1), ring };
+    expect(row({ items, bestItem: old }, 'Best item (owned now)')).toBe('A ring · 3.2');
+    expect(row({ items, bestItem: old }, 'Best item (best)')).toBe('S+ pendant · 5.6');
+  });
+
+  it('shows the DPS now (with the item speed) next to the best ever', () => {
+    const weaponLevels = [10, 0, 0, 0, 0];
+    expect(row({ weaponLevels, maxDps: 500 }, 'Damage per second (now)')).toBe('10');
+    expect(row({ weaponLevels, maxDps: 500 }, 'Damage per second (best)')).toBe('500');
+  });
+
+  it('survives an ascend: this run restarts, the best stays', () => {
+    const before = stateOf({
+      world: 6,
+      stage: 1,
+      best: 31,
+      weaponLevels: [50, 20, 0, 0, 0],
+      equipped: 1,
+      ascends: 0,
+    });
+    const after = ascend({ ...before, coins: ASCEND_COST });
+    const s = characterStats(after);
+    expect(value(s, 'Progress', 'Ascends')).toBe('1');
+    expect(value(s, 'Records', 'Highest stage (this run)')).toBe('1.1');
+    expect(value(s, 'Records', 'Highest stage (best)')).toBe('6.1');
+    expect(value(s, 'Records', 'Damage per second (now)')).toBe('1'); // back to the stick
+    expect(value(s, 'Records', 'Damage per second (best)')).toBe('120'); // wooden sword, level 20
   });
 });
 
