@@ -88,7 +88,7 @@ const HTML = `
         <button class="icon-btn" type="button" data-act="pause" aria-label="Pause">❚❚</button>
         <button class="icon-btn" type="button" data-act="music"><img width="24" height="24" alt="" /></button>
         <button class="icon-btn" type="button" data-act="sound" aria-label="Sound settings" aria-haspopup="dialog"><img width="24" height="24" alt="" /></button>
-        <button class="icon-btn" type="button" data-act="menu" aria-label="Menu" aria-haspopup="dialog">☰</button>
+        <button class="icon-btn" type="button" data-act="menu" aria-label="Menu" aria-haspopup="dialog"><img width="24" height="24" alt="" /></button>
       </div>
     </div>
     <button class="auto-btn toggle" type="button" data-act="auto" title="Auto-advance: go to the next stage after a win"></button>
@@ -252,6 +252,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     $<HTMLImageElement>('.coin-icon').src = iconUrl(coinSpin);
     $<HTMLImageElement>('.hero-icon').src = iconUrl(icons.hero);
     menu.refreshIcons();
+    menuButton.querySelector('img')!.src = iconUrl(icons.menu);
     refreshAudioButtons();
     if (!loop.running) draw();
   }
