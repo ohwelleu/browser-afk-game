@@ -3,7 +3,7 @@ import {
   companionAutoInterval,
   companionDamage,
   companionMaxSpeedLevel,
-  isBoss,
+  dropChance,
   ITEM_SLOTS,
   ITEM_TIERS,
   ITEMS,
@@ -628,7 +628,7 @@ export function extraStats(data: SaveData, dropForced = false): string {
       : `crow dmg ${formatNumber(dmg)} dps 0 (no auto attack)`;
   }
   const t = gearTotals(data.items);
-  const chance = isBoss(data.stage) ? ITEMS.dropChance.boss : ITEMS.dropChance.mob;
+  const chance = dropChance(data.world, data.stage);
   const drop = dropForced ? '100% (forced)' : percent(chance);
   return (
     `${crow}\n` +

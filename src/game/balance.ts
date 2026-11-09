@@ -146,6 +146,11 @@ export const ITEMS = {
   rarity: { C: 70, B: 22, A: 7, S: 1 } as Record<ItemTier, number>,
   /** Chance per kill that something drops at all (item find never changes this). */
   dropChance: { mob: 0.005, boss: 0.03 },
+  /**
+   * Early-game boost for mobs in world 1: `mob` chance on stage 1, fading
+   * linearly down to `dropChance.mob` on stage `untilStage` and after.
+   */
+  earlyDrop: { world: 1, mob: 0.04, untilStage: 5 },
   /** Every stat value is × a uniform roll in [min, max). */
   roll: { min: 0.8, max: 1.2 },
   /**
@@ -169,6 +174,16 @@ export const ITEMS = {
   /** Sell price = `mobCoins(drop stage) × sellMult × tierMult`. */
   sellMult: 5,
 };
+
+/** Chance per kill that something drops on `world.stage` (boosted for mobs early in world 1). */
+export function dropChance(world: number, stage: number): number {
+  const { mob, boss } = ITEMS.dropChance;
+  if (isBoss(stage)) return boss;
+  const e = ITEMS.earlyDrop;
+  if (world !== e.world || stage >= e.untilStage) return mob;
+  const t = (Math.max(1, stage) - 1) / (e.untilStage - 1); // 0 on stage 1 → 1 on `untilStage`
+  return e.mob + (mob - e.mob) * t;
+}
 
 /** One stat roll on an item from stage level `L`. `roll` is the 0.8–1.2 factor. */
 export function itemStatValue(stat: ItemStat, L: number, tier: ItemTier, roll: number): number {
