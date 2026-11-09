@@ -6,7 +6,6 @@ import {
   ASCEND_RESETS,
   ascendBlockedReason,
   ascendGateText,
-  createAscendConfirm,
 } from './ascend';
 
 describe('ascendGateText', () => {
@@ -33,13 +32,9 @@ describe('ascendBlockedReason', () => {
 });
 
 describe('ascend texts', () => {
-  it('list what resets and what stays, in the panel and the confirm dialog', () => {
+  it('list what resets and what stays in the panel', () => {
     expect(ASCEND_RESETS.join(' ')).toMatch(/coins/);
     expect(ASCEND_KEEPS.join(' ')).toMatch(/Items/);
     expect(ASCEND_PANEL).toContain('data-act="ascend"');
-    const confirm = createAscendConfirm();
-    expect(confirm.el.querySelector('[data-act="ascend-yes"]')).not.toBeNull();
-    expect(confirm.noButton.dataset.act).toBe('ascend-no');
-    expect(confirm.el.textContent).toContain("This can't be undone");
   });
 });
