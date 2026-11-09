@@ -105,6 +105,17 @@ Each line below is its own thread, in this order.
 - [~] **Rainbow colour** (animated, for S-tier things): demo in the debug
       panel first (thread `ui/rainbow-colour-demo`), where to use it is
       decided later.
+- [x] **S+ tier items** (2× S stats, rainbow frame and name, much rarer;
+      PR #71).
+- [ ] **Rainbow rain for equipped S+ items** (owner, 2026-11-09): while the
+      hero wears an S+ item, thin rainbow-coloured lines fall like rain in
+      the background of the scene and appear in different places. The more
+      S+ items equipped, the more lines (e.g. one more line per item, with a
+      cap). Behind the hero and mobs, never covering the HUD or the numbers.
+      Cheap on the canvas (a few pooled lines, no per-frame allocation), uses
+      `rainbowStep`/`rainbowColor` from `src/ui/rainbow.ts`, and shows still
+      or off under `prefers-reduced-motion`. Open: does a worn S tier item
+      also get a (smaller) effect, and is there a debug toggle to preview it.
 - [x] **Character stats window**: damage per second, crit chance, best
       weapon (name and tier) and highest stage. Starts after crit chance
       lands. (Same item as the stats panel below.)
