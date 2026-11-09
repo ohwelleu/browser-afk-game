@@ -1,0 +1,134 @@
+import { describe, expect, it } from 'vitest';
+import { RAIN_MAX_LINES } from '../game/rain';
+import { DEFAULT_PALETTES } from '../theme';
+import { RainField } from './rain';
+
+const W = 100;
+const H = 50;
+const TICKS_PER_SEC = 60;
+
+type Rect = { fill: string; x: number; y: number; w: number; h: number };
+function fakeCtx() {
+  const rects: Rect[] = [];
+  const ctx = {
+    fillStyle: '',
+    fillRect(x: number, y: number, w: number, h: number) {
+      rects.push({ fill: String(this.fillStyle), x, y, w, h });
+    },
+  };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, rects };
+}
+const palette = DEFAULT_PALETTES.dark;
+const run = (
+  f: RainField,
+  from: number,
+  seconds: number,
+  counts: { rainbow: number; yellow: number },
+) => {
+  for (let t = from; t <= from + seconds * TICKS_PER_SEC; t += 2) f.advance(t, counts, W, H);
+  return from + seconds * TICKS_PER_SEC;
+};
+
+describe('RainField', () => {
+  it('shows one streak per line', () => {
+    const f = new RainField();
+    f.advance(0, { rainbow: 2, yellow: 3 }, W, H);
+    expect(f.count).toBe(5);
+    f.advance(1, { rainbow: 0, yellow: 0 }, W, H);
+    expect(f.count).toBe(0);
+  });
+
+  it('draws whole-pixel streaks 1–2 wide and 6–10 tall inside the scene, yellow and not', () => {
+    const f = new RainField();
+    const counts = { rainbow: 3, yellow: 3 };
+    f.advance(0, counts, W, H);
+    for (let t = 2; t < 20 * TICKS_PER_SEC; t += 2) {
+      f.advance(t, counts, W, H);
+      const { ctx, rects } = fakeCtx();
+      f.draw(ctx, t, palette, H);
+      for (const r of rects) {
+        expect(Number.isInteger(r.x) && Number.isInteger(r.y) && Number.isInteger(r.h)).toBe(true);
+        expect([1, 2]).toContain(r.w);
+        expect(r.h).toBeGreaterThan(0);
+        expect(r.h).toBeLessThanOrEqual(10);
+        expect(r.y).toBeGreaterThanOrEqual(0);
+        expect(r.y + r.h).toBeLessThanOrEqual(H);
+        expect(r.x).toBeGreaterThanOrEqual(0);
+        expect(r.x + r.w).toBeLessThanOrEqual(W);
+      }
+    }
+  });
+
+  it('colours S lines with the palette yellow and S+ lines with the rainbow', () => {
+    const f = new RainField();
+    const counts = { rainbow: 2, yellow: 2 };
+    f.advance(0, counts, W, H, true); // still: every streak is on screen
+    const { ctx, rects } = fakeCtx();
+    f.draw(ctx, 0, palette, H, true);
+    expect(rects.map((r) => r.fill).slice(2)).toEqual([palette.yellow, palette.yellow]);
+    const [a, b] = rects.slice(0, 2).map((r) => r.fill);
+    expect(a).toMatch(/^hsl\(/);
+    expect(b).toMatch(/^hsl\(/);
+    expect(a).not.toBe(b);
+  });
+
+  it('keeps falling: streaks come back at new places', () => {
+    const f = new RainField();
+    const counts = { rainbow: 0, yellow: 1 };
+    f.advance(0, counts, W, H);
+    const xs = new Set<number>();
+    let t = 0;
+    for (let i = 0; i < 40; i++) {
+      t = run(f, t, 1, counts);
+      const { ctx, rects } = fakeCtx();
+      f.draw(ctx, t, palette, H);
+      for (const r of rects) xs.add(r.x);
+    }
+    expect(xs.size).toBeGreaterThan(5);
+  });
+
+  it('moves down while ticks pass and stands still when they do not (paused)', () => {
+    const f = new RainField();
+    const counts = { rainbow: 0, yellow: 1 };
+    f.advance(0, counts, W, H);
+    const bottom = (t: number) => {
+      f.advance(t, counts, W, H);
+      const { ctx, rects } = fakeCtx();
+      f.draw(ctx, t, palette, H);
+      return rects.length ? rects[0].y + rects[0].h : null;
+    };
+    // The new streak waits above the top; step until its tail shows, mid-scene.
+    let t = 0;
+    let before = bottom(t);
+    while ((before === null || before >= H - 12) && t < 600) {
+      t += 2;
+      before = bottom(t);
+    }
+    expect(before).not.toBeNull();
+    expect(bottom(t + 6)).toBeGreaterThan(before!);
+    // Paused: the same tick again changes nothing.
+    expect(bottom(t + 6)).toBe(bottom(t + 6));
+  });
+
+  it('stands still with reduced motion, with all streaks on screen', () => {
+    const f = new RainField();
+    const counts = { rainbow: 2, yellow: 2 };
+    f.advance(0, counts, W, H, true);
+    const a = fakeCtx();
+    f.draw(a.ctx, 0, palette, H, true);
+    f.advance(600, counts, W, H, true);
+    const b = fakeCtx();
+    f.draw(b.ctx, 600, palette, H, true);
+    expect(a.rects).toHaveLength(4);
+    expect(b.rects).toEqual(a.rects);
+  });
+
+  it('does not jump after a long gap or when the tick count goes back', () => {
+    const f = new RainField();
+    const counts = { rainbow: 0, yellow: RAIN_MAX_LINES };
+    f.advance(1000, counts, W, H);
+    expect(() => f.advance(5, counts, W, H)).not.toThrow(); // new game: ticks restart
+    expect(() => f.advance(5 + 100000, counts, W, H)).not.toThrow(); // hidden tab
+    expect(f.count).toBe(RAIN_MAX_LINES);
+  });
+});

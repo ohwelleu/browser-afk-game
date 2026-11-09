@@ -1,6 +1,7 @@
 import { weaponAttack, windup } from '../game/attacks';
 import { DUEL, isBoss, MOB_KINDS, type MobKind } from '../game/balance';
 import { formatNumber } from '../game/format';
+import { rainLines, type RainCounts } from '../game/rain';
 import { companionDef, secToTicks, type GameEvent, type GameState } from '../game/state';
 import { TICK_RATE } from '../loop';
 import {
@@ -20,6 +21,7 @@ import {
 } from '../sprites';
 import type { Palette } from '../theme';
 import { boldPrefix, fontStack, snapFontSize } from '../ui/font';
+import { RainField } from './rain';
 import { frameAt, type SpriteCache } from './sprites';
 import type { View } from './view';
 
@@ -92,10 +94,27 @@ type ClickMark = { x: number; y: number; born: number };
 
 const seconds = (ticks: number) => ticks / TICK_RATE;
 
+let reducedMotionQuery: MediaQueryList | null | undefined;
+/** The system asks for less motion. The query is made once; `.matches` stays live. */
+const prefersReducedMotion = (): boolean => {
+  if (reducedMotionQuery === undefined) {
+    reducedMotionQuery =
+      typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  }
+  return reducedMotionQuery?.matches ?? false;
+};
+
 export class SceneRenderer {
   private texts: FloatText[] = [];
   private clicks: ClickMark[] = [];
   private nudge = 0;
+  private readonly rain = new RainField();
+  private rainPreview: RainCounts | null = null;
+
+  /** Debug: show this rain instead of the one the equipped items make. `null` = back to items. */
+  setRainPreview(counts: RainCounts | null): void {
+    this.rainPreview = counts;
+  }
 
   /** A click or tap at device pixel (`px`, `py`) on the canvas: shows a short burst there. */
   onClick(s: GameState, px: number, py: number, view: View): void {
@@ -149,6 +168,11 @@ export class SceneRenderer {
     ctx.setTransform(view.scale, 0, 0, view.scale, 0, view.offsetY);
 
     const l = layout(s, view);
+
+    // First, so it falls behind the hero, the mob and the effects.
+    const reduced = prefersReducedMotion();
+    this.rain.advance(s.ticks, this.rainPreview ?? rainLines(s), view.width, view.height, reduced);
+    this.rain.draw(ctx, s.ticks, palette, view.height, reduced);
 
     drawHero(ctx, s, l, palette, sprites);
     drawMob(ctx, s, l, palette, sprites);
