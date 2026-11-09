@@ -100,6 +100,28 @@ describe('validateSaveData', () => {
     }
   });
 
+  it('accepts an S+ item and rejects an unknown tier', () => {
+    const item = {
+      id: 1,
+      slot: 'ring',
+      tier: 'SS',
+      world: 1,
+      stage: 2,
+      stats: { damage: 4, defence: 1, speed: 0.04, crit: 0.04 },
+    };
+    const save = (it: unknown) => ({
+      ...valid(),
+      items: { ring: it, pendant: null, bag: [], rng: 7, nextId: 2 },
+    });
+    const r = validateSaveData(save(item), TRACKS);
+    expect(r.ok && r.progress.items.ring).toEqual(item);
+    for (const tier of ['S+', 'SSS', 'X', '']) {
+      const bad = validateSaveData(save({ ...item, tier }), TRACKS);
+      expect(bad.ok).toBe(false);
+      if (!bad.ok) expect(bad.errors.join(' ')).toContain('tier must be');
+    }
+  });
+
   it('rejects non-objects', () => {
     expect(validateSaveData(null, TRACKS).ok).toBe(false);
     expect(validateSaveData([1, 2], TRACKS).ok).toBe(false);

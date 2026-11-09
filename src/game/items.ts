@@ -129,7 +129,7 @@ export function onKill(s: GameState, world: number, stage: number): void {
   if (r.soldFor) s.coins = safeInt(s.coins + r.soldFor);
   s.events.push(
     { type: 'item', item: r.item, soldFor: r.soldFor },
-    { type: 'sfx', name: r.item.tier === 'S' ? 'itemDropS' : 'itemDrop' },
+    { type: 'sfx', name: r.item.tier === 'S' || r.item.tier === 'SS' ? 'itemDropS' : 'itemDrop' },
     { type: 'save' },
   );
 }

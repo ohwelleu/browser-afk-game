@@ -131,19 +131,35 @@ export function upgradeCost(tier: number, level: number): number {
 // ── Items: ring and pendant (docs/design/active-play.md → 2. Items) ────────
 
 export type ItemSlot = 'ring' | 'pendant';
-export type ItemTier = 'C' | 'B' | 'A' | 'S';
+/** `SS` is the internal id of tier S+ (shown to the player as "S+"; "+" is awkward in CSS classes). */
+export type ItemTier = 'C' | 'B' | 'A' | 'S' | 'SS';
 export type ItemStat = 'damage' | 'defence' | 'speed' | 'itemFind' | 'crit';
 
 export const ITEM_SLOTS: readonly ItemSlot[] = ['ring', 'pendant'];
-export const ITEM_TIERS: readonly ItemTier[] = ['C', 'B', 'A', 'S'];
+export const ITEM_TIERS: readonly ItemTier[] = ['C', 'B', 'A', 'S', 'SS'];
+
+/** What the player sees for each tier. */
+export const ITEM_TIER_LABEL: Record<ItemTier, string> = {
+  C: 'C',
+  B: 'B',
+  A: 'A',
+  S: 'S',
+  SS: 'S+',
+};
+
+/** S+ is S with every stat value × this. Everything else about S+ (stat lines, prices) follows S. */
+const S_PLUS_MULT = 2;
+/** How rare S+ is compared with S (its rarity weight = S × this). */
+const S_PLUS_RARITY = 0.05;
 export const ITEM_STATS: readonly ItemStat[] = ['damage', 'defence', 'speed', 'itemFind', 'crit'];
 
 export const ITEMS = {
   /** How many different stats an item of each tier has (drawn from `ITEM_STATS`). */
-  statCount: { C: 1, B: 2, A: 3, S: 4 } as Record<ItemTier, number>,
-  tierMult: { C: 1.0, B: 1.3, A: 1.6, S: 2.0 } as Record<ItemTier, number>,
-  /** Rarity weights of a drop, before item find. */
-  rarity: { C: 70, B: 22, A: 7, S: 1 } as Record<ItemTier, number>,
+  statCount: { C: 1, B: 2, A: 3, S: 4, SS: 4 } as Record<ItemTier, number>,
+  /** S+ = S × `S_PLUS_MULT`, so the two stay linked (also the sell price factor). */
+  tierMult: { C: 1.0, B: 1.3, A: 1.6, S: 2.0, SS: 2.0 * S_PLUS_MULT } as Record<ItemTier, number>,
+  /** Rarity weights of a drop, before item find. S+ is a small fraction of S (1 in 2000 drops). */
+  rarity: { C: 70, B: 22, A: 7, S: 1, SS: 1 * S_PLUS_RARITY } as Record<ItemTier, number>,
   /** Chance per kill that something drops at all (item find never changes this). */
   dropChance: { mob: 0.005, boss: 0.03 },
   /**
@@ -187,17 +203,22 @@ export function dropChance(world: number, stage: number): number {
 
 /** One stat roll on an item from stage level `L`. `roll` is the 0.8–1.2 factor. */
 export function itemStatValue(stat: ItemStat, L: number, tier: ItemTier, roll: number): number {
+  // S+ is exactly 2× the (already rounded) S value, so rounding can't make them drift apart.
+  if (tier === 'SS') {
+    const v = itemStatValue(stat, L, 'S', roll) * S_PLUS_MULT;
+    return ITEMS.stats[stat].flat ? safeInt(v) : Math.round(v * 10_000) / 10_000;
+  }
   const p = ITEMS.stats[stat];
   const v = p.base * p.growth ** (L - 1) * ITEMS.tierMult[tier] * roll;
   // % stats: kept to 0.01 % steps so saves and labels stay tidy.
   return p.flat ? Math.max(1, safeInt(v)) : Math.round(v * 10_000) / 10_000;
 }
 
-/** Rarity weights with item find: B/A/S × (1 + itemFind), C unchanged (normalise by the sum). */
+/** Rarity weights with item find: everything but C × (1 + itemFind) (normalise by the sum). */
 export function itemRarityWeights(itemFind: number): Record<ItemTier, number> {
   const f = 1 + Math.max(0, itemFind);
   const r = ITEMS.rarity;
-  return { C: r.C, B: r.B * f, A: r.A * f, S: r.S * f };
+  return { C: r.C, B: r.B * f, A: r.A * f, S: r.S * f, SS: r.SS * f };
 }
 
 export function itemSellPrice(world: number, stage: number, tier: ItemTier): number {

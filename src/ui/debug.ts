@@ -5,6 +5,7 @@ import {
   companionMaxSpeedLevel,
   dropChance,
   ITEM_SLOTS,
+  ITEM_TIER_LABEL,
   ITEM_TIERS,
   ITEMS,
   WEAPONS,
@@ -201,7 +202,7 @@ export function createDebugPanel(
       <div class="dbg-row"><button type="button" data-dbg="apply-form">Apply fields</button></div>
       <div class="dbg-row">
         <select name="slot" aria-label="Item slot">${ITEM_SLOTS.map((s) => `<option>${s}</option>`).join('')}</select>
-        <select name="tier" aria-label="Item tier">${ITEM_TIERS.map((t) => `<option>${t}</option>`).join('')}</select>
+        <select name="tier" aria-label="Item tier">${ITEM_TIERS.map((t) => `<option value="${t}">${ITEM_TIER_LABEL[t]}</option>`).join('')}</select>
         <button type="button" data-dbg="give">Give item</button>
       </div>
       <div class="dbg-row">
@@ -434,7 +435,7 @@ export function createDebugPanel(
         const tier = tierSelect.value as ItemTier;
         const data = giveItem(api.read(), slot, tier);
         if (typeof data === 'string') message([data]);
-        else apply(data, `Gave a tier ${tier} ${slot}.`);
+        else apply(data, `Gave a tier ${ITEM_TIER_LABEL[tier]} ${slot}.`);
         return;
       }
       case 'force':

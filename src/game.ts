@@ -49,6 +49,7 @@ import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
 import { createStatsWindow, STATS_STYLES } from './ui/stats';
 import { createToast, GEAR_STYLES } from './ui/gear';
+import { RAINBOW_STYLES } from './ui/rainbow';
 import { createNowPlaying, NOW_PLAYING_STYLES } from './ui/now-playing';
 import { createQuest, QUEST_STYLES } from './ui/quest';
 
@@ -109,7 +110,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${GEAR_STYLES}${STATS_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${RAINBOW_STYLES}${GEAR_STYLES}${STATS_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
