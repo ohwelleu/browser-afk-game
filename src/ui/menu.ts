@@ -58,6 +58,7 @@ import {
   parseAmount,
 } from './amount-popover';
 import { dialogHtml } from './modal';
+import { createPassivesView, PASSIVES_HTML } from './passives';
 import { createSavePanel, type SavePanelDeps } from './save-panel';
 
 // Sizes are in em so a future pixel font can change the metrics in one place.
@@ -183,6 +184,7 @@ const TABS = [
       { id: 'weapons', label: 'Weapons' },
       { id: 'companions', label: 'Companions' },
       { id: 'accessories', label: 'Accessories' },
+      { id: 'passives', label: 'Passives' },
     ],
   },
 ] as const;
@@ -460,6 +462,7 @@ export const INVENTORY = {
       <p class="note">Upgrade your companion in Shop → Companions.</p>
     </div>`,
   accessories: GEAR_HTML,
+  passives: PASSIVES_HTML,
 };
 
 const HELP = `
@@ -468,6 +471,7 @@ const HELP = `
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
       <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A, S or the very rare S+). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
+      <p>Every time you clear a new stage with AUTO on, the game waits while you choose <b>one of two passive skills</b> (C, B, A, S or S+). They stack for the run: see <b>Inventory → Passives</b> and the chances in the hero stats.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. Click or tap anywhere on the game to make it peck the monster.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <div class="save-slot"></div>
@@ -537,6 +541,8 @@ export function createMenu(deps: MenuDeps): Menu {
     iconUrl: deps.iconUrl,
     coinUrl: () => deps.iconUrl(coinSpin),
   });
+
+  const passives = createPassivesView($(`#${subPanelId('inventory', 'passives')}`));
 
   const amountPop = createAmountPopover({ menu: el, panel, pop: $('.amount-pop') });
 
@@ -735,6 +741,7 @@ export function createMenu(deps: MenuDeps): Menu {
       if (sub === 'weapons') refreshInventoryWeapons(state);
       else if (sub === 'companions') refreshInventoryCompanion(state);
       else if (sub === 'accessories') gear.refresh(state);
+      else if (sub === 'passives') passives.refresh(state);
     }
     syncAmountButtons();
     amountPop.sync(amount);

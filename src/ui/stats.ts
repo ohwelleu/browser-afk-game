@@ -4,18 +4,24 @@ import {
   companionDamage,
   CRIT,
   defenceReduction,
+  ITEM_TIERS,
   WEAPONS,
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { gearTotals } from '../game/items';
+import { ascendsOf, EXTRA_HIT_MULT, pickCount, tierChances } from '../game/passives';
 import {
+  clickBonus,
   companionDef,
   critChance,
+  extraHitChance,
   heroDamage,
   heroDefence,
   heroMaxHp,
+  heroSpeedBonus,
   type GameState,
 } from '../game/state';
+import { passiveLine, tierLabel } from './passives';
 import { html } from './dom';
 import { stageName } from './menu';
 import { dialogHtml } from './modal';
@@ -41,6 +47,26 @@ function weaponText(s: Pick<GameState, 'weaponLevels'>, tier: number): string {
 const bestWeaponTier = (s: Pick<GameState, 'weaponLevels'>): number =>
   s.weaponLevels.reduce((best, level, tier) => (level >= 1 ? tier : best), 0);
 
+/** The owned passive skills: how many picks, and one row per passive and tier. */
+function passiveSection(s: GameState): StatSection {
+  const rows: StatRow[] = [{ label: 'Picks', value: formatNumber(pickCount(s.passives)) }];
+  for (const p of s.passives) {
+    const line = passiveLine(p);
+    if (line)
+      rows.push({ label: `${line.name} · ${line.tier}`, value: `Lv ${p.level} · ${line.short}` });
+  }
+  return { title: 'Passive skills', rows };
+}
+
+/** Chance that a passive in a stage-clear offer has each tier, for the current ascends. */
+function chanceSection(s: GameState): StatSection {
+  const chances = tierChances(ascendsOf(s));
+  return {
+    title: 'Passive skill chances',
+    rows: ITEM_TIERS.map((t) => ({ label: `Tier ${tierLabel(t)}`, value: pct(chances[t]) })),
+  };
+}
+
 /**
  * Everything the stats window shows, as labelled rows. Pure: it only reads
  * the state and reuses the game's own formulas (`heroDamage`, `critChance`,
@@ -51,10 +77,12 @@ export function characterStats(s: GameState): StatSection[] {
   const defence = heroDefence(s);
   const chance = critChance(s);
 
-  // Item speed shortens the swing interval (see `combat` in game/state.ts).
+  // Item and passive speed shorten the swing interval (see `combat` in game/state.ts).
   const hit = heroDamage(s);
-  const dps = (hit * (1 + gear.speed)) / weaponAttack(s.equipped).interval;
-  const critDps = dps * (1 + chance * (CRIT.damageMult - 1));
+  const dps = (hit * (1 + heroSpeedBonus(s))) / weaponAttack(s.equipped).interval;
+  const extra = extraHitChance(s);
+  // Average damage per swing: the crit bonus, plus the "Second strike" hits (never crits).
+  const critDps = dps * (1 + chance * (CRIT.damageMult - 1) + extra * EXTRA_HIT_MULT);
 
   const hero: StatSection = {
     title: 'Hero',
@@ -70,6 +98,12 @@ export function characterStats(s: GameState): StatSection[] {
       { label: 'DPS with crits (avg)', value: perSecond(critDps) },
     ],
   };
+  if (extra > 0) {
+    hero.rows.push({ label: 'Second strike', value: `${pct(extra)} (×${EXTRA_HIT_MULT} damage)` });
+  }
+  if (clickBonus(s) > 0) {
+    hero.rows.push({ label: 'Crow click bonus', value: `+${pct(clickBonus(s))} of your hit` });
+  }
   const sections = [hero];
 
   const crow = companionDef(s);
@@ -96,6 +130,8 @@ export function characterStats(s: GameState): StatSection[] {
     title: 'Ring & pendant',
     rows: bonuses.length ? bonuses : [{ label: 'Bonuses', value: 'None' }],
   });
+
+  sections.push(passiveSection(s), chanceSection(s));
 
   sections.push({
     title: 'Progress',

@@ -55,6 +55,13 @@ export const MODAL_STYLES = `
 }
 `;
 
+/**
+ * A dialog with a `data-locked` attribute can't be closed by the player: Esc
+ * and a click outside do nothing. Only code can close it (`close()`), e.g. the
+ * stage-pick panel once an option is chosen.
+ */
+const isLocked = (el: HTMLElement): boolean => el.hasAttribute('data-locked');
+
 export type DialogKind = 'modal' | 'popover';
 
 /** Markup for a dialog shell: backdrop/positioner, panel, title and [X]. */
@@ -137,7 +144,7 @@ export class Dialogs {
     const dialog = this.current.el;
     if (e.key === 'Escape') {
       e.preventDefault();
-      this.close();
+      if (!isLocked(dialog)) this.close();
     } else if (e.key === 'Tab') {
       // Keep focus inside the dialog.
       const list = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
@@ -169,6 +176,6 @@ export class Dialogs {
       return;
     }
     // A click outside the panel (and not on its opener, which toggles) closes it.
-    if (!cur.opener.contains(target)) this.close(false);
+    if (!cur.opener.contains(target) && !isLocked(cur.el)) this.close(false);
   };
 }
