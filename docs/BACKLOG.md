@@ -48,13 +48,22 @@ Each line below is its own thread, in this order.
       plus Equip in the shop (PR #9).
 - [x] **Defence upgrade** in Shop → Character:
       `taken = dmg × 100 / (100 + defence)`, at least 1 (PR #26).
-- [ ] **HP and mob damage grow**: the hero's max HP grows (per stage
+- [x] **HP and mob damage grow**: the hero's max HP grows (per stage
       and/or an HP upgrade) and mob damage scales with the stage. Today it's
       almost flat (stage 5 mobs still hit for ~12). Bigger numbers on both
-      sides feel better. Tune with the simulator.
+      sides feel better. Shipped with conservative numbers (PR #63),
+      re-tune with the simulator.
 - [x] **Critical chance**: a crit chance stat (and crit damage ×), bought
       in Shop → Character and found on items. Crits get their own damage
       number style.
+- [ ] **Character select**: more than one playable character, each with
+      different base stats (e.g. HP, damage, defence, crit, attack speed)
+      and its own sprite (owner, 2026-11-09). Design first in
+      `docs/design/characters.md`: how many characters at the start, how a
+      new one is unlocked (stage, ascend, coins), whether progress and items
+      are shared or per character, where you pick (start screen or a Shop /
+      menu tab), and how the saves work (one save with several characters
+      vs. one per character). Needs the simulator for balance.
 - [ ] **Speed upgrade** (attack speed), after ascend lands, because it
       multiplies everything.
 
@@ -89,7 +98,7 @@ Each line below is its own thread, in this order.
       sparkles (PR #15, #17).
 - [ ] Item defence is weak under the % formula (1–4 % per item): raise
       `ITEMS.stats.defence.base`? → **decide after the simulator**.
-- [ ] **Early-game drops come faster**: the first items should drop
+- [x] **Early-game drops come faster**: the first items should drop
       sooner (owner, 2026-11-08). Raise the drop chance or add a guaranteed
       early drop in the first stages, then keep later drops as they are.
       Tune with the simulator.
@@ -125,7 +134,7 @@ Each line below is its own thread, in this order.
 
 ## Active play
 
-- [ ] **Starter quest: buy the companion**. At the start, a small quest
+- [x] **Starter quest: buy the companion**. At the start, a small quest
       ("Buy the crow to start clicking") points to Shop → Companions, so new
       players learn clicking early. Reward or highlight when done.
 - [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
@@ -151,11 +160,11 @@ Each line below is its own thread, in this order.
       accessories are drop-only, never sold (2026-11-02).
 - [x] **Help behind a small ⓘ icon** instead of a menu tab (opens Credits, 0.4.0).
 - [x] **Bulk buy** ×10 / ×100 / MAX (amount button + popover, 0.4.0).
-- [ ] **New menu icon**: change the menu button icon to something like a
+- [x] **New menu icon**: change the menu button icon to something like a
       "rank up" symbol (stacked upward chevrons), pixel style, fits the
       palette (owner, 2026-11-08). Check which button the owner means
       (menu open button vs. tab icons) before drawing.
-- [ ] **Compare before buying a weapon**: the shop shows the current
+- [x] **Compare before buying a weapon**: the shop shows the current
       damage vs. the new weapon's damage (e.g. `12 → 30 (+18)`).
 - [ ] **Equipped first**: equipped weapons (and items) are listed at the
       top in Inventory.

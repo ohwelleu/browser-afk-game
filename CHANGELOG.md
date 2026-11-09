@@ -14,10 +14,26 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Character stats window**: click the HP bar to see DPS, crit chance,
   best weapon and highest stage (#54).
 - Animated **rainbow** colour (flowing gradient for frame, fill, text),
-  with a demo in the debug panel (#50, #55).
+  with a demo in the debug panel (#50, #55, #64). The demo animates even
+  with reduced motion on; the game's own rainbow still respects it.
+- **Stage switch**: previous / next stage buttons next to the stage label.
+  Go back to any earlier stage to farm it, and forward up to your highest
+  stage. Auto-advance is not changed (#58).
+- **Starter quest** for new players: buy the crow, then upgrade it. It
+  points to Shop → Companions and disappears for good when done (#62).
+- **Max HP upgrade** in Shop → Character (+10 HP per level) (#63).
+- **Weapon compare** in Shop → Weapons: current damage vs. the weapon you
+  are about to buy, e.g. `1 → 6 (+5)` (#61).
+- A small hero icon next to the HP bar opens the stats window (#65).
 
 ### Changed
 
+- Mobs hit harder as you go (10.1 mobs hit for ~194 instead of ~56). Save
+  format v7 adds the Max HP level, older saves load with it at 0 (#63).
+- Early items drop sooner: 4 % on stage 1.1, fading to the normal 0.5 % by
+  1.5 (about 25 kills to the first item instead of about 200) (#59).
+- The menu button uses a pixel "rank up" icon instead of ☰ (#60).
+- Item grade colours: A is green, B is blue, on frames and names (#66).
 - The crow's damage now adds a share of the hero's hit, so it stays useful
   later on (#49).
 
