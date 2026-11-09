@@ -36,7 +36,9 @@ describe('characterStats', () => {
   });
 
   it('adds the defence upgrade and shows the damage reduction', () => {
-    const s = characterStats(stateOf({ character: { defenceLevel: 20, critLevel: 0 } }));
+    const s = characterStats(
+      stateOf({ character: { defenceLevel: 20, critLevel: 0, hpLevel: 0 } }),
+    );
     // 20 levels × 5 = 100 defence → half of each hit.
     expect(value(s, 'Hero', 'Defence')).toBe('100 (−50% damage taken)');
   });
@@ -62,7 +64,7 @@ describe('characterStats', () => {
       stateOf({
         weaponLevels: [100, 0, 0, 0, 0],
         items,
-        character: { defenceLevel: 0, critLevel: 10 },
+        character: { defenceLevel: 0, critLevel: 10, hpLevel: 0 },
       }),
     );
     // 10 levels × 1 % + 10 % ring = 20 % at ×2: DPS 100 → 120.
@@ -71,7 +73,9 @@ describe('characterStats', () => {
   });
 
   it('caps the crit chance like the game does', () => {
-    const s = characterStats(stateOf({ character: { defenceLevel: 0, critLevel: 500 } }));
+    const s = characterStats(
+      stateOf({ character: { defenceLevel: 0, critLevel: 500, hpLevel: 0 } }),
+    );
     expect(value(s, 'Hero', 'Crit chance')).toContain(`${CRIT.maxChance * 100}%`);
   });
 

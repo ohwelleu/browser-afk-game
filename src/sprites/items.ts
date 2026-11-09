@@ -145,6 +145,29 @@ export const iconAutoAdvance: SpriteDef = {
   ],
 };
 
+/** Hero stats: head and shoulders. */
+export const iconHero: SpriteDef = {
+  name: 'icon-hero',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '....####....',
+      '...######...',
+      '...######...',
+      '...######...',
+      '....####....',
+      '..########..',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '............',
+    ],
+  ],
+};
+
 /** Music volume: two beamed notes. */
 export const iconMusic: SpriteDef = {
   name: 'icon-music',
@@ -237,13 +260,38 @@ export const iconSfxOff: SpriteDef = {
   ],
 };
 
+/** Menu button: "rank up" symbol, three stacked upward chevrons. */
+export const iconMenu: SpriteDef = {
+  name: 'icon-menu',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '.....##.....',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+      '.....##.....',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+      '.....##.....',
+      '....####....',
+      '...##..##...',
+      '..##....##..',
+    ],
+  ],
+};
+
 export const icons = {
   damage: iconDamage,
   speed: iconSpeed,
   weapon: iconWeapon,
   autoAdvance: iconAutoAdvance,
+  hero: iconHero,
   music: iconMusic,
   sfx: iconSfx,
   musicOff: iconMusicOff,
   sfxOff: iconSfxOff,
+  menu: iconMenu,
 } satisfies Record<string, SpriteDef>;

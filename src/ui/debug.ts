@@ -3,7 +3,7 @@ import {
   companionAutoInterval,
   companionDamage,
   companionMaxSpeedLevel,
-  isBoss,
+  dropChance,
   ITEM_SLOTS,
   ITEM_TIERS,
   ITEMS,
@@ -90,6 +90,7 @@ const FIELDS: Field[] = [
   { key: 'maxDps', label: 'Max DPS', kind: 'int' },
   { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
   { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
+  { key: 'character.hpLevel', label: 'Max HP upgrade level', kind: 'int' },
   { key: 'companion.owned', label: 'Crow owned', kind: 'bool' },
   { key: 'companion.dmgLevel', label: 'Crow damage level', kind: 'int' },
   { key: 'companion.autoUnlocked', label: 'Crow auto attack', kind: 'bool' },
@@ -628,7 +629,7 @@ export function extraStats(data: SaveData, dropForced = false): string {
       : `crow dmg ${formatNumber(dmg)} dps 0 (no auto attack)`;
   }
   const t = gearTotals(data.items);
-  const chance = isBoss(data.stage) ? ITEMS.dropChance.boss : ITEMS.dropChance.mob;
+  const chance = dropChance(data.world, data.stage);
   const drop = dropForced ? '100% (forced)' : percent(chance);
   return (
     `${crow}\n` +

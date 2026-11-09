@@ -28,8 +28,9 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  *    owned weapons and any the current coins reach 90% of
  * 6. + `character.critLevel` (crit chance upgrade); old saves start at 0. Items
  *    may also have a `crit` stat (no migration: old items just lack it)
+ * 7. + `character.hpLevel` (max HP upgrade); old saves start at 0
  */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -51,6 +52,10 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
   5: (d) => {
     const ch = d.character;
     d.character = ch && typeof ch === 'object' && !Array.isArray(ch) ? { ...ch, critLevel: 0 } : ch;
+  },
+  6: (d) => {
+    const ch = d.character;
+    d.character = ch && typeof ch === 'object' && !Array.isArray(ch) ? { ...ch, hpLevel: 0 } : ch;
   },
 };
 
@@ -199,6 +204,7 @@ function loadCharacter(v: unknown): Character {
   return {
     defenceLevel: isInt(c.defenceLevel, 0) ? c.defenceLevel : 0,
     critLevel: isInt(c.critLevel, 0) ? c.critLevel : 0,
+    hpLevel: isInt(c.hpLevel, 0) ? c.hpLevel : 0,
   };
 }
 
@@ -292,6 +298,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     const co = ch as Record<string, unknown>;
     int('character.defenceLevel', co.defenceLevel, 0);
     int('character.critLevel', co.critLevel, 0);
+    int('character.hpLevel', co.hpLevel, 0);
   }
 
   const a = d.audio;
@@ -349,6 +356,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
 const pickCharacter = (c: Character): Character => ({
   defenceLevel: c.defenceLevel,
   critLevel: c.critLevel,
+  hpLevel: c.hpLevel,
 });
 
 const pickCompanion = (c: Companion): Companion => ({

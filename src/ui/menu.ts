@@ -8,6 +8,7 @@ import {
   critFromLevel,
   defenceFromLevel,
   defenceReduction,
+  hpFromLevel,
   STAGES_PER_WORLD,
   weaponDamage,
   WEAPONS,
@@ -23,6 +24,7 @@ import {
   critChance,
   heroDamage,
   heroDefence,
+  heroMaxHp,
   buyWeapon,
   canBuyCompanion,
   canUpgradeCompanion,
@@ -43,6 +45,7 @@ import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '..
 import { createShow, html, setClass, setFlag } from './dom';
 import { musicCreditsHtml } from './credits';
 import { createGearView, GEAR_HTML } from './gear';
+import { showWeaponCompare, WEAPON_COMPARE_HTML } from './weapon-compare';
 import {
   AMOUNT_BUTTON,
   AMOUNT_POPOVER,
@@ -240,6 +243,8 @@ export type Menu = {
   /** Re-renders the pixel icons (theme change). */
   refreshIcons(): void;
   select(tab: MenuTab, focus?: boolean): void;
+  /** Selects a sub tab, e.g. `selectSub('shop', 'companions')`. */
+  selectSub(tab: string, sub: string, focus?: boolean): void;
 };
 
 /** Icons are drawn at a whole-number scale only (pixel art). */
@@ -307,6 +312,21 @@ const critPct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 
 const CHARACTER_ROWS: readonly CharacterRow[] = [
   {
+    id: 'hp',
+    name: 'Max HP',
+    level: (s) => s.character.hpLevel,
+    stat: (s) => {
+      const now = heroMaxHp(s);
+      const next = now + hpFromLevel(s.character.hpLevel + 1) - hpFromLevel(s.character.hpLevel);
+      return {
+        now: formatNumber(now),
+        next: formatNumber(next),
+        effect: `+${formatNumber(next - now)} HP per level`,
+      };
+    },
+    target: { type: 'hp' },
+  },
+  {
     id: 'defence',
     name: 'Defence',
     level: (s) => s.character.defenceLevel,
@@ -371,7 +391,8 @@ export const SHOP = {
     'shop-list',
     `<span class="shop-dmg"></span><span class="shop-price-text"></span>` +
       `<span class="shop-lv">Lv <span class="shop-level"></span></span>` +
-      `<span class="shop-up-dmg">Damage <span class="shop-cur"></span> → <span class="dmg-next shop-next"></span></span>`,
+      `<span class="shop-up-dmg">Damage <span class="shop-cur"></span> → <span class="dmg-next shop-next"></span></span>` +
+      WEAPON_COMPARE_HTML,
     (i) =>
       `<span class="tag on shop-equipped">Equipped</span>` +
       `<button type="button" data-act="buy" data-tier="${i}" class="shop-buy">Buy ${price('shop-price')}</button>` +
@@ -770,6 +791,8 @@ export function createMenu(deps: MenuDeps): Menu {
       show(lockTag, locked ? `Buy ${WEAPONS[i - 1].name} first` : '', 'title');
       const buy = li.querySelector<HTMLButtonElement>('.shop-buy')!;
       setFlag(buy, 'hidden', !isNext);
+      setFlag(li.querySelector('.shop-compare')!, 'hidden', !isNext);
+      if (isNext) showWeaponCompare(li, state, i, show);
       setFlag(buy, 'disabled', isNext && !affordable);
       show(buy, isNext && !affordable ? 'Not enough coins' : '', 'title');
     }
@@ -880,5 +903,6 @@ export function createMenu(deps: MenuDeps): Menu {
     refresh,
     refreshIcons,
     select,
+    selectSub,
   };
 }

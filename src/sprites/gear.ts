@@ -8,7 +8,7 @@ import type { Point, SpriteDef } from './types';
 // the icon keeps them from merging. The S sparkles sit in that gap and in
 // the icon's empty corners, so they show around any icon.
 //
-// Colours are existing palette slots for now: C fg, B blue, A purple,
+// Colours are existing palette slots for now: C fg, B blue, A green,
 // S yellow + orange. The palette task picks the final rarity colours.
 
 export type ItemTier = 'C' | 'B' | 'A' | 'S';
@@ -117,29 +117,29 @@ export const itemFrameB: SpriteDef = {
   ],
 };
 
-/** Tier A frame: purple outline, corner brackets, gold studs on each side. */
+/** Tier A frame: green outline, corner brackets, gold studs on each side. */
 export const itemFrameA: SpriteDef = {
   name: 'item-frame-a',
   width: 16,
   height: 16,
   frames: [
     [
-      '.PPPPPPYYPPPPPP.',
-      'PPP..........PPP',
-      'PP............PP',
-      'P..............P',
-      'P..............P',
-      'P..............P',
-      'P..............P',
+      '.GGGGGGYYGGGGGG.',
+      'GGG..........GGG',
+      'GG............GG',
+      'G..............G',
+      'G..............G',
+      'G..............G',
+      'G..............G',
       'Y..............Y',
       'Y..............Y',
-      'P..............P',
-      'P..............P',
-      'P..............P',
-      'P..............P',
-      'PP............PP',
-      'PPP..........PPP',
-      '.PPPPPPYYPPPPPP.',
+      'G..............G',
+      'G..............G',
+      'G..............G',
+      'G..............G',
+      'GG............GG',
+      'GGG..........GGG',
+      '.GGGGGGYYGGGGGG.',
     ],
   ],
 };

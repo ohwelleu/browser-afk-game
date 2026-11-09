@@ -140,7 +140,7 @@ describe('writeSave / loadSave', () => {
       maxDps: 42,
       items: st.items,
       companion: null,
-      character: { defenceLevel: 0, critLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -370,7 +370,7 @@ describe('save migration', () => {
       version: SAVE_VERSION,
       coins: 5,
       companion: null,
-      character: { defenceLevel: 0, critLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       revealedWeapons: [true, false, false, false, false],
     };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
@@ -419,15 +419,19 @@ describe('save migration', () => {
 
 describe('character upgrades in the save (v4)', () => {
   it('keeps the defence level across a save round trip', () => {
-    const st = createState({ ...newProgress(), character: { defenceLevel: 7, critLevel: 3 } });
+    const st = createState({
+      ...newProgress(),
+      character: { defenceLevel: 7, critLevel: 3, hpLevel: 4 },
+    });
     const data = toSaveData(st, audio, '0.4.0');
     expect(data.version).toBe(SAVE_VERSION);
-    expect(data.character).toEqual({ defenceLevel: 7, critLevel: 3 });
+    expect(data.character).toEqual({ defenceLevel: 7, critLevel: 3, hpLevel: 4 });
     const s = memory();
     writeSave(s, 'k', data);
     expect(loadSave(s, 'k').saved!.progress.character).toEqual({
       defenceLevel: 7,
       critLevel: 3,
+      hpLevel: 4,
     });
   });
 
@@ -436,7 +440,7 @@ describe('character upgrades in the save (v4)', () => {
     expect(migrateSave(v3)).toMatchObject({
       ...v3,
       version: SAVE_VERSION,
-      character: { defenceLevel: 0, critLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
     });
   });
 
@@ -444,11 +448,16 @@ describe('character upgrades in the save (v4)', () => {
     const char = (character: unknown) =>
       loadSave(memory({ k: JSON.stringify({ version: 3, character }) }), 'k').saved!.progress
         .character;
-    expect(char(undefined)).toEqual({ defenceLevel: 0, critLevel: 0 });
-    expect(char({ defenceLevel: -2 })).toEqual({ defenceLevel: 0, critLevel: 0 });
-    expect(char({ defenceLevel: 3 })).toEqual({ defenceLevel: 3, critLevel: 0 });
-    expect(char({ defenceLevel: 3, critLevel: 5 })).toEqual({ defenceLevel: 3, critLevel: 5 });
-    expect(char({ critLevel: 1.5 })).toEqual({ defenceLevel: 0, critLevel: 0 });
+    expect(char(undefined)).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
+    expect(char({ defenceLevel: -2 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
+    expect(char({ defenceLevel: 3 })).toEqual({ defenceLevel: 3, critLevel: 0, hpLevel: 0 });
+    expect(char({ defenceLevel: 3, critLevel: 5, hpLevel: 2 })).toEqual({
+      defenceLevel: 3,
+      critLevel: 5,
+      hpLevel: 2,
+    });
+    expect(char({ critLevel: 1.5 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
+    expect(char({ hpLevel: 1.5 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
   });
 });
 
@@ -464,7 +473,7 @@ describe('revealed weapons in the save (v5)', () => {
   it('v4 → v5 reveals owned weapons plus what the coins reach 90% of', () => {
     expect(migrateSave(v4(0))).toEqual({
       ...v4(0),
-      character: { defenceLevel: 0, critLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       version: SAVE_VERSION,
       revealedWeapons: [true, true, false, false, false],
     });
@@ -516,5 +525,16 @@ describe('revealed weapons in the save (v5)', () => {
     expect(rev(undefined)).toEqual([true, true, false, false, false]);
     expect(rev('x')).toEqual([true, true, false, false, false]);
     expect(rev([false, false, false, true])).toEqual([true, true, false, true, false]);
+  });
+});
+
+describe('max HP upgrade in the save (v7)', () => {
+  it('v6 → v7 adds hpLevel 0 and keeps the other levels', () => {
+    const v6 = { version: 6, coins: 9, character: { defenceLevel: 3, critLevel: 2 } };
+    expect(migrateSave(v6)).toEqual({
+      ...v6,
+      version: SAVE_VERSION,
+      character: { defenceLevel: 3, critLevel: 2, hpLevel: 0 },
+    });
   });
 });

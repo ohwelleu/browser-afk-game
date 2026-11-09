@@ -5,7 +5,7 @@
  */
 import {
   defendedDamage,
-  isBoss,
+  dropChance,
   ITEM_STATS,
   ITEMS,
   itemRarityWeights,
@@ -98,7 +98,7 @@ export type DropResult = { gear: Gear; item: Item | null; soldFor: number };
  */
 export function rollDrop(g: Gear, world: number, stage: number, force = false): DropResult {
   const rng: Rng = { state: g.rng };
-  const chance = isBoss(stage) ? ITEMS.dropChance.boss : ITEMS.dropChance.mob;
+  const chance = dropChance(world, stage);
   if (nextFloat(rng) >= chance && !force)
     return { gear: { ...g, rng: rng.state }, item: null, soldFor: 0 };
   const item = rollItem(rng, g.nextId, world, stage, gearTotals(g).itemFind);

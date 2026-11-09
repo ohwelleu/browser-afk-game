@@ -141,4 +141,20 @@ describe('RAINBOW_STYLES', () => {
   it('stops the animation for prefers-reduced-motion', () => {
     expect(RAINBOW_STYLES).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation: none/);
   });
+
+  it('keeps the gradient still (centred) under reduced motion in the game rules', () => {
+    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('@media (prefers-reduced-motion'));
+    expect(reduced).toContain('background-position: 50% 50%');
+    for (const sel of [
+      '.rainbow',
+      '.rainbow-fill',
+      '.rainbow-frame::before',
+      '.rainbow-glow::after',
+    ])
+      expect(reduced).toContain(sel);
+  });
+
+  it('has no debug-demo override: that lives only in the demo styles', () => {
+    expect(RAINBOW_STYLES).not.toContain('dbg-');
+  });
 });

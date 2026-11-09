@@ -85,6 +85,7 @@ img { image-rendering: pixelated; display: block; }
   background: transparent;
 }
 .hp:hover:not(:disabled) { color: var(--_fg); background: transparent; border-color: var(--_fg); }
+.hp:hover:not(:disabled) img, .hp:focus-visible img { filter: none; }
 .hp:focus-visible { color: var(--_fg); background: transparent; outline: 3px solid var(--_yellow); outline-offset: 1px; }
 .bar { display: block; width: 132px; height: 16px; border: 3px solid var(--_fg); padding: 2px; }
 .bar-fill { display: block; height: 100%; background: var(--_green); }

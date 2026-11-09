@@ -19,20 +19,20 @@ describe('balance', () => {
 
   it('mob scaling follows the plan formulas', () => {
     expect(mobHp(2, 2)).toBe(Math.ceil(10 * 1.28 ** 7));
-    expect(mobDamage(2, 2)).toBe(Math.ceil(4 * 1.05 ** 7));
+    expect(mobDamage(2, 2)).toBe(Math.ceil(5 * 1.07 ** 7));
     expect(mobCoins(2, 2)).toBe(Math.ceil(4 * 1.3 ** 7));
   });
 
   it('boss multipliers', () => {
     expect(mobHp(2, 6)).toBe(Math.ceil(10 * 1.28 ** 11 * 5));
-    expect(mobDamage(2, 6)).toBe(Math.ceil(4 * 1.05 ** 11 * 2));
+    expect(mobDamage(2, 6)).toBe(Math.ceil(5 * 1.07 ** 11 * 2));
     expect(mobCoins(2, 6)).toBe(Math.ceil(4 * 1.3 ** 11 * 5));
     expect(mobKind(6)).toBe('boss');
   });
 
-  it('world 1 is a tutorial: a fresh stick needs 2-3 hits, damage halved, coins normal', () => {
+  it('world 1 is a tutorial: a fresh stick needs 2-3 hits, damage ×0.8, coins normal', () => {
     expect([1, 2, 3, 4, 5].map((stage) => mobHp(1, stage))).toEqual([2, 2, 2, 3, 3]);
-    expect(mobDamage(1, 1)).toBe(2);
+    expect(mobDamage(1, 1)).toBe(4);
     expect(mobCoins(1, 1)).toBe(4);
   });
 

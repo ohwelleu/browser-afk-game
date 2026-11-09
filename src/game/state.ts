@@ -22,6 +22,7 @@ import {
   defenceFromLevel,
   DUEL,
   HERO_MAX_HP,
+  hpFromLevel,
   isBoss,
   MOB_KINDS,
   mobCoins,
@@ -82,7 +83,7 @@ export type Companion = {
 };
 
 /** Character upgrade levels (0 = not bought). Saved as is. */
-export type Character = { defenceLevel: number; critLevel: number };
+export type Character = { defenceLevel: number; critLevel: number; hpLevel: number };
 
 export type GameEvent =
   | { type: 'sfx'; name: SfxName }
@@ -170,7 +171,7 @@ export function newProgress(): Progress {
     maxDps: 0,
     items: newGear(),
     companion: null,
-    character: { defenceLevel: 0, critLevel: 0 },
+    character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
   };
 }
 
@@ -193,7 +194,7 @@ export function createState(progress: Progress = newProgress()): GameState {
     companionClickTick: null,
     companionAutoCharge: 0,
     // The first duel after Start/Continue always gets the full intro.
-    duel: newDuel(progress.world, progress.stage, true),
+    duel: newDuel(progress.world, progress.stage, true, heroMaxHp(progress)),
     events: [],
   };
 }
@@ -201,7 +202,12 @@ export function createState(progress: Progress = newProgress()): GameState {
 /** Crit RNG seed for a loaded game: the drop seed, scrambled so the two streams differ. */
 const critSeed = (g: Pick<Gear, 'rng'>): number => (g.rng ^ 0x9e3779b9) >>> 0;
 
-export function newDuel(world: number, stage: number, fullIntro: boolean): Duel {
+export function newDuel(
+  world: number,
+  stage: number,
+  fullIntro: boolean,
+  maxHp: number = HERO_MAX_HP,
+): Duel {
   const hp = mobHp(world, stage);
   const introTicks = secToTicks(fullIntro ? DUEL.intro : DUEL.shortIntro);
   return {
@@ -210,7 +216,7 @@ export function newDuel(world: number, stage: number, fullIntro: boolean): Duel 
     phaseTick: 0,
     introTicks,
     outcome: null,
-    heroHp: HERO_MAX_HP,
+    heroHp: maxHp,
     mob: {
       kind: mobKind(stage),
       hp,
@@ -247,6 +253,11 @@ export function heroDamage(
  */
 export function heroDps(s: Pick<GameState, 'equipped' | 'weaponLevels'>): number {
   return safeInt(heroDamage(s) / weaponAttack(s.equipped).interval);
+}
+
+/** Max HP: the base plus the coin upgrade. */
+export function heroMaxHp(s: Partial<Pick<GameState, 'character'>>): number {
+  return safeInt(HERO_MAX_HP + hpFromLevel(s.character?.hpLevel ?? 0));
 }
 
 /** Total defence: equipped items plus the coin upgrade. */
@@ -330,7 +341,7 @@ function step(s: GameState): void {
         const level = stageLevel(s.world, s.stage);
         const isNew = level > s.best;
         s.best = Math.max(s.best, level);
-        s.duel = newDuel(s.world, s.stage, isNew);
+        s.duel = newDuel(s.world, s.stage, isNew, heroMaxHp(s));
         if (isBoss(s.stage)) s.events.push({ type: 'sfx', name: 'bossAppear' });
       }
       return;
@@ -497,6 +508,7 @@ export type UpgradeTarget =
   | { type: 'weapon'; tier: number }
   | { type: 'defence' }
   | { type: 'crit' }
+  | { type: 'hp' }
   | { type: 'companion'; kind: 'dmg' | 'speed' };
 
 type Track = {
@@ -536,6 +548,17 @@ function track(
         costAt: (l) => characterCost('crit', l),
         set: (n, l) => {
           n.character = { ...n.character, critLevel: l };
+        },
+      };
+    case 'hp':
+      return {
+        level: s.character.hpLevel,
+        costAt: (l) => characterCost('hp', l),
+        set: (n, l) => {
+          // The new max HP is healed in too, so the bar doesn't lag behind mid-duel.
+          const before = heroMaxHp(n);
+          n.character = { ...n.character, hpLevel: l };
+          if (n.duel.heroHp > 0) n.duel.heroHp += heroMaxHp(n) - before;
         },
       };
     case 'companion': {
@@ -756,12 +779,18 @@ export const defenceCost = (s: Pick<GameState, 'character'>): number =>
 export const critCost = (s: Pick<GameState, 'character'>): number =>
   characterCost('crit', s.character.critLevel);
 
+export const hpCost = (s: Pick<GameState, 'character'>): number =>
+  characterCost('hp', s.character.hpLevel);
+
 export function canBuyDefence(s: GameState): boolean {
   return s.coins >= defenceCost(s);
 }
 
 /** Buys one defence level. */
 export const buyDefence = (s: GameState): GameState => buyUpgrades(s, { type: 'defence' }, 1);
+
+/** Buys one max HP level. */
+export const buyHp = (s: GameState): GameState => buyUpgrades(s, { type: 'hp' }, 1);
 
 /** Buys one crit chance level. */
 export const buyCrit = (s: GameState): GameState => buyUpgrades(s, { type: 'crit' }, 1);

@@ -65,14 +65,14 @@ export const WEAPON_REVEAL_FRACTION = 0.9;
 export const UPGRADE_GROWTH = 1.15;
 
 const MOB_HP = { base: 10, growth: 1.28, boss: 5 };
-const MOB_DMG = { base: 4, growth: 1.05, boss: 2 };
+const MOB_DMG = { base: 5, growth: 1.07, boss: 2 };
 const MOB_COINS = { base: 4, growth: 1.3, boss: 5 };
 /**
  * World 1 is a tutorial: mob HP and damage × these. HP is cut hard so a fresh
  * stick (1 dmg) kills a normal mob in 2–3 hits (1.1–1.5: 2, 2, 2, 3, 3 HP).
  */
 const WORLD_1_HP_MULT = 0.11;
-const WORLD_1_DMG_MULT = 0.5;
+const WORLD_1_DMG_MULT = 0.8;
 
 /**
  * Integer guard for HP, damage and coins: NaN → 0, ±Infinity and anything
@@ -146,6 +146,11 @@ export const ITEMS = {
   rarity: { C: 70, B: 22, A: 7, S: 1 } as Record<ItemTier, number>,
   /** Chance per kill that something drops at all (item find never changes this). */
   dropChance: { mob: 0.005, boss: 0.03 },
+  /**
+   * Early-game boost for mobs in world 1: `mob` chance on stage 1, fading
+   * linearly down to `dropChance.mob` on stage `untilStage` and after.
+   */
+  earlyDrop: { world: 1, mob: 0.04, untilStage: 5 },
   /** Every stat value is × a uniform roll in [min, max). */
   roll: { min: 0.8, max: 1.2 },
   /**
@@ -169,6 +174,16 @@ export const ITEMS = {
   /** Sell price = `mobCoins(drop stage) × sellMult × tierMult`. */
   sellMult: 5,
 };
+
+/** Chance per kill that something drops on `world.stage` (boosted for mobs early in world 1). */
+export function dropChance(world: number, stage: number): number {
+  const { mob, boss } = ITEMS.dropChance;
+  if (isBoss(stage)) return boss;
+  const e = ITEMS.earlyDrop;
+  if (world !== e.world || stage >= e.untilStage) return mob;
+  const t = (Math.max(1, stage) - 1) / (e.untilStage - 1); // 0 on stage 1 → 1 on `untilStage`
+  return e.mob + (mob - e.mob) * t;
+}
 
 /** One stat roll on an item from stage level `L`. `roll` is the 0.8–1.2 factor. */
 export function itemStatValue(stat: ItemStat, L: number, tier: ItemTier, roll: number): number {
@@ -299,12 +314,12 @@ export function companionSpeedCost(def: CompanionDef, level: number): number {
 
 // ── Character upgrades (bought with coins in Shop → Character) ─────────────
 
-export type CharacterUpgradeId = 'defence' | 'crit';
+export type CharacterUpgradeId = 'defence' | 'crit' | 'hp';
 
 /**
  * Each upgrade: cost of buying level `n` is `base × growth^(n−1)` (level 0 =
- * not bought), and every level adds `perLevel` to the stat. HP and speed
- * go here later.
+ * not bought), and every level adds `perLevel` to the stat. Speed goes here
+ * later.
  */
 export const CHARACTER: Record<
   CharacterUpgradeId,
@@ -314,6 +329,8 @@ export const CHARACTER: Record<
   defence: { base: 50, growth: 1.3, perLevel: 5 },
   // perLevel is a fraction: 0.01 = +1 % crit chance per level.
   crit: { base: 100, growth: 1.3, perLevel: 0.01 },
+  // Flat max HP on top of `HERO_MAX_HP`: +10 per level (10 % of the starting 100).
+  hp: { base: 30, growth: 1.3, perLevel: 10 },
 };
 
 // ── Critical hits (hero hits only for now) ─────────────────────────────────
@@ -342,6 +359,10 @@ export function characterCost(id: CharacterUpgradeId, level: number): number {
   if (!(level >= 0)) return Number.MAX_SAFE_INTEGER;
   return safeInt(Math.ceil(p.base * p.growth ** level));
 }
+
+/** Extra max HP from the coin upgrade at `level`. */
+export const hpFromLevel = (level: number): number =>
+  safeInt(CHARACTER.hp.perLevel * Math.max(0, level));
 
 /** Defence points from the coin upgrade at `level`. */
 export const defenceFromLevel = (level: number): number =>
