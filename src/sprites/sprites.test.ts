@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ITEM_SLOTS } from '../game/balance';
 import * as S from './index';
 import type { SpriteDef, WeaponDef } from './types';
 import { validateAnchors, validateSprite, validateWeapon } from './validate';
@@ -150,6 +151,12 @@ describe('gear', () => {
       expect(S.ITEM_ICON_OFFSET.x + icon.width).toBeLessThanOrEqual(16 - S.ITEM_ICON_OFFSET.x);
       expect(S.ITEM_ICON_OFFSET.y + icon.height).toBeLessThanOrEqual(16 - S.ITEM_ICON_OFFSET.y);
     }
+  });
+
+  it('has a 12×12 icon for every item slot', () => {
+    expect(Object.keys(S.itemIcons).sort()).toEqual([...ITEM_SLOTS].sort());
+    for (const icon of Object.values(S.itemIcons))
+      expect([icon.width, icon.height]).toEqual([12, 12]);
   });
 
   it('only the S frame is animated', () => {

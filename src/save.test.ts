@@ -301,7 +301,23 @@ describe('items in the save (v2)', () => {
       stage: 6,
       stats: { defence: 1 },
     };
-    const items = { ring, pendant: null, bag: [bagItem], rng: 42, nextId: 6 };
+    const earring: Item = {
+      id: 4,
+      slot: 'earring',
+      tier: 'A',
+      world: 2,
+      stage: 3,
+      stats: { crit: 0.03, itemFind: 0.08, damage: 2 },
+    };
+    const belt: Item = {
+      id: 2,
+      slot: 'belt',
+      tier: 'S',
+      world: 3,
+      stage: 2,
+      stats: { defence: 5, damage: 9, speed: 0.04, crit: 0.04 },
+    };
+    const items = { ring, pendant: null, earring, belt, bag: [bagItem], rng: 42, nextId: 6 };
     const st = { ...createState(), items };
     const s = memory();
     writeSave(s, 'k', toSaveData(st, audio, '0.2.0'));
@@ -320,13 +336,38 @@ describe('items in the save (v2)', () => {
     const items = {
       ring: null,
       pendant: ss,
+      earring: { ...ss, id: 3, slot: 'earring' as const },
+      belt: { ...ss, id: 4, slot: 'belt' as const },
       bag: [{ ...ss, id: 2, slot: 'ring' as const }],
       rng: 9,
-      nextId: 3,
+      nextId: 5,
     };
     const s = memory();
     writeSave(s, 'k', toSaveData({ ...createState(), items }, audio, '0.2.0'));
     expect(loadSave(s, 'k').saved!.progress.items).toEqual(items);
+  });
+
+  it('loads an older save that has ring and pendant but no earring or belt', () => {
+    const item = { id: 1, slot: 'ring', tier: 'C', world: 1, stage: 1, stats: { damage: 1 } };
+    const raw = JSON.stringify({
+      items: { ring: item, pendant: null, bag: [], rng: 5, nextId: 2 },
+    });
+    const { items } = load(raw).progress;
+    expect(items.ring?.id).toBe(1);
+    expect(items.earring).toBeNull();
+    expect(items.belt).toBeNull();
+    expect(items.nextId).toBe(2);
+  });
+
+  it('keeps an earring and belt only in their own slot', () => {
+    const e = { id: 1, slot: 'earring', tier: 'C', world: 1, stage: 1, stats: { crit: 0.02 } };
+    const b = { id: 2, slot: 'belt', tier: 'C', world: 1, stage: 1, stats: { defence: 1 } };
+    const raw = JSON.stringify({
+      items: { ring: null, pendant: null, earring: b, belt: e, bag: [], rng: 5, nextId: 3 },
+    });
+    const { items } = load(raw).progress;
+    expect(items.earring).toBeNull();
+    expect(items.belt).toBeNull();
   });
 
   it('migrates a v1 save (no items) to empty gear and keeps the rest', () => {

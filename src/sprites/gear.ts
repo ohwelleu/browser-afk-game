@@ -1,6 +1,6 @@
 import type { Point, SpriteDef } from './types';
 
-// Gear: ring and pendant icons plus the tier frames they sit in
+// Gear: ring, pendant, earring and belt icons plus the tier frames they sit in
 // (docs/design/active-play.md, section 2). Art only, no game logic.
 //
 // How to draw one item: draw the tier frame (16×16), then the item icon
@@ -12,7 +12,7 @@ import type { Point, SpriteDef } from './types';
 // S yellow + orange. The palette task picks the final rarity colours.
 
 export type ItemTier = 'C' | 'B' | 'A' | 'S';
-export type ItemSlot = 'ring' | 'pendant';
+export type ItemSlot = 'ring' | 'pendant' | 'earring' | 'belt';
 
 /** Where the 12×12 icon goes inside a 16×16 frame. */
 export const ITEM_ICON_OFFSET: Point = { x: 2, y: 2 };
@@ -59,6 +59,52 @@ export const itemPendant: SpriteDef = {
       '...YGGGGY...',
       '....YGGY....',
       '.....YY.....',
+    ],
+  ],
+};
+
+/** Earring, 12×12: gold hoop with a pink drop hanging from it. */
+export const itemEarring: SpriteDef = {
+  name: 'item-earring',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '....YYYY....',
+      '...Y....Y...',
+      '...Y....Y...',
+      '...Y....Y...',
+      '....Y..Y....',
+      '.....YY.....',
+      '.....OO.....',
+      '....OKKO....',
+      '...OKKKKO...',
+      '...OKKKKO...',
+      '....OKKO....',
+      '.....OO.....',
+    ],
+  ],
+};
+
+/** Belt, 12×12: dark strap with holes and a gold buckle. */
+export const itemBelt: SpriteDef = {
+  name: 'item-belt',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '............',
+      '............',
+      '...YYYYYY...',
+      '####Y..Y####',
+      '#o##YO.Y##o#',
+      '#o##YO.Y##o#',
+      '####Y..Y####',
+      '...YYYYYY...',
+      '............',
+      '............',
+      '............',
     ],
   ],
 };
@@ -314,6 +360,8 @@ export const itemSlotEmpty: SpriteDef = {
 export const itemIcons = {
   ring: itemRing,
   pendant: itemPendant,
+  earring: itemEarring,
+  belt: itemBelt,
 } satisfies Record<ItemSlot, SpriteDef>;
 
 export const itemFrames = {

@@ -13,6 +13,7 @@ import {
 } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
+import type { RainCounts } from '../game/rain';
 import { critChance, heroDamage, heroDefence } from '../game/state';
 import {
   crispSize,
@@ -26,6 +27,7 @@ import {
   type FontCandidate,
 } from './font';
 import { mountRainbowDemo, RAINBOW_DEMO_HTML, RAINBOW_DEMO_STYLES } from './rainbow-demo';
+import { mountRainDemo, RAIN_DEMO_HTML, RAIN_DEMO_STYLES } from './rain-demo';
 import {
   backupKey,
   decodeSave,
@@ -45,6 +47,8 @@ export type DebugApi = {
   apply(data: unknown): string[] | null;
   /** Clears the save and restarts from 1.1. */
   reset(): void;
+  /** Shows this item rain instead of the equipped items' (`null` = back to the items). */
+  previewRain?(counts: RainCounts | null): void;
 };
 
 /** Optional wiring; the defaults fit the demo page. */
@@ -147,7 +151,7 @@ const STYLES = `
 .dbg-err { margin: 0; color: var(--_red); white-space: pre-wrap; }
 .dbg-ok { margin: 0; color: var(--_green); }
 .dbg [hidden] { display: none; }
-${RAINBOW_DEMO_STYLES}`;
+${RAINBOW_DEMO_STYLES}${RAIN_DEMO_STYLES}`;
 
 /**
  * Bottom-left debugger: live stats, reset, an editor for every saved value
@@ -184,7 +188,7 @@ export function createDebugPanel(
       <details class="dbg-compare">
         <summary>Compare all fonts</summary>
         <div class="dbg-compare-list">${FONT_CANDIDATES.map(compareRowHtml).join('')}</div>
-      </details>${RAINBOW_DEMO_HTML}
+      </details>${RAINBOW_DEMO_HTML}${RAIN_DEMO_HTML}
       <div class="dbg-row">
         <button type="button" data-dbg="load">Load current</button>
         <button type="button" data-dbg="reset">Reset all progress</button>
@@ -276,6 +280,7 @@ export function createDebugPanel(
   });
   pickFont(findFont(storage?.getItem(FONT_KEY) ?? null), false);
   const stopRainbow = mountRainbowDemo(el);
+  mountRainDemo(el, (counts) => api.previewRain?.(counts));
 
   function fieldHtml(f: Field): string {
     const id = `dbg-${f.key.replace(/\./g, '-')}`;

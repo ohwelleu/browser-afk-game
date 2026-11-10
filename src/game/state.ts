@@ -121,7 +121,7 @@ export type GameState = {
   deaths: number;
   /** Highest `heroDps` ever reached (local stat; the future ranking value). */
   maxDps: number;
-  /** Ring, pendant, bag and the drop RNG (game/items.ts). */
+  /** The four equipped slots, the bag and the drop RNG (game/items.ts). */
   items: Gear;
   companions: CompanionLevels;
   /** Coin upgrades bought in Shop → Character. */

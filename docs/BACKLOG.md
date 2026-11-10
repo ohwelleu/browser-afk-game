@@ -116,6 +116,17 @@ Each line below is its own thread, in this order.
       `rainbowStep`/`rainbowColor` from `src/ui/rainbow.ts`, and shows still
       or off under `prefers-reduced-motion`. Open: does a worn S tier item
       also get a (smaller) effect, and is there a debug toggle to preview it.
+- [ ] **Rainbow cycle 5 s** (owner, 2026-11-09): the default cycle is 20 s
+      (`RAINBOW_PERIOD_MS` in `src/ui/rainbow.ts`, also the CSS fallback and
+      the slider default in `src/ui/rainbow-demo.ts`). Make it 5 s
+      everywhere so the rainbow flows visibly.
+- [ ] **Check that item frames match the debugger**: S+ items in the
+      Inventory list and the drop toast should look exactly like the
+      S-tier item frame in the debug panel's Rainbow section (same
+      `rainbow-frame rainbow-glow` border and glow, same thickness, nothing
+      from the normal `.tier` border showing through, also in the compact
+      layout and the dark theme). Items are drop-only, so "the shop" means
+      Inventory and the toast. Fix any difference.
 - [x] **Character stats window**: damage per second, crit chance, best
       weapon (name and tier) and highest stage. Starts after crit chance
       lands. (Same item as the stats panel below.)
@@ -160,6 +171,13 @@ Each line below is its own thread, in this order.
       rerolls, what happens on death and on ascend, and whether it pauses
       the fight. Needs the simulator and ties in with ascend. Then build in
       small PRs (choice logic and save, pick UI, first set of options).
+- [ ] **More pick options** for the stage picks (owner, 2026-11-09). The
+      first version offers: attack speed, critical strike, defence, click
+      damage, additional attack. Add more, one table row each: max HP, HP
+      regen, damage %, coin bonus, item find, companion damage, lifesteal,
+      thorns (reflect damage), dodge, boss damage, crit damage ×, extra
+      starting coins after ascend. Each needs tier values (C B A S S+) and a
+      line in the stats window.
 - [ ] **Skills**: big effects on long cooldowns (e.g. 60 s), activated by
       clicking their icon. Unlocked or upgraded in the shop.
 
