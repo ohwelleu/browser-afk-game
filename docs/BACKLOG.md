@@ -159,6 +159,13 @@ Each line below is its own thread, in this order.
 - [x] **Starter quest: buy the companion**. At the start, a small quest
       ("Buy the crow to start clicking") points to Shop → Companions, so new
       players learn clicking early. Reward or highlight when done.
+- [ ] **Rearrange the quest** (owner, 2026-11-10): rework how the starter
+      quest is laid out (where the quest button sits, how its steps and
+      path read). Ask the owner what exactly to move before building.
+- [ ] **Quest path: animated arrow** (owner, 2026-11-10): the quest path
+      (menu button → Shop → Companions sub tab) is shown with an animated
+      pixel arrow pointing at the next thing to tap, instead of today's
+      blinking yellow border (`.quest-hint` in `src/ui/quest.ts`).
 - [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
       (PR #20). Still open: click the mob for bonus damage (cap clicks per second so
       autoclickers don't break the balance).
