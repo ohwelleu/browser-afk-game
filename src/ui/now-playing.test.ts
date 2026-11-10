@@ -64,8 +64,8 @@ describe('createNowPlaying', () => {
 });
 
 describe('styles', () => {
-  it('has a reduced-motion rule and does not take clicks', () => {
-    expect(NOW_PLAYING_STYLES).toContain('prefers-reduced-motion: reduce');
+  it('has a reduced-motion rule (Animations setting) and does not take clicks', () => {
+    expect(NOW_PLAYING_STYLES).toContain('.motion-reduced .now-playing { transition: none; }');
     expect(NOW_PLAYING_STYLES).toContain('pointer-events: none');
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  goldGradient,
   RAINBOW_HUES,
   RAINBOW_LIGHTNESS,
   RAINBOW_PERIOD_MS,
@@ -138,12 +139,13 @@ describe('RAINBOW_STYLES', () => {
     expect(RAINBOW_STYLES).toMatch(/\.rainbow \{[^}]*background-clip: text/);
   });
 
-  it('stops the animation for prefers-reduced-motion', () => {
-    expect(RAINBOW_STYLES).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation: none/);
+  it('follows the Animations setting, not the OS: no prefers-reduced-motion query', () => {
+    expect(RAINBOW_STYLES).not.toContain('prefers-reduced-motion');
   });
 
-  it('keeps the gradient still (centred) under reduced motion in the game rules', () => {
-    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('@media (prefers-reduced-motion'));
+  it('keeps the gradient still (centred) when the game box has .motion-reduced', () => {
+    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('.motion-reduced'));
+    expect(reduced).toMatch(/animation: none/);
     expect(reduced).toContain('background-position: 50% 50%');
     for (const sel of [
       '.rainbow',
@@ -151,10 +153,32 @@ describe('RAINBOW_STYLES', () => {
       '.rainbow-frame::before',
       '.rainbow-glow::after',
     ])
-      expect(reduced).toContain(sel);
+      expect(reduced).toContain(`.motion-reduced ${sel}`);
   });
 
   it('has no debug-demo override: that lives only in the demo styles', () => {
     expect(RAINBOW_STYLES).not.toContain('dbg-');
+  });
+});
+
+describe('gold flow (S tier)', () => {
+  it('is the same flow with the palette orange ↔ yellow as the gradient', () => {
+    const g = goldGradient();
+    expect(g).toMatch(
+      /^radial-gradient\(circle, var\(--_orange\), var\(--_yellow\), var\(--_orange\)/,
+    );
+    const rule =
+      /\.gold\.rainbow, \.gold\.rainbow-fill, \.gold\.rainbow-frame::before \{([^}]*)\}/.exec(
+        RAINBOW_STYLES,
+      );
+    expect(rule).not.toBeNull();
+    // Only the colours change: no own animation, period or keyframes.
+    expect(rule![1].trim()).toBe(`--afk-rainbow-gradient: ${g};`);
+  });
+
+  it('stays still with the Animations setting on Reduced, like the rainbow', () => {
+    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('.motion-reduced'));
+    expect(reduced).toContain('.motion-reduced .rainbow-frame::before');
+    expect(reduced).toContain('.motion-reduced .rainbow,');
   });
 });

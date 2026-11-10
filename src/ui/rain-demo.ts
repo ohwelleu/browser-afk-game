@@ -1,4 +1,5 @@
-import { capRain, RAIN_MAX_LINES, type RainCounts } from '../game/rain';
+import { ITEM_SLOTS } from '../game/balance';
+import { RAIN_LINES_PER_ITEM, RAIN_MAX_LINES, rainForItems, type RainCounts } from '../game/rain';
 
 /** Debug panel section "Item rain": preview the background rain without items. */
 export const RAIN_DEMO_STYLES = `
@@ -16,15 +17,22 @@ export const RAIN_DEMO_HTML = `
   <summary>Item rain (equipped S and S+ items)</summary>
   <div class="dbg-rain-body">
     <label><input type="checkbox" name="rain-on" /> Preview rain (instead of the equipped items)</label>
-    <label>S+ lines (rainbow) <input type="number" name="rain-rainbow" min="0" max="${RAIN_MAX_LINES}" step="1" value="2" /></label>
-    <label>S lines (yellow) <input type="number" name="rain-yellow" min="0" max="${RAIN_MAX_LINES}" step="1" value="2" /></label>
+    <label>S+ items (rainbow) <input type="number" name="rain-rainbow" min="0" max="${ITEM_SLOTS.length}" step="1" value="1" /></label>
+    <label>S items (gold) <input type="number" name="rain-yellow" min="0" max="${ITEM_SLOTS.length}" step="1" value="1" /></label>
     <p class="dbg-stats dbg-rain-note"></p>
   </div>
 </details>`;
 
-/** What the section shows: counts from the two boxes, capped; `null` while the toggle is off. */
-export function rainPreviewCounts(on: boolean, rainbow: number, yellow: number): RainCounts | null {
-  return on ? capRain(rainbow, yellow) : null;
+/**
+ * What the section shows: the lines for that many S+ and S items (5 each, like
+ * worn items), capped; `null` while the toggle is off.
+ */
+export function rainPreviewCounts(
+  on: boolean,
+  sPlusItems: number,
+  sItems: number,
+): RainCounts | null {
+  return on ? rainForItems(sPlusItems, sItems) : null;
 }
 
 /**
@@ -41,7 +49,7 @@ export function mountRainDemo(root: HTMLElement, onChange: (c: RainCounts | null
   const update = (notify: boolean): void => {
     const counts = rainPreviewCounts(on.checked, Number(rainbow.value), Number(yellow.value));
     note.textContent = counts
-      ? `Showing ${counts.rainbow} rainbow + ${counts.yellow} yellow (at most ${RAIN_MAX_LINES} lines; rainbow first).`
+      ? `Showing ${counts.rainbow} rainbow + ${counts.yellow} gold lines (${RAIN_LINES_PER_ITEM} per item, at most ${RAIN_MAX_LINES}; rainbow first).`
       : 'Off: the rain follows the equipped items.';
     if (notify) onChange(counts);
   };

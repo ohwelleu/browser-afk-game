@@ -1,3 +1,5 @@
+import { reducedCss } from '../motion';
+
 /**
  * Rainbow: a flowing gradient for S-tier things. One big radial gradient with
  * a rainbow of stops, drawn twice as large as the box, whose position drifts
@@ -7,7 +9,7 @@
  * same lightness, so no band is much darker or brighter than the others.
  *
  * Ways to use it (all pure CSS, one keyframes animation, no JS per frame, and
- * a still gradient under `prefers-reduced-motion`):
+ * a still gradient when the Animations setting is Reduced, see `motion.ts`):
  * - `rainbow-frame`: a hollow animated border on a box. Put a child inside.
  *   Add `rainbow-glow` for a soft glow in the same colours.
  * - `rainbow-fill`: the gradient as the background (bars, chips).
@@ -75,12 +77,25 @@ export function rainbowStep(
   return rainbowHsl(CYCLE_HUES[i], lightness);
 }
 
+/** Gold flow (S tier): palette orange and yellow, alternating, so the bands flow like the rainbow's. */
+export const GOLD_STOP_VARS = ['--_orange', '--_yellow'] as const;
+/** Bands in the gold gradient (more bands = more visible flow on small boxes). */
+const GOLD_BANDS = 7;
+
+/** The CSS gold `radial-gradient(...)`: orange, yellow, orange, … from the palette variables. */
+export function goldGradient(): string {
+  const stops = Array.from({ length: GOLD_BANDS }, (_, i) => `var(${GOLD_STOP_VARS[i % 2]})`);
+  return `radial-gradient(circle, ${stops.join(', ')})`;
+}
+
 /**
  * The flowing gradient as CSS. Add it to a stylesheet. Settings (inherited, so
  * set them on the box or a parent): `--afk-rainbow-period` (default 4s) and
  * `--afk-rainbow-l` (stop lightness, default 75%), `--afk-rainbow-ink` (outline
  * colour of `rainbow` text, default `#1f1f1f`). `rainbow-outline` gives the same
  * outline to other rainbow-coloured text, such as JS-drawn `rainbowColor(t)`.
+ * Add `gold` next to any of the classes (`rainbow-frame gold`, `rainbow gold`)
+ * for the S-tier gold flow: same animation and period, only the colours change.
  */
 export const RAINBOW_STYLES = `
 @keyframes afk-rainbow-flow {
@@ -95,6 +110,10 @@ export const RAINBOW_STYLES = `
   background-image: var(--afk-rainbow-gradient);
   background-size: 200% 200%;
   animation: afk-rainbow-flow var(--afk-rainbow-period, ${RAINBOW_PERIOD_MS / 1000}s) ease-in-out infinite;
+}
+/* Gold: same flow, palette orange ↔ yellow. Only the gradient changes. */
+.gold.rainbow, .gold.rainbow-fill, .gold.rainbow-frame::before {
+  --afk-rainbow-gradient: ${goldGradient()};
 }
 /* Thin dark outline so pale stops (yellow) stay readable on the light theme. Fixed, like the rainbow. */
 .rainbow, .rainbow-outline {
@@ -131,10 +150,9 @@ export const RAINBOW_STYLES = `
   z-index: -1;
   filter: blur(4px);
 }
-@media (prefers-reduced-motion: reduce) {
-  .rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after {
-    animation: none;
-    background-position: 50% 50%;
-  }
+/* Animations setting = Reduced (class on the game box, see motion.ts). */
+${reducedCss('.rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after')} {
+  animation: none;
+  background-position: 50% 50%;
 }
 `;
