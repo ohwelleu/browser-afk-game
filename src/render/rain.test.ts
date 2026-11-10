@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { RAIN_LINES_PER_ITEM, RAIN_MAX_LINES, rainForItems } from '../game/rain';
 import { DEFAULT_PALETTES } from '../theme';
-import { RainField, type RainArea } from './rain';
+import { goldLight } from '../ui/rainbow';
+import { RainField, STEP_MS, type RainArea } from './rain';
 
 const H = 50;
-/** A 40 px column in the middle of a 100 px scene, from row 10 down to the ground at `H`. */
-const AREA: RainArea = { left: 30, right: 70, top: 10, bottom: H };
+/**
+ * A wide column (1 px lines: two in one column would run together in `lines()`),
+ * from row 10 down to the ground at `H`.
+ */
+const AREA: RainArea = { left: 30, right: 1030, top: 10, bottom: H };
 const TICKS_PER_SEC = 60;
 /** A tall area: after a moment a line is mid-way down and cut at neither end. */
-const TALL: RainArea = { left: 30, right: 70, top: 10, bottom: 400 };
+const TALL: RainArea = { left: 30, right: 1030, top: 10, bottom: 400 };
 /** One line, fully on screen: runs the field for 2 s in `TALL`, so the line is mid-way down. */
 function midLine(counts: { rainbow: number; yellow: number }) {
   const f = new RainField();
@@ -64,7 +68,7 @@ describe('RainField', () => {
     expect(f.count).toBe(0);
   });
 
-  it('draws whole-pixel streaks 1–2 wide and 6–10 tall inside the area, yellow and not', () => {
+  it('draws whole-pixel streaks exactly 1 wide and 6–10 tall inside the area, yellow and not', () => {
     const f = new RainField();
     const counts = { rainbow: 3, yellow: 3 };
     f.advance(0, counts, AREA);
@@ -74,7 +78,7 @@ describe('RainField', () => {
       f.draw(ctx, t, palette, AREA);
       for (const r of rects) {
         expect(Number.isInteger(r.x) && Number.isInteger(r.y) && Number.isInteger(r.h)).toBe(true);
-        expect([1, 2]).toContain(r.w);
+        expect(r.w).toBe(1);
         expect(r.h).toBeGreaterThan(0);
         expect(r.h).toBeLessThanOrEqual(10);
         expect(r.y).toBeGreaterThanOrEqual(AREA.top);
@@ -92,11 +96,10 @@ describe('RainField', () => {
     const { ctx, rects } = fakeCtx();
     f.draw(ctx, 0, palette, AREA, true);
     const [r1, r2, g1, g2] = lines(rects);
-    // Gold lines are palette orange and yellow only; neighbours start on different colours.
+    // Gold lines are the light orange and the palette yellow only.
     for (const g of [g1, g2]) {
-      for (const c of rowColours(g)) expect([palette.orange, palette.yellow]).toContain(c);
+      for (const c of rowColours(g)) expect([goldLight(palette), palette.yellow]).toContain(c);
     }
-    expect(rowColours(g1)[0]).not.toBe(rowColours(g2)[0]);
     // Rainbow lines are hsl, and differ from each other.
     for (const r of [r1, r2]) for (const c of rowColours(r)) expect(c).toMatch(/^hsl\(/);
     expect(rowColours(r1)[0]).not.toBe(rowColours(r2)[0]);
@@ -121,7 +124,7 @@ describe('RainField', () => {
     // Runs are whole bands (2 rows), alternating orange / yellow; the last may be cut short.
     for (const r of line.slice(0, -1)) expect(r.h).toBe(2);
     for (let i = 1; i < line.length; i++) expect(line[i].fill).not.toBe(line[i - 1].fill);
-    expect(new Set(rows)).toEqual(new Set([palette.orange, palette.yellow]));
+    expect(new Set(rows)).toEqual(new Set([goldLight(palette), palette.yellow]));
   });
 
   it('moves the colours down the line as time passes (falling pattern)', () => {
@@ -132,7 +135,7 @@ describe('RainField', () => {
       return rowColours(lines(rects)[0]);
     };
     const a = at(t);
-    const b = at(t + 30); // 0.5 s = one step later
+    const b = at(t + (STEP_MS / 1000) * TICKS_PER_SEC); // one step later
     expect(b.slice(1)).toEqual(a.slice(0, -1));
   });
 
@@ -228,7 +231,47 @@ describe('RainField', () => {
       rowColours(g).forEach((c) => golds.add(c));
     }
     expect(fills.size).toBeGreaterThan(6);
-    expect(golds).toEqual(new Set([palette.orange, palette.yellow]));
+    expect(golds).toEqual(new Set([goldLight(palette), palette.yellow]));
+  });
+
+  it('never uses the palette orange (the darkest) on a gold line', () => {
+    const f = new RainField();
+    f.advance(0, { rainbow: 0, yellow: 5 }, AREA);
+    for (let t = 0; t < 4 * TICKS_PER_SEC; t += 6) {
+      f.advance(t, { rainbow: 0, yellow: 5 }, AREA);
+      const { ctx, rects } = fakeCtx();
+      f.draw(ctx, t, palette, AREA);
+      for (const r of rects) expect(r.fill).not.toBe(palette.orange);
+    }
+  });
+
+  it('shows the colour flow within a second: a line changes colour several times as it falls', () => {
+    for (const [counts, min] of [
+      [{ rainbow: 1, yellow: 0 }, 4],
+      [{ rainbow: 0, yellow: 1 }, 2], // gold has two looks: orange first, or yellow first
+    ] as const) {
+      const { f, t } = midLine(counts);
+      const seen = new Set<string>();
+      for (let dt = 0; dt < TICKS_PER_SEC; dt += 6) {
+        const { ctx, rects } = fakeCtx();
+        f.draw(ctx, t + dt, palette, TALL); // time only: the line stays put
+        seen.add(rowColours(lines(rects)[0]).join());
+      }
+      expect(seen.size).toBeGreaterThanOrEqual(min);
+    }
+  });
+
+  it('spreads the lines over the real height even if the first frame had a tiny area (page start)', () => {
+    // The game draws once before it knows its size (a 1 x 1 view), then again at the real size.
+    const f = new RainField();
+    const counts = rainForItems(0, 1);
+    f.advance(0, counts, { left: 30, right: 1030, top: 10, bottom: 11 });
+    f.advance(1, counts, AREA);
+    const { ctx, rects } = fakeCtx();
+    f.draw(ctx, 1, palette, AREA);
+    const tops = lines(rects).map((l) => l[0].y);
+    expect(tops).toHaveLength(RAIN_LINES_PER_ITEM);
+    expect(Math.max(...tops) - Math.min(...tops)).toBeGreaterThan((AREA.bottom - AREA.top) / 2);
   });
 
   it('shows all 5 lines of every item on screen, every frame (1 item = 5, 2 items = 10)', () => {

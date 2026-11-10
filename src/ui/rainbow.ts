@@ -77,15 +77,46 @@ export function rainbowStep(
   return rainbowHsl(CYCLE_HUES[i], lightness);
 }
 
-/** Gold flow (S tier): palette orange and yellow, alternating, so the bands flow like the rainbow's. */
-export const GOLD_STOP_VARS = ['--_orange', '--_yellow'] as const;
+/**
+ * Gold flow (S tier): a light orange ↔ the palette yellow, alternating, so the
+ * bands flow like the rainbow's. The palette's own orange is the darkest accent
+ * and too dark for the flow, so the light orange is half-way to the yellow.
+ */
+export const GOLD_STOPS = [
+  'color-mix(in srgb, var(--_orange) 50%, var(--_yellow))',
+  'var(--_yellow)',
+] as const;
 /** Bands in the gold gradient (more bands = more visible flow on small boxes). */
 const GOLD_BANDS = 7;
 
-/** The CSS gold `radial-gradient(...)`: orange, yellow, orange, … from the palette variables. */
+/** The CSS gold `radial-gradient(...)`: light orange, yellow, light orange, … from the palette variables. */
 export function goldGradient(): string {
-  const stops = Array.from({ length: GOLD_BANDS }, (_, i) => `var(${GOLD_STOP_VARS[i % 2]})`);
+  const stops = Array.from({ length: GOLD_BANDS }, (_, i) => GOLD_STOPS[i % 2]);
   return `radial-gradient(circle, ${stops.join(', ')})`;
+}
+
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const toRgb = (hex: string): number[] | null => {
+  const m = HEX.exec(hex.trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+};
+
+/**
+ * The same light orange as `GOLD_STOPS[0]`, as a colour for the canvas: the
+ * half-way mix of the palette orange and yellow. Hex colours are mixed here;
+ * anything else (a host override like `rebeccapurple`) becomes a CSS `color-mix`.
+ */
+export function goldLight(p: { orange: string; yellow: string }): string {
+  const a = toRgb(p.orange);
+  const b = toRgb(p.yellow);
+  if (!a || !b) return `color-mix(in srgb, ${p.orange} 50%, ${p.yellow})`;
+  const hex = (i: number) =>
+    Math.round((a[i] + b[i]) / 2)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${hex(0)}${hex(1)}${hex(2)}`;
 }
 
 /**
@@ -111,7 +142,7 @@ export const RAINBOW_STYLES = `
   background-size: 200% 200%;
   animation: afk-rainbow-flow var(--afk-rainbow-period, ${RAINBOW_PERIOD_MS / 1000}s) ease-in-out infinite;
 }
-/* Gold: same flow, palette orange ↔ yellow. Only the gradient changes. */
+/* Gold: same flow, light orange ↔ palette yellow. Only the gradient changes. */
 .gold.rainbow, .gold.rainbow-fill, .gold.rainbow-frame::before {
   --afk-rainbow-gradient: ${goldGradient()};
 }
