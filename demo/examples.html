@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>browser-afk-game examples</title>
+    <script>
+      // Apply the saved demo theme before first paint.
+      document.documentElement.classList.toggle(
+        'dark',
+        (localStorage.getItem('afk-demo-theme') ??
+          (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark',
+      );
+    </script>
+    <script src="./afk-game.js" defer></script>
+    <style>
+      :root {
+        --page-bg: #ece9e2;
+        --page-fg: #1f1f1f;
+        color-scheme: light;
+      }
+      :root.dark {
+        --page-bg: #1f1f1f;
+        --page-fg: #ece9e2;
+        color-scheme: dark;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 1200px;
+        padding: 24px;
+        background: var(--page-bg);
+        color: var(--page-fg);
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin: 16px 0;
+      }
+      button {
+        font: inherit;
+      }
+      .resizable {
+        resize: both;
+        overflow: hidden;
+        width: 100%;
+        height: 420px;
+        min-width: 200px;
+        min-height: 200px;
+        border: 1px dashed currentColor;
+      }
+      .resizable afk-game {
+        height: 100%;
+        border: 0;
+      }
+      code {
+        font-size: 0.9em;
+      }
+      .demo-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        margin: 0 0 12px;
+        font:
+          13px/1.4 ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      .demo-nav a {
+        color: inherit;
+        opacity: 0.7;
+        text-decoration: none;
+      }
+      .demo-nav a:hover {
+        text-decoration: underline;
+      }
+      .demo-nav a[aria-current='page'] {
+        font-weight: bold;
+        opacity: 1;
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="demo-nav" aria-label="Demo pages">
+      <a href="./?afkdebug">Game</a> · <a href="./sprites.html">Sprites</a> ·
+      <a href="./audio.html">Music &amp; SFX</a> · <a href="./examples.html">Examples</a>
+    </nav>
+    <script>
+      for (const a of document.querySelectorAll('.demo-nav a')) {
+        const page = (p) => p.replace(/index\.html$/, '');
+        if (page(a.pathname) === page(location.pathname)) a.setAttribute('aria-current', 'page');
+      }
+    </script>
+    <h1>browser-afk-game · examples</h1>
+    <p>Embedding variants. The default game is on the <a href="./?afkdebug">Game</a> page.</p>
+
+    <div class="controls">
+      <button id="toggle-page-theme" type="button">Toggle page theme (html.dark)</button>
+    </div>
+
+    <h2>Resizable (drag the corner)</h2>
+    <div class="resizable"><afk-game save-key="afk-game-demo-resizable"></afk-game></div>
+
+    <h2>Custom colours example (not a theme)</h2>
+    <p>
+      This box overrides the palette with <code>--afk-bg</code>, <code>--afk-fg</code> and
+      <code>--afk-yellow</code> (navy and cream) to show how a host page can recolour the game. The
+      real dark theme is the default game on the Game page with the page in dark mode.
+    </p>
+    <afk-game
+      save-key="afk-game-demo-vars"
+      theme="dark"
+      style="--afk-bg: #0b1d2a; --afk-fg: #f6d6a8; --afk-yellow: #9be15d; height: 360px"
+    ></afk-game>
+
+    <script>
+      document.getElementById('toggle-page-theme').addEventListener('click', () => {
+        const dark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('afk-demo-theme', dark ? 'dark' : 'light');
+      });
+    </script>
+  </body>
+</html>

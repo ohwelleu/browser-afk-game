@@ -45,21 +45,25 @@
       select {
         font: inherit;
       }
-      .resizable {
-        resize: both;
-        overflow: hidden;
-        width: 100%;
-        height: 420px;
-        min-width: 200px;
-        min-height: 200px;
-        border: 1px dashed currentColor;
-      }
-      .resizable afk-game {
-        height: 100%;
-        border: 0;
-      }
       code {
         font-size: 0.9em;
+      }
+      .staging-changelog ul {
+        padding-left: 1.2em;
+      }
+      .staging-changelog li {
+        margin: 2px 0;
+      }
+      .staging-changelog a {
+        color: inherit;
+      }
+      .staging-changelog .sc-date {
+        opacity: 0.6;
+        font-size: 0.85em;
+        white-space: nowrap;
+      }
+      .staging-changelog small {
+        opacity: 0.7;
       }
       .demo-nav {
         display: flex;
@@ -90,7 +94,7 @@
   <body>
     <nav class="demo-nav" aria-label="Demo pages">
       <a href="./?afkdebug">Game</a> · <a href="./sprites.html">Sprites</a> ·
-      <a href="./audio.html">Music &amp; SFX</a>
+      <a href="./audio.html">Music &amp; SFX</a> · <a href="./examples.html">Examples</a>
     </nav>
     <script>
       for (const a of document.querySelectorAll('.demo-nav a')) {
@@ -118,20 +122,7 @@
     <h2>Default</h2>
     <afk-game id="game"></afk-game>
 
-    <h2>Resizable (drag the corner)</h2>
-    <div class="resizable"><afk-game save-key="afk-game-demo-resizable"></afk-game></div>
-
-    <h2>Custom colours example (not a theme)</h2>
-    <p>
-      This box overrides the palette with <code>--afk-bg</code>, <code>--afk-fg</code> and
-      <code>--afk-yellow</code> (navy and cream) to show how a host page can recolour the game. The
-      real dark theme is the first box with the page in dark mode.
-    </p>
-    <afk-game
-      save-key="afk-game-demo-vars"
-      theme="dark"
-      style="--afk-bg: #0b1d2a; --afk-fg: #f6d6a8; --afk-yellow: #9be15d; height: 360px"
-    ></afk-game>
+    <!-- staging-changelog -->
 
     <script>
       const root = document.documentElement;
@@ -151,6 +142,16 @@
         localStorage.removeItem('afk-game');
         location.reload();
       });
+
+      // Show the changelog times in the viewer's local time zone ("2026-11-10 23:05").
+      // Without JavaScript they stay in UTC.
+      for (const t of document.querySelectorAll('.staging-changelog time[datetime]')) {
+        const d = new Date(t.getAttribute('datetime'));
+        if (Number.isNaN(d.getTime())) continue;
+        const p = (n) => String(n).padStart(2, '0');
+        t.textContent = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+        t.title = d.toString();
+      }
 
       // `AfkGame` is the global from the built bundle; the dev server loads the TS source instead.
       // Deferred scripts have run by DOMContentLoaded.
