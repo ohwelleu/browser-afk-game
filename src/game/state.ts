@@ -678,8 +678,12 @@ export function buyWeapon(s: GameState): GameState {
   const next = draft(s);
   next.coins = safeInt(s.coins - WEAPONS[tier].price);
   next.weaponLevels[tier] = 1;
-  // Auto-equip unless the current weapon (maybe well upgraded) hits harder.
-  if (heroDamage({ equipped: tier, weaponLevels: next.weaponLevels }) >= heroDamage(next)) {
+  // Auto-equip unless the current weapon (maybe well upgraded) hits harder. Both sides
+  // include the worn items: flat item damage must not make the new weapon look weaker.
+  if (
+    heroDamage({ equipped: tier, weaponLevels: next.weaponLevels, items: next.items }) >=
+    heroDamage(next)
+  ) {
     next.equipped = tier;
   }
   next.events.push({ type: 'sfx', name: 'purchase' }, { type: 'save' });

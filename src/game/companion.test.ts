@@ -339,6 +339,29 @@ describe('auto attacks', () => {
     }
   });
 
+  it.each(['crow', 'wolf'] as const)(
+    'a %s bought mid-fight is active at once: no extra equip step, it attacks within a second or two',
+    (id) => {
+      // Owned by buying (not by the starting save), after the duel is already running.
+      let s = toFighting(tanky({}, { best: 20, coins: COMPANIONS[id].price }));
+      s = buyCompanion(s, id);
+      expect(ownedCompanions(s).map((d) => d.id)).toEqual([id]);
+      const hits: number[] = [];
+      run(s, 2.5, hits);
+      expect(hits.length).toBeGreaterThanOrEqual(1);
+    },
+  );
+
+  it('buying the second companion keeps the first one attacking', () => {
+    let s = toFighting(tanky({ crow: 1 }, { best: 20, coins: WOLF_PRICE }));
+    s = buyCompanion(s, 'wolf');
+    expect(ownedCompanions(s).map((d) => d.id)).toEqual(['crow', 'wolf']);
+    const hits: number[] = [];
+    run(s, 2.5, hits);
+    // Both are active: more than one companion's worth of hits in 2.5 s.
+    expect(hits.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('they attack independently, each on its own timer and for its own damage', () => {
     const s = toFighting(tanky({ crow: 1, wolf: 1 }, IRON));
     const start = s.duel.tick;
