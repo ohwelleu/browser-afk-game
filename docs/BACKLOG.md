@@ -199,6 +199,10 @@ Each line below is its own thread, in this order.
       top in Inventory.
 - [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
       on top while scrolling, like the main tabs.
+- [ ] **"No animations" setting** (owner, 2026-11-10, low priority): a
+      third Animations value next to On / Reduced that turns off idle
+      motion. Kinda useless, because the game is mostly about watching the
+      idle animations, so only do it if someone asks.
 - [x] **Fix: sound settings**: the [X] close button overlaps the on/off
       button in the sound settings popover. Move it so both are usable.
 - [x] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
