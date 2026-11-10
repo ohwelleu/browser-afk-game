@@ -124,8 +124,16 @@ const STYLES = `
   border: 3px solid var(--_fg);
   font-size: var(--afk-fs-small, 12px);
 }
-.dbg summary { cursor: pointer; padding: 4px 8px; font-weight: bold; }
-.dbg[open] summary { border-bottom: 3px solid var(--_fg); }
+.dbg > summary {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--_bg);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-weight: bold;
+}
+.dbg[open] > summary { border-bottom: 3px solid var(--_fg); }
 .dbg-body { padding: 6px 8px 8px; display: grid; gap: 6px; }
 .dbg-stats { margin: 0; white-space: pre-wrap; opacity: 0.8; }
 .dbg-form { display: grid; grid-template-columns: 1fr 96px; gap: 3px 8px; align-items: center; }
