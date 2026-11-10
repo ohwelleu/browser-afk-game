@@ -3,7 +3,7 @@ import { windup } from '../game/attacks';
 import { COMPANION_IDS, COMPANIONS, type CompanionId } from '../game/balance';
 import { createState, newProgress, secToTicks, type GameState } from '../game/state';
 import { companionSprites } from '../sprites';
-import { clickBurst, companionPose, layout, rainArea, sceneContent } from './scene';
+import { clickBurst, companionPose, layout, RAIN_ZONE_W, rainArea, sceneContent } from './scene';
 import { computeView } from './view';
 
 const { crow, wolf } = companionSprites;
@@ -119,17 +119,28 @@ it('click burst grows and thins out', () => {
   expect(r(0.9)).toBeGreaterThan(r(0));
 });
 
-describe.each(VIEWS)('item rain area (%s)', (_, view) => {
+describe.each(VIEWS)('item rain zone (%s)', (_, view) => {
   const l = layout(owning({}), view);
-  const area = rainArea(l);
+  const area = rainArea(l, view.width);
 
-  it('is a column at the hero, clear of the mob and the HUD, down to the ground', () => {
+  it('is RAIN_ZONE_W art px centred on the hero, inside the scene and clear of the mob', () => {
+    expect(area.right - area.left).toBe(RAIN_ZONE_W);
+    const centre = (area.left + area.right) / 2;
+    expect(Math.abs(centre - (l.heroX + l.hero.width / 2))).toBeLessThanOrEqual(0.5);
     expect(area.left).toBeGreaterThanOrEqual(0);
-    expect(area.left).toBeLessThanOrEqual(l.heroX);
-    expect(area.right).toBeGreaterThanOrEqual(l.heroX + l.hero.width);
+    expect(area.right).toBeLessThanOrEqual(view.width);
     expect(area.right).toBeLessThan(l.mobX);
+  });
+
+  it('runs from the top of the hero (below the HUD) down to the ground', () => {
     expect(area.top).toBe(l.heroY);
     expect(area.top).toBeGreaterThanOrEqual(0);
     expect(area.bottom).toBe(l.groundY);
+  });
+
+  it('is cut to a scene narrower than the zone', () => {
+    const narrow = rainArea({ ...l, heroX: 2 }, 30);
+    expect(narrow.left).toBe(0);
+    expect(narrow.right).toBe(30);
   });
 });

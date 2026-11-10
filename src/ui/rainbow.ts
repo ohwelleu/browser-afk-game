@@ -77,12 +77,37 @@ export function rainbowStep(
   return rainbowHsl(CYCLE_HUES[i], lightness);
 }
 
+/** Gold flow (S tier): palette orange and yellow, alternating, so the bands flow like the rainbow's. */
+export const GOLD_STOP_VARS = ['--_orange', '--_yellow'] as const;
+/** Bands in the gold gradient (more bands = more visible flow on small boxes). */
+const GOLD_BANDS = 7;
+
+/** The CSS gold `radial-gradient(...)`: orange, yellow, orange, … from the palette variables. */
+export function goldGradient(): string {
+  const stops = Array.from({ length: GOLD_BANDS }, (_, i) => `var(${GOLD_STOP_VARS[i % 2]})`);
+  return `radial-gradient(circle, ${stops.join(', ')})`;
+}
+
+/**
+ * Stepped flow over any colour list at time `t` ms: each colour for an equal
+ * share of `periodMs`, then it wraps. `flowStep(t, p, [orange, yellow])` is the
+ * gold of the canvas (S rain lines).
+ */
+export function flowStep(t: number, periodMs: number, colours: readonly string[]): string {
+  const n = colours.length;
+  if (n === 0) return '';
+  const i = Math.min(Math.floor(rainbowPhase(t, periodMs) * n + 1e-9), n - 1);
+  return colours[i];
+}
+
 /**
  * The flowing gradient as CSS. Add it to a stylesheet. Settings (inherited, so
  * set them on the box or a parent): `--afk-rainbow-period` (default 4s) and
  * `--afk-rainbow-l` (stop lightness, default 75%), `--afk-rainbow-ink` (outline
  * colour of `rainbow` text, default `#1f1f1f`). `rainbow-outline` gives the same
  * outline to other rainbow-coloured text, such as JS-drawn `rainbowColor(t)`.
+ * Add `gold` next to any of the classes (`rainbow-frame gold`, `rainbow gold`)
+ * for the S-tier gold flow: same animation and period, only the colours change.
  */
 export const RAINBOW_STYLES = `
 @keyframes afk-rainbow-flow {
@@ -97,6 +122,10 @@ export const RAINBOW_STYLES = `
   background-image: var(--afk-rainbow-gradient);
   background-size: 200% 200%;
   animation: afk-rainbow-flow var(--afk-rainbow-period, ${RAINBOW_PERIOD_MS / 1000}s) ease-in-out infinite;
+}
+/* Gold: same flow, palette orange ↔ yellow. Only the gradient changes. */
+.gold.rainbow, .gold.rainbow-fill, .gold.rainbow-frame::before {
+  --afk-rainbow-gradient: ${goldGradient()};
 }
 /* Thin dark outline so pale stops (yellow) stay readable on the light theme. Fixed, like the rainbow. */
 .rainbow, .rainbow-outline {

@@ -26,9 +26,9 @@ export const GEAR_STYLES = `
 .tc-B { --_tier: var(--_blue); }
 .tc-A { --_tier: var(--_green); }
 .tc-S { --_tier: var(--_yellow); }
-.tier.tc-S { box-shadow: 0 0 6px 1px var(--_yellow); }
 .tier.tc-S::after { content: '✦'; position: absolute; top: -10px; right: -8px; color: var(--_yellow); font-size: 12px; animation: afk-sparkle 0.9s steps(2) infinite; }
-.tier.tc-SS { border-color: transparent; box-shadow: none; }
+/* S and S+: the flowing frame (rainbow.ts) draws the border, so the plain one goes. No glow. */
+.tier.tc-S, .tier.tc-SS { border-color: transparent; box-shadow: none; }
 .tier .sparkle { position: absolute; top: -13px; right: -10px; font-size: 18px; line-height: 1; animation: afk-sparkle 0.9s steps(2) infinite; pointer-events: none; }
 .tier .sparkle + .sparkle { top: auto; right: auto; bottom: -11px; left: -9px; font-size: 14px; animation-delay: -0.45s; }
 /* S+ sparkles blink and flow: the blink alone would replace the rainbow's flow animation. */
@@ -78,8 +78,9 @@ const SLOT_NAME: Record<ItemSlot, string> = {
 };
 
 export const itemName = (it: Item) => `${SLOT_NAME[it.slot]} · ${ITEM_TIER_LABEL[it.tier]}`;
-/** Class of the name text: S+ is rainbow, the other tiers use their `tc-X` colour. */
-const nameClass = (it: Item) => (it.tier === 'SS' ? 'tier-name rainbow' : 'tier-name');
+/** Class of the name text: S+ is rainbow, S gold (orange ↔ yellow), the other tiers use their `tc-X` colour. */
+const nameClass = (it: Item) =>
+  it.tier === 'SS' ? 'tier-name rainbow' : it.tier === 'S' ? 'tier-name rainbow gold' : 'tier-name';
 export const itemStatsText = (it: Item) =>
   ITEM_STATS.filter((s) => it.stats[s] !== undefined)
     .map((s) => STAT_LABEL[s](it.stats[s]!))
@@ -91,12 +92,15 @@ export type GearDeps = { iconUrl(def: SpriteDef): string };
 
 /** Frame + icon for one item (or an empty slot). */
 function frame(deps: GearDeps, slot: ItemSlot, it: Item | null): string {
-  // S+: the rainbow frame + glow use ::before/::after, so its sparkles are real elements.
+  // S (gold) and S+ (rainbow): flowing frames on ::before. S keeps its ::after sparkle;
+  // S+ has two real sparkle elements.
   const cls = !it
     ? 'tier gear-empty'
     : it.tier === 'SS'
-      ? 'tier tc-SS rainbow-frame rainbow-glow'
-      : `tier tc-${it.tier}`;
+      ? 'tier tc-SS rainbow-frame'
+      : it.tier === 'S'
+        ? 'tier tc-S rainbow-frame gold'
+        : `tier tc-${it.tier}`;
   const sparkles =
     it?.tier === 'SS'
       ? '<span class="sparkle rainbow" aria-hidden="true">✦</span><span class="sparkle rainbow" aria-hidden="true">✦</span>'
@@ -185,7 +189,7 @@ export function createGearView(
   };
 }
 
-/** Drop toast: item icon in its tier frame, name and stats; S gets the sparkle, S+ the rainbow. */
+/** Drop toast: item icon in its tier frame, name and stats; S flows gold, S+ rainbow. */
 export function createToast(box: HTMLElement, deps: GearDeps, ms = 3000) {
   const el = document.createElement('div');
   el.className = 'toast';

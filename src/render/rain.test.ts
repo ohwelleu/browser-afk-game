@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RAIN_MAX_LINES } from '../game/rain';
+import { RAIN_LINES_PER_ITEM, RAIN_MAX_LINES, rainForItems } from '../game/rain';
 import { DEFAULT_PALETTES } from '../theme';
 import { RainField, type RainArea } from './rain';
 
@@ -60,13 +60,14 @@ describe('RainField', () => {
     }
   });
 
-  it('colours S lines with the palette yellow and S+ lines with the rainbow', () => {
+  it('colours S lines gold (palette orange / yellow) and S+ lines with the rainbow', () => {
     const f = new RainField();
     const counts = { rainbow: 2, yellow: 2 };
     f.advance(0, counts, AREA, true); // still: every streak is on screen
     const { ctx, rects } = fakeCtx();
     f.draw(ctx, 0, palette, AREA, true);
-    expect(rects.map((r) => r.fill).slice(2)).toEqual([palette.yellow, palette.yellow]);
+    // Still (t = 0): neighbouring gold lines start on different colours.
+    expect(rects.map((r) => r.fill).slice(2)).toEqual([palette.orange, palette.yellow]);
     const [a, b] = rects.slice(0, 2).map((r) => r.fill);
     expect(a).toMatch(/^hsl\(/);
     expect(b).toMatch(/^hsl\(/);
@@ -151,17 +152,57 @@ describe('RainField', () => {
     }
   });
 
-  it('rainbow lines change colour as ticks pass; yellow stays the palette yellow', () => {
+  it('rainbow lines step through the rainbow; gold lines step orange ↔ yellow', () => {
     const f = new RainField();
     const counts = { rainbow: 1, yellow: 1 };
     f.advance(0, counts, AREA, true);
     const fills = new Set<string>();
+    const golds = new Set<string>();
     for (let t = 0; t < 6 * TICKS_PER_SEC; t += 10) {
       const { ctx, rects } = fakeCtx();
       f.draw(ctx, t, palette, AREA);
       fills.add(rects[0].fill);
-      expect(rects[1].fill).toBe(palette.yellow);
+      golds.add(rects[1].fill);
     }
     expect(fills.size).toBeGreaterThan(6);
+    expect(golds).toEqual(new Set([palette.orange, palette.yellow]));
+  });
+
+  it('shows all 5 lines of every item on screen, every frame (1 item = 5, 2 items = 10)', () => {
+    for (const [sPlus, sItems] of [
+      [1, 0],
+      [1, 1],
+      [2, 2],
+    ]) {
+      const counts = rainForItems(sPlus, sItems);
+      expect(counts.rainbow + counts.yellow).toBe((sPlus + sItems) * RAIN_LINES_PER_ITEM);
+      const f = new RainField();
+      for (let t = 0; t < 10 * TICKS_PER_SEC; t += 2) {
+        f.advance(t, counts, AREA);
+        const { ctx, rects } = fakeCtx();
+        f.draw(ctx, t, palette, AREA);
+        expect(rects).toHaveLength(counts.rainbow + counts.yellow);
+      }
+    }
+  });
+
+  it('fills the whole pool when every slot is S+ (cap = 5 × slots), all on screen', () => {
+    const f = new RainField();
+    const counts = { rainbow: RAIN_MAX_LINES, yellow: 0 };
+    f.advance(0, counts, AREA);
+    const { ctx, rects } = fakeCtx();
+    f.draw(ctx, 0, palette, AREA);
+    expect(rects).toHaveLength(RAIN_MAX_LINES);
+  });
+
+  it("staggers an item's 5 lines over the height (they don't fall in step)", () => {
+    const f = new RainField();
+    f.advance(0, rainForItems(0, 1), AREA);
+    const { ctx, rects } = fakeCtx();
+    f.draw(ctx, 0, palette, AREA);
+    const tops = rects.map((r) => r.y + r.h).sort((a, b) => a - b);
+    expect(new Set(tops).size).toBe(RAIN_LINES_PER_ITEM);
+    // Spread over most of the zone, not bunched up.
+    expect(tops[tops.length - 1] - tops[0]).toBeGreaterThan((AREA.bottom - AREA.top) / 2);
   });
 });

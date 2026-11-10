@@ -33,8 +33,12 @@ const GROUND = 4;
 const TOP_GAP = 6;
 /** Side margin and the minimum gap between hero and mob, in art pixels. */
 const MARGIN = 8;
-/** Art pixels the item rain reaches past the hero on each side. */
-const RAIN_PAD = 4;
+/**
+ * Width of the item rain's zone, in art pixels, centred on the hero: the hero's
+ * 32 px frame plus 8 px each side. (The owner's "about 128 px" was screen pixels
+ * at a typical size; in art pixels the zone scales with the game.)
+ */
+export const RAIN_ZONE_W = 48;
 const COMPACT_MARGIN = 2;
 const FLASH = 0.12;
 const MOB_LUNGE = 6;
@@ -184,7 +188,7 @@ export class SceneRenderer {
 
     // First, so it falls behind the hero, the mob and the effects; only in a column at the hero.
     const reduced = this.reducedMotion();
-    const area = rainArea(l);
+    const area = rainArea(l, view.width);
     this.rain.advance(s.ticks, this.rainPreview ?? rainLines(s), area, reduced);
     this.rain.draw(ctx, s.ticks, palette, area, reduced);
 
@@ -241,13 +245,15 @@ export class SceneRenderer {
 }
 
 /**
- * The item rain's column: the hero's box plus `RAIN_PAD` on each side, from
- * the top of the hero sprite down to the ground (so never up under the HUD).
+ * The item rain's zone: `RAIN_ZONE_W` art pixels centred on the hero (cut to
+ * the scene's `width`), from the top of the hero sprite down to the ground, so
+ * never up under the HUD and never at the mob.
  */
-export function rainArea(l: Layout): RainArea {
+export function rainArea(l: Layout, width: number): RainArea {
+  const left = Math.round(l.heroX + l.hero.width / 2 - RAIN_ZONE_W / 2);
   return {
-    left: Math.max(0, l.heroX - RAIN_PAD),
-    right: l.heroX + l.hero.width + RAIN_PAD,
+    left: Math.max(0, left),
+    right: Math.min(width, left + RAIN_ZONE_W),
     top: l.heroY,
     bottom: l.groundY,
   };

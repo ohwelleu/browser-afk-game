@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  flowStep,
+  goldGradient,
   RAINBOW_HUES,
   RAINBOW_LIGHTNESS,
   RAINBOW_PERIOD_MS,
@@ -157,5 +159,45 @@ describe('RAINBOW_STYLES', () => {
 
   it('has no debug-demo override: that lives only in the demo styles', () => {
     expect(RAINBOW_STYLES).not.toContain('dbg-');
+  });
+});
+
+describe('gold flow (S tier)', () => {
+  it('is the same flow with the palette orange ↔ yellow as the gradient', () => {
+    const g = goldGradient();
+    expect(g).toMatch(
+      /^radial-gradient\(circle, var\(--_orange\), var\(--_yellow\), var\(--_orange\)/,
+    );
+    const rule =
+      /\.gold\.rainbow, \.gold\.rainbow-fill, \.gold\.rainbow-frame::before \{([^}]*)\}/.exec(
+        RAINBOW_STYLES,
+      );
+    expect(rule).not.toBeNull();
+    // Only the colours change: no own animation, period or keyframes.
+    expect(rule![1].trim()).toBe(`--afk-rainbow-gradient: ${g};`);
+  });
+
+  it('stays still with the Animations setting on Reduced, like the rainbow', () => {
+    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('.motion-reduced'));
+    expect(reduced).toContain('.motion-reduced .rainbow-frame::before');
+    expect(reduced).toContain('.motion-reduced .rainbow,');
+  });
+});
+
+describe('flowStep (stepped, any colours)', () => {
+  const gold = ['orange', 'yellow'];
+  it('splits the period evenly and wraps', () => {
+    expect(flowStep(0, 1000, gold)).toBe('orange');
+    expect(flowStep(499, 1000, gold)).toBe('orange');
+    expect(flowStep(500, 1000, gold)).toBe('yellow');
+    expect(flowStep(999, 1000, gold)).toBe('yellow');
+    expect(flowStep(1000, 1000, gold)).toBe('orange');
+    expect(flowStep(-250, 1000, gold)).toBe('yellow');
+  });
+
+  it('handles odd input', () => {
+    expect(flowStep(123, 1000, [])).toBe('');
+    expect(flowStep(Number.NaN, 1000, gold)).toBe('orange');
+    expect(flowStep(5, 0, gold)).toBe('orange');
   });
 });
