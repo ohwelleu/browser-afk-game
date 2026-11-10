@@ -111,7 +111,7 @@ describe('validateSaveData', () => {
     };
     const save = (it: unknown) => ({
       ...valid(),
-      items: { ring: it, pendant: null, bag: [], rng: 7, nextId: 2 },
+      items: { ring: it, pendant: null, earring: null, belt: null, bag: [], rng: 7, nextId: 2 },
     });
     const r = validateSaveData(save(item), TRACKS);
     expect(r.ok && r.progress.items.ring).toEqual(item);
@@ -120,6 +120,41 @@ describe('validateSaveData', () => {
       expect(bad.ok).toBe(false);
       if (!bad.ok) expect(bad.errors.join(' ')).toContain('tier must be');
     }
+  });
+
+  it('accepts earring and belt, and old saves without them', () => {
+    const earring = {
+      id: 1,
+      slot: 'earring',
+      tier: 'B',
+      world: 1,
+      stage: 2,
+      stats: { crit: 0.03, itemFind: 0.07 },
+    };
+    const belt = { id: 2, slot: 'belt', tier: 'C', world: 1, stage: 2, stats: { defence: 2 } };
+    const gear = { ring: null, pendant: null, earring, belt, bag: [], rng: 7, nextId: 3 };
+    const r = validateSaveData({ ...valid(), items: gear }, TRACKS);
+    expect(r.ok && r.progress.items).toEqual(gear);
+
+    const old = { ring: null, pendant: null, bag: [], rng: 7, nextId: 1 };
+    const o = validateSaveData({ ...valid(), items: old }, TRACKS);
+    expect(o.ok && o.progress.items).toEqual({ ...old, earring: null, belt: null });
+  });
+
+  it('rejects an earring or belt in the wrong slot', () => {
+    const belt = { id: 2, slot: 'belt', tier: 'C', world: 1, stage: 2, stats: { defence: 2 } };
+    const gear = {
+      ring: null,
+      pendant: null,
+      earring: belt,
+      belt: null,
+      bag: [],
+      rng: 7,
+      nextId: 3,
+    };
+    const r = validateSaveData({ ...valid(), items: gear }, TRACKS);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors).toEqual(['items.earring must hold a earring.']);
   });
 
   it('rejects non-objects', () => {

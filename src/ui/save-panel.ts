@@ -1,4 +1,4 @@
-import { COMPANIONS } from '../game/balance';
+import { COMPANIONS, ITEM_SLOTS } from '../game/balance';
 import type { Progress } from '../game/state';
 import {
   decodeSave,
@@ -56,7 +56,7 @@ export function parseSaveText(text: string, tracks?: readonly string[]): Parsed 
 /** "Stage 3.4, 12,400 coins, crow, 2 items" */
 export function savePreviewText(p: Progress): string {
   const g = p.items;
-  const items = g.bag.length + (g.ring ? 1 : 0) + (g.pendant ? 1 : 0);
+  const items = g.bag.length + ITEM_SLOTS.filter((slot) => g[slot]).length;
   const companion = p.companion ? COMPANIONS[p.companion.id].name.toLowerCase() : 'no companion';
   return [
     `Stage ${p.world}.${p.stage}`,

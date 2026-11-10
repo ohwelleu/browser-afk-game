@@ -93,7 +93,7 @@ export function characterStats(s: GameState): StatSection[] {
   if (gear.itemFind) bonuses.push({ label: 'Item find', value: `+${pct(gear.itemFind)}` });
   if (gear.crit) bonuses.push({ label: 'Crit chance', value: `+${pct(gear.crit)}` });
   sections.push({
-    title: 'Ring & pendant',
+    title: 'Accessories',
     rows: bonuses.length ? bonuses : [{ label: 'Bonuses', value: 'None' }],
   });
 

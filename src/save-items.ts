@@ -37,6 +37,9 @@ function itemError(raw: unknown): string | null {
   return null;
 }
 
+/** Slots added after items shipped: an older save may not have them at all. */
+const NEW_SLOTS: readonly string[] = ['earring', 'belt'];
+
 const copyItem = (it: Item): Item => ({ ...it, stats: { ...it.stats } });
 
 /**
@@ -54,6 +57,8 @@ export function loadGear(raw: unknown): Gear {
   };
   const ring = slot('ring');
   const pendant = slot('pendant');
+  const earring = slot('earring');
+  const belt = slot('belt');
   const bag = (Array.isArray(raw.bag) ? raw.bag : [])
     .filter(ok)
     .filter(unique)
@@ -63,6 +68,8 @@ export function loadGear(raw: unknown): Gear {
   return {
     ring,
     pendant,
+    earring,
+    belt,
     bag,
     rng: isUint32(raw.rng) ? raw.rng : randomSeed(),
     nextId: isInt(raw.nextId, maxId + 1) ? raw.nextId : maxId + 1,
@@ -86,6 +93,7 @@ export function validateGear(raw: unknown, errors: string[]): Gear | null {
   };
   for (const s of ITEM_SLOTS) {
     if (raw[s] === null) continue;
+    if (raw[s] === undefined && NEW_SLOTS.includes(s)) continue; // saves from before earring/belt
     check(`items.${s}`, raw[s]);
     if (isObj(raw[s]) && raw[s].slot !== s) errors.push(`items.${s} must hold a ${s}.`);
   }
@@ -106,6 +114,8 @@ export function validateGear(raw: unknown, errors: string[]): Gear | null {
 export const saveGear = (g: Gear): Gear => ({
   ring: g.ring && copyItem(g.ring),
   pendant: g.pendant && copyItem(g.pendant),
+  earring: (g.earring && copyItem(g.earring)) ?? null,
+  belt: (g.belt && copyItem(g.belt)) ?? null,
   bag: g.bag.map(copyItem),
   rng: g.rng,
   nextId: g.nextId,
