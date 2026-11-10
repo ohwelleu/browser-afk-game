@@ -175,9 +175,17 @@ describe('HUD icon buttons', () => {
     return [Math.max(...xs) - Math.min(...xs) + 1, Math.max(...ys) - Math.min(...ys) + 1];
   };
 
-  it('pause, play, sound and menu icons are about as big as the music icon', () => {
+  it('pause, play, sound and every menu icon option are about as big as the music icon', () => {
     const [mw, mh] = extent(S.icons.music);
-    for (const def of [S.icons.pause, S.icons.play, S.icons.sfx, S.icons.sfxOff, S.icons.menu]) {
+    for (const def of [
+      S.icons.pause,
+      S.icons.play,
+      S.icons.sfx,
+      S.icons.sfxOff,
+      S.iconMenuBackpack,
+      S.iconMenuChest,
+      S.iconMenuScroll,
+    ]) {
       const [w, h] = extent(def);
       expect(Math.abs(h - mh), def.name).toBeLessThanOrEqual(1);
       expect(Math.abs(w - mw), def.name).toBeLessThanOrEqual(3);
