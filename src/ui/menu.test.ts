@@ -7,6 +7,8 @@ import {
   HELP_ICON,
   iconScale,
   INVENTORY,
+  inventoryWeaponOrder,
+  MENU_SUBS,
   MENU_TABS,
   pixelSvg,
   SHOP,
@@ -52,6 +54,21 @@ describe('iconScale', () => {
 describe('menu tabs', () => {
   it('has Shop and Inventory only; Help is the (i) button', () => {
     expect(MENU_TABS).toEqual(['shop', 'inventory']);
+  });
+});
+
+describe('inventory sub tabs', () => {
+  it('are Weapons · Accessories · Companions, Weapons first (the default)', () => {
+    expect(MENU_SUBS.inventory).toEqual(['weapons', 'accessories', 'companions']);
+    expect(Object.keys(INVENTORY).sort()).toEqual([...MENU_SUBS.inventory!].sort());
+  });
+});
+
+describe('inventoryWeaponOrder', () => {
+  it('puts the equipped weapon first and keeps the rest in tier order', () => {
+    expect(inventoryWeaponOrder(5, 0)).toEqual([0, 1, 2, 3, 4]);
+    expect(inventoryWeaponOrder(5, 3)).toEqual([3, 0, 1, 2, 4]);
+    expect(inventoryWeaponOrder(5, 4)).toEqual([4, 0, 1, 2, 3]);
   });
 });
 

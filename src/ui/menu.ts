@@ -181,12 +181,22 @@ const TABS = [
     label: 'Inventory',
     subs: [
       { id: 'weapons', label: 'Weapons' },
-      { id: 'companions', label: 'Companions' },
       { id: 'accessories', label: 'Accessories' },
+      { id: 'companions', label: 'Companions' },
     ],
   },
 ] as const;
 export const MENU_TABS: readonly string[] = TABS.map((t) => t.id);
+/** Sub tab ids per tab, in display order. */
+export const MENU_SUBS: Record<string, readonly string[]> = Object.fromEntries(
+  TABS.map((t) => [t.id, t.subs.map((s) => s.id)]),
+);
+
+/** Weapon tiers for Inventory → Weapons: the equipped one first, the rest in tier order. */
+export function inventoryWeaponOrder(count: number, equipped: number): number[] {
+  const tiers = Array.from({ length: count }, (_, i) => i);
+  return tiers.filter((i) => i === equipped).concat(tiers.filter((i) => i !== equipped));
+}
 /** A tab, or the Help view (opened with the (i) button, not a tab). */
 export type MenuTab = (typeof TABS)[number]['id'] | 'help';
 type TabId = (typeof TABS)[number]['id'];
@@ -460,6 +470,7 @@ export const INVENTORY = {
   )}
     <p class="note">Upgrade weapons in Shop → Weapons.</p>
     <p class="note inv-hint">Buy more weapons in Shop → Weapons.</p>`,
+  accessories: GEAR_HTML,
   companions: `
     <p class="inv-comp-empty">No companions yet. Companions are sold in Shop → Companions.</p>
     ${companionRows(
@@ -468,7 +479,6 @@ export const INVENTORY = {
       () => '',
     )}
     <p class="note inv-comp-note">Upgrade companions in Shop → Companions.</p>`,
-  accessories: GEAR_HTML,
 };
 
 const HELP = `
@@ -871,7 +881,21 @@ export function createMenu(deps: MenuDeps): Menu {
     }
   }
 
+  /** Equipped weapon the Inventory list is currently ordered for. */
+  let invOrderedFor: number | null = null;
+
   function refreshInventoryWeapons(state: GameState): void {
+    // Re-order only when the equipped weapon changes: moves just the rows that must move,
+    // so the other rows keep their focus and animations.
+    if (state.equipped !== invOrderedFor) {
+      invOrderedFor = state.equipped;
+      const list = $('.inv-list');
+      const rows = new Map($$('.inv-list .item').map((li) => [Number(li.dataset.tier), li]));
+      inventoryWeaponOrder(rows.size, state.equipped).forEach((tier, pos) => {
+        const li = rows.get(tier)!;
+        if (list.children[pos] !== li) list.insertBefore(li, list.children[pos] ?? null);
+      });
+    }
     let owned = 0;
     for (const li of $$('.inv-list .item')) {
       const i = Number(li.dataset.tier);
