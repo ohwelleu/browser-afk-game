@@ -41,6 +41,8 @@ const gearWith = (...crits: number[]): Gear => ({
   ...newGear(0),
   ring: crits[0] === undefined ? null : ring(crits[0]),
   pendant: crits[1] === undefined ? null : { ...ring(crits[1]), id: 2, slot: 'pendant' },
+  earring: crits[2] === undefined ? null : { ...ring(crits[2]), id: 3, slot: 'earring' },
+  belt: crits[3] === undefined ? null : { ...ring(crits[3]), id: 4, slot: 'belt' },
 });
 
 /** A fresh game whose crit chance is `critLevel` upgrade levels plus the `crits` item chances. */
@@ -119,17 +121,20 @@ describe('critChance', () => {
     expect(critChance({})).toBe(0);
   });
 
-  it('adds the upgrade and both equipped items', () => {
+  it('adds the upgrade and all equipped items', () => {
     expect(critChance(game(5))).toBe(0.05);
     expect(critChance(game(0, [0.02, 0.03]))).toBeCloseTo(0.05);
     expect(critChance(game(5, [0.02, 0.03]))).toBeCloseTo(0.1);
     expect(gearTotals(gearWith(0.02, 0.03)).crit).toBeCloseTo(0.05);
+    expect(critChance(game(0, [0.02, 0.03, 0.04, 0.05]))).toBeCloseTo(0.14);
   });
 
   it('is capped at 75 % however it is reached', () => {
     expect(critChance(game(CRIT_MAX_LEVEL, [0.5])).toFixed(2)).toBe('0.75');
     expect(critChance(game(500, [0.5]))).toBe(0.75);
     expect(critChance(game(CRIT_MAX_LEVEL, [0.2, 0.2]))).toBeCloseTo(0.75);
+    expect(critChance(game(CRIT_MAX_LEVEL, [0.1, 0.1, 0.1, 0.1]))).toBe(0.75);
+    expect(critChance(game(0, [0.2, 0.2, 0.2, 0.2]))).toBe(0.75);
   });
 });
 

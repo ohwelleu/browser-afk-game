@@ -53,9 +53,12 @@ describe('savePreviewText', () => {
     let items = newGear(1);
     items = rollDrop(items, 1, 1, true).gear;
     items = rollDrop(items, 1, 1, true).gear;
-    const companion = { id: 'crow' as const, dmgLevel: 1, autoUnlocked: false, speedLevel: 1 };
-    expect(savePreviewText(progress({ world: 3, stage: 4, coins: 12400, items, companion }))).toBe(
+    const companions = { crow: 1, wolf: 0 };
+    expect(savePreviewText(progress({ world: 3, stage: 4, coins: 12400, items, companions }))).toBe(
       'Stage 3.4, 12,400 coins, crow, 2 items',
+    );
+    expect(savePreviewText(progress({ companions: { crow: 3, wolf: 2 } }))).toContain(
+      'crow + wolf',
     );
     expect(savePreviewText(progress({ coins: 0 }))).toBe(
       'Stage 1.1, 0 coins, no companion, 0 items',

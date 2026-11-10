@@ -1,11 +1,12 @@
 /**
- * Items: ring and pendant (docs/design/active-play.md → 2. Items). Pure, like
+ * Items: ring, pendant, earring and belt (docs/design/active-play.md → 2. Items). Pure, like
  * the rest of `game/`: every function returns new objects and all randomness
  * comes from the seeded RNG stored in `Gear.rng`.
  */
 import {
   defendedDamage,
   dropChance,
+  ITEM_SLOTS,
   ITEM_STATS,
   ITEMS,
   itemRarityWeights,
@@ -36,6 +37,8 @@ export type Item = {
 export type Gear = {
   ring: Item | null;
   pendant: Item | null;
+  earring: Item | null;
+  belt: Item | null;
   /** Unequipped items, oldest first. At most `ITEMS.inventorySize`. */
   bag: Item[];
   /** RNG state for drops (uint32). */
@@ -46,23 +49,42 @@ export type Gear = {
 export type GearTotals = Record<ItemStat, number>;
 
 export function newGear(seed: number = randomSeed()): Gear {
-  return { ring: null, pendant: null, bag: [], rng: seed >>> 0, nextId: 1 };
+  return {
+    ring: null,
+    pendant: null,
+    earring: null,
+    belt: null,
+    bag: [],
+    rng: seed >>> 0,
+    nextId: 1,
+  };
 }
 
 /**
- * Sum of both equipped items, with the speed and item find caps applied.
+ * Sum of all equipped items, with the speed and item find caps applied.
  * `crit` is the raw item sum: use `critChance` (state.ts) for the capped total.
  */
 export function gearTotals(g: Gear | undefined): GearTotals {
   const t: GearTotals = { damage: 0, defence: 0, speed: 0, itemFind: 0, crit: 0 };
   if (!g) return t;
-  for (const item of [g.ring, g.pendant]) {
+  for (const slot of ITEM_SLOTS) {
+    const item = g[slot];
     if (!item) continue;
     for (const stat of ITEM_STATS) t[stat] += item.stats[stat] ?? 0;
   }
   t.speed = Math.min(ITEMS.caps.speed, t.speed);
   t.itemFind = Math.min(ITEMS.caps.itemFind, t.itemFind);
   return t;
+}
+
+/** Index picked by weight. With equal weights this is `floor(r × n)`, the same draw as a uniform pick. */
+function pickIndex(rng: Rng, weights: number[]): number {
+  let r = nextFloat(rng) * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r < 0) return i;
+  }
+  return weights.length - 1;
 }
 
 /**
@@ -78,14 +100,17 @@ export function rollItem(
   pick: { slot?: ItemSlot; tier?: ItemTier } = {},
 ): Item {
   const tier = pick.tier ?? pickWeighted(rng, itemRarityWeights(itemFind));
-  const slot: ItemSlot = pick.slot ?? (nextFloat(rng) < 0.5 ? 'ring' : 'pendant');
-  // Draw `statCount` stats without replacement.
+  const slot: ItemSlot =
+    pick.slot ??
+    ITEM_SLOTS[Math.min(ITEM_SLOTS.length - 1, Math.floor(nextFloat(rng) * ITEM_SLOTS.length))];
+  // Draw `statCount` stats without replacement, weighted by what the slot leans to.
   const pool = [...ITEM_STATS];
+  const weight = (stat: ItemStat) => ITEMS.statWeights[slot]?.[stat] ?? 1;
   const L = stageLevel(world, stage);
   const { min, max } = ITEMS.roll;
   const stats: Item['stats'] = {};
   for (let n = 0; n < ITEMS.statCount[tier] && pool.length; n++) {
-    const stat = pool.splice(Math.floor(nextFloat(rng) * pool.length), 1)[0];
+    const stat = pool.splice(pickIndex(rng, pool.map(weight)), 1)[0];
     stats[stat] = itemStatValue(stat, L, tier, min + (max - min) * nextFloat(rng));
   }
   return { id, slot, tier, world, stage, stats };

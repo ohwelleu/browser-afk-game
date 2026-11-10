@@ -45,7 +45,7 @@ function played(over: Partial<Progress> = {}): GameState {
     ascends: 2,
     bestStage: 50,
     items: { ...newGear(77), ring, bag: [pendant], nextId: 3 },
-    companion: { id: 'crow', dmgLevel: 4, autoUnlocked: true, speedLevel: 3 },
+    companions: { crow: 4, wolf: 2 },
     character: { defenceLevel: 5, critLevel: 6, hpLevel: 7 },
     ...over,
   });
@@ -88,7 +88,7 @@ describe('ascend', () => {
     expect(ascend(poor)).toBe(poor);
   });
 
-  it('resets everything except items: stage, coins, weapons, upgrades, crow, auto-advance', () => {
+  it('resets everything except items: stage, coins, weapons, upgrades, companions, auto-advance', () => {
     const next = ascend(played());
     const fresh = newProgress();
     expect(next).toMatchObject({
@@ -100,7 +100,7 @@ describe('ascend', () => {
       revealedWeapons: fresh.revealedWeapons,
       equipped: 0,
       autoAdvance: true,
-      companion: null,
+      companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
     });
     expect(next.duel.phase).toBe('intro');

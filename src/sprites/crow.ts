@@ -1,4 +1,4 @@
-import type { Point, SpriteDef } from './types';
+import type { SpriteDef } from './types';
 
 // Crow companion (docs/design/active-play.md, section 1). 16�16 on every
 // frame, faces right (towards the mob) like the hero; fly-back faces left.
@@ -233,27 +233,3 @@ export const peckSpark: SpriteDef = {
     ['.......', '.#...#.', '...#...', '..#.#..', '...#...', '.#...#.', '.......'],
   ],
 };
-
-export type CompanionAnimation = 'idle' | 'flyOut' | 'peck' | 'flyBack';
-
-/** Everything the renderer needs for one companion. `CompanionDef.sprites` is a key of `companionSprites`. */
-export type CompanionSprites = {
-  animations: Record<CompanionAnimation, SpriteDef>;
-  icon: SpriteDef;
-  /** Frame of `animations.peck` where damage lands. */
-  hitFrame: number;
-  /** Beak tip on the hit frame, in companion frame pixels. */
-  hitPoint: Point;
-  /** Impact effect, centred on `hitPoint` from the hit frame on. */
-  hitEffect: SpriteDef;
-};
-
-export const companionSprites = {
-  crow: {
-    animations: { idle: crowIdle, flyOut: crowFlyOut, peck: crowPeck, flyBack: crowFlyBack },
-    icon: crowIcon,
-    hitFrame: 1,
-    hitPoint: { x: 15, y: 10 },
-    hitEffect: peckSpark,
-  },
-} satisfies Record<string, CompanionSprites>;

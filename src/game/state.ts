@@ -10,12 +10,10 @@ import { weaponAttack, windup } from './attacks';
 import {
   bulkQuote,
   capCritChance,
-  companionAutoInterval,
   companionDamage,
-  companionDmgCost,
-  companionMaxSpeedLevel,
-  companionSpeedCost,
+  companionUpgradeCostAt,
   characterCost,
+  COMPANION_IDS,
   COMPANIONS,
   critDamage,
   critFromLevel,
@@ -77,19 +75,24 @@ export type Duel = {
   heroHurtTick: number | null;
   mobAttackTick: number | null;
   mobHurtTick: number | null;
-  /** Duel ticks when the companion's pecks in flight land. Dropped with the duel. */
-  companionPecks: number[];
-  /** Duel tick the last companion attack started (fly-out animation). */
-  companionAttackTick: number | null;
+  /** Per companion: duel ticks when its attacks in flight land. Dropped with the duel. */
+  companionPecks: PerCompanion<number[]>;
+  /** Per companion: duel tick its last attack started (fly-out / lunge animation). */
+  companionAttackTick: PerCompanion<number | null>;
 };
 
-/** The equipped companion (one slot). Saved as is. */
-export type Companion = {
-  id: CompanionId;
-  dmgLevel: number;
-  autoUnlocked: boolean;
-  speedLevel: number;
-};
+/** One value per companion id. */
+export type PerCompanion<T> = Record<CompanionId, T>;
+
+/** Builds a `PerCompanion` by calling `make` for every companion. */
+export const perCompanion = <T>(make: (id: CompanionId) => T): PerCompanion<T> =>
+  Object.fromEntries(COMPANION_IDS.map((id) => [id, make(id)])) as PerCompanion<T>;
+
+/**
+ * Companion levels (0 = not bought). A bought companion is owned for good and
+ * has one upgrade: its level. Saved as is.
+ */
+export type CompanionLevels = PerCompanion<number>;
 
 /** Character upgrade levels (0 = not bought). Saved as is. */
 export type Character = { defenceLevel: number; critLevel: number; hpLevel: number };
@@ -133,9 +136,9 @@ export type GameState = {
   bestStage: number;
   /** The best item ever owned (tier, then total stat value), even if it was sold. Survives an ascend. */
   bestItem: Item | null;
-  /** Ring, pendant, bag and the drop RNG (game/items.ts). */
+  /** The four equipped slots, the bag and the drop RNG (game/items.ts). */
   items: Gear;
-  companion: Companion | null;
+  companions: CompanionLevels;
   /** Coin upgrades bought in Shop → Character. */
   character: Character;
   /**
@@ -143,10 +146,10 @@ export type GameState = {
    * derived from the drop seed on load. Tests can set it to fix the rolls.
    */
   critRng: number;
-  /** `ticks` of the last click peck, for the click cooldown (not saved). */
+  /** `ticks` of the last click attack, for the click cooldown (not saved). */
   companionClickTick: number | null;
-  /** Fighting ticks since the last auto peck (not saved). */
-  companionAutoCharge: number;
+  /** Per companion: fighting ticks since its last auto attack (not saved). */
+  companionAutoCharge: PerCompanion<number>;
   duel: Duel;
   events: GameEvent[];
 };
@@ -168,7 +171,7 @@ export type Progress = Pick<
   | 'bestStage'
   | 'bestItem'
   | 'items'
-  | 'companion'
+  | 'companions'
   | 'character'
 >;
 
@@ -191,10 +194,13 @@ export function newProgress(): Progress {
     bestStage: 1,
     bestItem: null,
     items: newGear(),
-    companion: null,
+    companions: newCompanions(),
     character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
   };
 }
+
+/** Nothing bought yet. */
+export const newCompanions = (): CompanionLevels => perCompanion(() => 0);
 
 export function createState(progress: Progress = newProgress()): GameState {
   return {
@@ -216,11 +222,11 @@ export function createState(progress: Progress = newProgress()): GameState {
       stageLevel(progress.world, progress.stage),
     ),
     bestItem: betterItem(progress.bestItem, bestOwnedItem(progress.items)),
-    companion: progress.companion ? { ...progress.companion } : null,
+    companions: { ...newCompanions(), ...progress.companions },
     character: { ...progress.character },
     critRng: critSeed(progress.items),
     companionClickTick: null,
-    companionAutoCharge: 0,
+    companionAutoCharge: perCompanion(() => 0),
     // The first duel after Start/Continue always gets the full intro.
     duel: newDuel(progress.world, progress.stage, true, heroMaxHp(progress)),
     events: [],
@@ -260,8 +266,8 @@ export function newDuel(
     heroHurtTick: null,
     mobAttackTick: null,
     mobHurtTick: null,
-    companionPecks: [],
-    companionAttackTick: null,
+    companionPecks: perCompanion(() => []),
+    companionAttackTick: perCompanion(() => null),
   };
 }
 
@@ -332,11 +338,13 @@ function draft(state: GameState): GameState {
   return {
     ...state,
     weaponLevels: [...state.weaponLevels],
-    companion: state.companion ? { ...state.companion } : null,
+    companions: { ...state.companions },
+    companionAutoCharge: { ...state.companionAutoCharge },
     duel: {
       ...state.duel,
       mob: { ...state.duel.mob },
-      companionPecks: [...state.duel.companionPecks],
+      companionPecks: perCompanion((id) => [...state.duel.companionPecks[id]]),
+      companionAttackTick: { ...state.duel.companionAttackTick },
     },
     events: [],
   };
@@ -461,51 +469,58 @@ function combat(s: GameState): void {
   }
 }
 
-/** Companion auto attack and landing pecks. Only while `fighting`. */
+/** Companions owned (level 1 or more), in shop order. */
+export const ownedCompanions = (s: Pick<GameState, 'companions'>): CompanionDef[] =>
+  COMPANION_IDS.filter((id) => s.companions[id] >= 1).map((id) => COMPANIONS[id]);
+
+/**
+ * Companion auto attacks and landing hits. Only while `fighting`. Every owned
+ * companion has its own timer, so they never wait for each other.
+ */
 function companionCombat(s: GameState): void {
   const d = s.duel;
-  const def = companionDef(s);
-  if (!def || !s.companion || d.phase !== 'fighting' || d.mob.hp <= 0) return;
+  if (d.phase !== 'fighting' || d.mob.hp <= 0) return;
   const t = d.tick;
 
-  if (s.companion.autoUnlocked) {
-    const interval = secToTicks(companionAutoInterval(def, s.companion.speedLevel));
-    if (s.companionAutoCharge >= Math.max(1, interval)) {
-      s.companionAutoCharge = 0;
-      launchPeck(s, def);
+  for (const def of ownedCompanions(s)) {
+    const interval = Math.max(1, secToTicks(def.attack.interval));
+    if (s.companionAutoCharge[def.id] >= interval) {
+      s.companionAutoCharge[def.id] = 0;
+      launchAttack(s, def);
     }
-    s.companionAutoCharge++;
-  }
+    s.companionAutoCharge[def.id]++;
 
-  const due = d.companionPecks.filter((at) => at <= t);
-  if (!due.length) return;
-  d.companionPecks = d.companionPecks.filter((at) => at > t);
-  const dmg = companionDamage(def, s.companion.dmgLevel, heroDamage(s));
-  for (let i = 0; i < due.length && d.mob.hp > 0; i++) {
-    d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
-    d.mobHurtTick = t;
-    s.events.push(
-      { type: 'damage', target: 'mob', amount: dmg, source: 'companion' },
-      { type: 'sfx', name: 'hit' },
-    );
+    const due = d.companionPecks[def.id].filter((at) => at <= t);
+    if (!due.length) continue;
+    d.companionPecks[def.id] = d.companionPecks[def.id].filter((at) => at > t);
+    const dmg = companionDamage(def, s.companions[def.id], heroDamage(s));
+    for (let i = 0; i < due.length && d.mob.hp > 0; i++) {
+      d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
+      d.mobHurtTick = t;
+      s.events.push(
+        { type: 'damage', target: 'mob', amount: dmg, source: 'companion' },
+        { type: 'sfx', name: 'hit' },
+      );
+    }
   }
 }
 
-/** Starts a peck: it lands after the attack's fly-out time. */
-function launchPeck(s: GameState, def: CompanionDef): void {
+/** Starts an attack: it lands after the attack's wind-up (the crow's fly-out, the wolf's lunge). */
+function launchAttack(s: GameState, def: CompanionDef): void {
   const d = s.duel;
-  d.companionAttackTick = d.tick;
-  d.companionPecks.push(d.tick + Math.max(1, secToTicks(windup(def.attack))));
+  d.companionAttackTick[def.id] = d.tick;
+  d.companionPecks[def.id].push(d.tick + Math.max(1, secToTicks(windup(def.attack))));
 }
 
-export function companionDef(s: Pick<GameState, 'companion'>): CompanionDef | null {
-  return s.companion ? COMPANIONS[s.companion.id] : null;
+/** The companion that attacks on a click: the first owned one with a click cooldown (the crow). */
+export function clickerDef(s: Pick<GameState, 'companions'>): CompanionDef | null {
+  return ownedCompanions(s).find((def) => def.clickCooldown !== null) ?? null;
 }
 
-/** Click cooldown left, from 1 (just pecked) to 0 (ready). */
+/** Click cooldown left, from 1 (just attacked) to 0 (ready). */
 export function companionCooldown(s: GameState): number {
-  const def = companionDef(s);
-  if (!def || s.companionClickTick === null) return 0;
+  const def = clickerDef(s);
+  if (!def || def.clickCooldown === null || s.companionClickTick === null) return 0;
   const total = secToTicks(def.clickCooldown);
   return total > 0 ? Math.max(0, 1 - (s.ticks - s.companionClickTick) / total) : 0;
 }
@@ -548,7 +563,7 @@ export type UpgradeTarget =
   | { type: 'defence' }
   | { type: 'crit' }
   | { type: 'hp' }
-  | { type: 'companion'; kind: 'dmg' | 'speed' };
+  | { type: 'companion'; id: CompanionId };
 
 type Track = {
   level: number;
@@ -557,7 +572,7 @@ type Track = {
 };
 
 function track(
-  s: Pick<GameState, 'weaponLevels' | 'character' | 'companion'>,
+  s: Pick<GameState, 'weaponLevels' | 'character' | 'companions'>,
   t: UpgradeTarget,
 ): Track | null {
   switch (t.type) {
@@ -601,15 +616,13 @@ function track(
         },
       };
     case 'companion': {
-      const c = s.companion;
-      const def = companionDef(s);
-      if (!c || !def || (t.kind === 'speed' && !c.autoUnlocked)) return null;
-      const dmg = t.kind === 'dmg';
+      const level = s.companions[t.id];
+      if (!(level >= 1)) return null;
       return {
-        level: dmg ? c.dmgLevel : c.speedLevel,
-        costAt: (l) => (dmg ? companionDmgCost(def, l) : companionSpeedCost(def, l)),
+        level,
+        costAt: (l) => companionUpgradeCostAt(COMPANIONS[t.id], l),
         set: (n, l) => {
-          n.companion = { ...n.companion!, [dmg ? 'dmgLevel' : 'speedLevel']: l };
+          n.companions = { ...n.companions, [t.id]: l };
         },
       };
     }
@@ -618,7 +631,7 @@ function track(
 
 /** Levels and total price of buying `amount` of `t` now (`levels` 0 = nothing to buy). */
 export function upgradeQuote(
-  s: Pick<GameState, 'coins' | 'weaponLevels' | 'character' | 'companion'>,
+  s: Pick<GameState, 'coins' | 'weaponLevels' | 'character' | 'companions'>,
   t: UpgradeTarget,
   amount: BuyAmount,
 ): BulkQuote {
@@ -628,7 +641,7 @@ export function upgradeQuote(
 
 /** True when the upgrade is bought up as far as it goes (e.g. crit at its cap). */
 export function upgradeMaxed(
-  s: Pick<GameState, 'weaponLevels' | 'character' | 'companion'>,
+  s: Pick<GameState, 'weaponLevels' | 'character' | 'companions'>,
   t: UpgradeTarget,
 ): boolean {
   const tr = track(s, t);
@@ -752,73 +765,57 @@ export function setAutoAdvance(s: GameState, on: boolean): GameState {
 
 // ── Companion actions ──────────────────────────────────────────────────────
 
-/** A click or tap on the game screen: the companion pecks, unless it's on cooldown. */
+/** A click or tap on the game screen: the clicker (crow) attacks, unless it's on cooldown. */
 export function companionClick(s: GameState): GameState {
-  const def = companionDef(s);
+  const def = clickerDef(s);
   if (!def || s.duel.phase !== 'fighting' || companionCooldown(s) > 0) return s;
   const next = draft(s);
   next.companionClickTick = s.ticks;
-  launchPeck(next, def);
+  launchAttack(next, def);
   return next;
 }
 
-/** The companion offered in the shop, or null (not unlocked yet, or the slot is taken). */
-export function shopCompanion(s: Pick<GameState, 'best' | 'companion'>): CompanionDef | null {
-  if (s.companion) return null;
-  const def = COMPANIONS.crow;
-  return s.best >= def.unlockLevel ? def : null;
+/** `owned`: bought. `offer`: in the shop and can be bought. `locked`: not unlocked yet. */
+export type CompanionStatus = 'owned' | 'offer' | 'locked';
+
+export function companionStatus(
+  s: Pick<GameState, 'best' | 'companions'>,
+  id: CompanionId,
+): CompanionStatus {
+  if (s.companions[id] >= 1) return 'owned';
+  return s.best >= COMPANIONS[id].unlockLevel ? 'offer' : 'locked';
 }
 
-export function canBuyCompanion(s: GameState): boolean {
-  const def = shopCompanion(s);
-  return def !== null && s.coins >= def.price;
+export function canBuyCompanion(s: GameState, id: CompanionId): boolean {
+  return companionStatus(s, id) === 'offer' && s.coins >= COMPANIONS[id].price;
 }
 
-/** Buys the companion; it goes straight into the companion slot. */
-export function buyCompanion(s: GameState): GameState {
-  const def = shopCompanion(s);
-  if (!def || !canBuyCompanion(s)) return s;
-  return purchase(s, def.price, (n) => {
-    n.companion = { id: def.id, dmgLevel: 1, autoUnlocked: false, speedLevel: 1 };
+/** Buys a companion at level 1; it starts attacking at once. */
+export function buyCompanion(s: GameState, id: CompanionId): GameState {
+  if (!canBuyCompanion(s, id)) return s;
+  return purchase(s, COMPANIONS[id].price, (n) => {
+    n.companions = { ...n.companions, [id]: 1 };
+    n.companionAutoCharge[id] = 0;
   });
 }
 
-export type CompanionUpgrade = 'dmg' | 'auto' | 'speed';
-
-/** Price of the next level of `kind`, or null when it can't be bought (no companion, maxed, locked). */
+/** Price of the next level, or null when the companion isn't owned. */
 export function companionUpgradeCost(
-  s: Pick<GameState, 'companion'>,
-  kind: CompanionUpgrade,
+  s: Pick<GameState, 'companions'>,
+  id: CompanionId,
 ): number | null {
-  const c = s.companion;
-  const def = companionDef(s);
-  if (!c || !def) return null;
-  switch (kind) {
-    case 'dmg':
-      return companionDmgCost(def, c.dmgLevel);
-    case 'auto':
-      return c.autoUnlocked ? null : def.autoPrice;
-    case 'speed':
-      return c.autoUnlocked && c.speedLevel < companionMaxSpeedLevel(def)
-        ? companionSpeedCost(def, c.speedLevel)
-        : null;
-  }
+  const level = s.companions[id];
+  return level >= 1 ? companionUpgradeCostAt(COMPANIONS[id], level) : null;
 }
 
-export function canUpgradeCompanion(s: GameState, kind: CompanionUpgrade): boolean {
-  const cost = companionUpgradeCost(s, kind);
+export function canUpgradeCompanion(s: GameState, id: CompanionId): boolean {
+  const cost = companionUpgradeCost(s, id);
   return cost !== null && s.coins >= cost;
 }
 
-export function upgradeCompanion(s: GameState, kind: CompanionUpgrade): GameState {
-  const cost = companionUpgradeCost(s, kind);
-  if (kind !== 'auto') return buyUpgrades(s, { type: 'companion', kind }, 1);
-  if (cost === null || s.coins < cost) return s;
-  return purchase(s, cost, (n) => {
-    n.companion!.autoUnlocked = true;
-    n.companionAutoCharge = 0;
-  });
-}
+/** One level for a companion (more at a time: `buyUpgrades` with a `{ type: 'companion' }` target). */
+export const upgradeCompanion = (s: GameState, id: CompanionId): GameState =>
+  buyUpgrades(s, { type: 'companion', id }, 1);
 
 // ── Character upgrades ─────────────────────────────────────────────────────
 

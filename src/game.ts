@@ -591,6 +591,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         read: () => toSaveData(state, audioSettings, __VERSION__),
         apply: debugApply,
         reset: debugReset,
+        previewRain(counts) {
+          scene.setRainPreview(counts);
+          if (!loop.running) draw();
+        },
       },
       TRACK_CYCLE,
       { saveKey: opts.saveKey },
