@@ -49,6 +49,7 @@ import {
   type Gear,
   type Item,
 } from './items';
+import { mobAppearSpeed, scaleAppear } from './debug-speed';
 import { revealedWeapons, revealWeapons } from './reveal';
 import { nextFloat } from './rng';
 
@@ -177,6 +178,9 @@ export type Progress = Pick<
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
 
+/** Ticks of an intro/gap before a mob appears: `secToTicks`, scaled by the debug-only appear speed. */
+const appearTicks = (s: number): number => secToTicks(scaleAppear(s, mobAppearSpeed()));
+
 export function newProgress(): Progress {
   return {
     world: 1,
@@ -243,7 +247,7 @@ export function newDuel(
   maxHp: number = HERO_MAX_HP,
 ): Duel {
   const hp = mobHp(world, stage);
-  const introTicks = secToTicks(fullIntro ? DUEL.intro : DUEL.shortIntro);
+  const introTicks = appearTicks(fullIntro ? DUEL.intro : DUEL.shortIntro);
   return {
     phase: 'intro',
     tick: 0,
@@ -384,7 +388,7 @@ function step(s: GameState): void {
       }
       return;
     case 'transition':
-      if (inPhase >= secToTicks(DUEL.transition)) {
+      if (inPhase >= appearTicks(DUEL.transition)) {
         const level = stageLevel(s.world, s.stage);
         const isNew = level > s.best;
         s.best = Math.max(s.best, level);

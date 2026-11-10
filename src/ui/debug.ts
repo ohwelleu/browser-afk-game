@@ -29,6 +29,7 @@ import {
   useFont,
   type FontCandidate,
 } from './font';
+import { GAME_SPEEDS, MOB_APPEAR_SPEEDS, speedLabel } from '../game/debug-speed';
 import { mountRainbowDemo, RAINBOW_DEMO_HTML, RAINBOW_DEMO_STYLES } from './rainbow-demo';
 import { mountRainDemo, RAIN_DEMO_HTML, RAIN_DEMO_STYLES } from './rain-demo';
 import {
@@ -52,6 +53,10 @@ export type DebugApi = {
   reset(): void;
   /** Shows this item rain instead of the equipped items' (`null` = back to the items). */
   previewRain?(counts: RainCounts | null): void;
+  /** Game clock multiplier (debug only, not saved; `1` = real time). */
+  setGameSpeed?(multiplier: number): void;
+  /** Multiplier for how fast the next mob appears (`Infinity` = instant; `1` = real timings). */
+  setMobAppearSpeed?(multiplier: number): void;
 };
 
 /** Optional wiring; the defaults fit the demo page. */
@@ -151,6 +156,8 @@ const STYLES = `
 .dbg textarea.dbg-str { height: 48px; word-break: break-all; }
 .dbg-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .dbg-row button { font-size: var(--afk-fs-small, 12px); padding: 2px 8px; }
+.dbg-speed { display: grid; gap: 4px; }
+.dbg-speed .dbg-font { grid-template-columns: 1fr auto; }
 .dbg-font { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
 .dbg-sample { margin: 0; font-size: var(--afk-fs, 16px); overflow-wrap: anywhere; }
 .dbg-font-info { overflow-wrap: anywhere; }
@@ -195,6 +202,13 @@ export function createDebugPanel(
     <summary>Debug</summary>
     <div class="dbg-body">
       <pre class="dbg-stats dbg-live"></pre>
+      <div class="dbg-speed">
+        <strong>Speed</strong>
+        <label class="dbg-font">Game speed<select name="game-speed">${speedOptionsHtml(GAME_SPEEDS)}</select></label>
+        <label class="dbg-font">Mob appear speed<select name="mob-speed">${speedOptionsHtml(MOB_APPEAR_SPEEDS)}</select></label>
+        <p class="dbg-stats dbg-speed-info"></p>
+        <div class="dbg-row"><button type="button" data-dbg="reset-speed">Reset speed</button></div>
+      </div>
       <label class="dbg-font">Font<select name="font">${fontOptionsHtml()}</select></label>
       <p class="dbg-sample">${FONT_SAMPLE}<br />${FONT_LETTERS}</p>
       <p class="dbg-stats dbg-font-info"></p>
@@ -257,6 +271,9 @@ export function createDebugPanel(
   const ok = $<HTMLParagraphElement>('.dbg-ok');
   const fontSelect = $<HTMLSelectElement>('[name="font"]');
   const fontInfo = $<HTMLParagraphElement>('.dbg-font-info');
+  const gameSpeed = $<HTMLSelectElement>('[name="game-speed"]');
+  const mobSpeed = $<HTMLSelectElement>('[name="mob-speed"]');
+  const speedInfo = $<HTMLParagraphElement>('.dbg-speed-info');
   const fontBase = options.fontBase ?? new URL('fonts/', document.baseURI).href;
 
   /** Loads `f`, then switches every text on this game (and canvas text) to it. */
@@ -404,6 +421,18 @@ export function createDebugPanel(
     reload();
   }
 
+  /** Pushes the two selects to the game and shows what is active. Debug only, never saved. */
+  function applySpeeds(): void {
+    const game = Number(gameSpeed.value);
+    const mob = Number(mobSpeed.value);
+    api.setGameSpeed?.(game);
+    api.setMobAppearSpeed?.(mob);
+    speedInfo.textContent = speedInfoText(game, mob);
+  }
+  gameSpeed.addEventListener('change', applySpeeds);
+  mobSpeed.addEventListener('change', applySpeeds);
+  applySpeeds();
+
   el.addEventListener('toggle', () => {
     if (el.open) load();
   });
@@ -413,6 +442,11 @@ export function createDebugPanel(
     switch (act) {
       case 'load':
         load();
+        return;
+      case 'reset-speed':
+        gameSpeed.value = '1';
+        mobSpeed.value = '1';
+        applySpeeds();
         return;
       case 'use-font': {
         const id = (e.target as Element).closest<HTMLElement>('[data-font]')?.dataset.font;
@@ -517,6 +551,8 @@ export function createDebugPanel(
       if (stats.textContent !== full) stats.textContent = full;
     },
     destroy() {
+      api.setGameSpeed?.(1);
+      api.setMobAppearSpeed?.(1);
       stopRainbow();
       el.remove();
       style.remove();
@@ -650,6 +686,16 @@ export const clearBag = (data: SaveData): SaveData => ({
   ...data,
   items: { ...data.items, bag: [] },
 });
+
+function speedOptionsHtml(speeds: readonly number[]): string {
+  return speeds
+    .map((m) => `<option value="${m}"${m === 1 ? ' selected' : ''}>${speedLabel(m)}</option>`)
+    .join('');
+}
+
+/** The Speed section's "active values" line. */
+export const speedInfoText = (game: number, mob: number): string =>
+  `Active: game ${speedLabel(game)}, mob appear ${speedLabel(mob)} (not saved)`;
 
 /** Live stat lines for the companions, the items and drops. */
 export function extraStats(data: SaveData, dropForced = false): string {
