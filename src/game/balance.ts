@@ -125,6 +125,12 @@ export const ASCEND_GATE_LEVEL = stageLevel(ASCEND_GATE.world, ASCEND_GATE.stage
 export const ASCEND_COST_KILLS = 100;
 /** Ascend price in coins: `ASCEND_COST_KILLS × mobCoins(gate stage)`. */
 export const ASCEND_COST = ASCEND_COST_KILLS * mobCoins(ASCEND_GATE.world, ASCEND_GATE.stage);
+/**
+ * Attack speed each ascend adds (0.10 = +10 %). Placeholder, to be balanced
+ * with the simulator. It adds on top of the gear speed and is NOT part of the
+ * item cap (`ITEMS.caps.speed`).
+ */
+export const ASCEND_SPEED_PER = 0.1;
 
 /** `damage = baseDmg × level` (level 0 = not owned = no damage). */
 export function weaponDamage(tier: number, level: number): number {

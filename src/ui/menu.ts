@@ -59,7 +59,7 @@ import {
 import { dialogHtml } from './modal';
 import { createSavePanel, type SavePanelDeps } from './save-panel';
 import type { MotionSetting } from '../motion';
-import { ascendBlockedReason, ascendGateText, ASCEND_PANEL } from './ascend';
+import { ascendBlockedReason, ascendBonusText, ascendGateText, ASCEND_PANEL } from './ascend';
 
 // Sizes are in em so a future pixel font can change the metrics in one place.
 export const MENU_STYLES = `
@@ -784,6 +784,7 @@ export function createMenu(deps: MenuDeps): Menu {
 
   function refreshShopAscend(state: GameState): void {
     show($('.asc-n'), formatNumber(state.ascends));
+    show($('.asc-bonus'), ascendBonusText(state.ascends));
     const gate = $('.asc-gate');
     show(gate, ascendGateText(state, stageName(state.best)));
     setClass(gate, 'open', ascendUnlocked(state));
