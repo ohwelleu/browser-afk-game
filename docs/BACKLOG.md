@@ -116,10 +116,9 @@ Each line below is its own thread, in this order.
       `rainbowStep`/`rainbowColor` from `src/ui/rainbow.ts`, and shows still
       or off under `prefers-reduced-motion`. Open: does a worn S tier item
       also get a (smaller) effect, and is there a debug toggle to preview it.
-- [ ] **Rainbow cycle 5 s** (owner, 2026-11-09): the default cycle is 20 s
-      (`RAINBOW_PERIOD_MS` in `src/ui/rainbow.ts`, also the CSS fallback and
-      the slider default in `src/ui/rainbow-demo.ts`). Make it 5 s
-      everywhere so the rainbow flows visibly.
+- [x] **Rainbow cycle 4 s** (owner, 2026-11-09, changed to 4 s on
+      2026-11-10): `RAINBOW_PERIOD_MS`, the CSS fallback and the debug slider
+      default are 4 s (was 20 s).
 - [ ] **Check that item frames match the debugger**: S+ items in the
       Inventory list and the drop toast should look exactly like the
       S-tier item frame in the debug panel's Rainbow section (same

@@ -128,8 +128,8 @@ describe('RAINBOW_STYLES', () => {
     expect(RAINBOW_STYLES).toMatch(/animation: afk-rainbow-flow [^;]*ease-in-out infinite/);
   });
 
-  it('takes its speed from --afk-rainbow-period (default 20s)', () => {
-    expect(RAINBOW_STYLES).toContain('var(--afk-rainbow-period, 20s)');
+  it('takes its speed from --afk-rainbow-period (default 4s)', () => {
+    expect(RAINBOW_STYLES).toContain('var(--afk-rainbow-period, 4s)');
   });
 
   it('has the frame, fill and text classes', () => {
