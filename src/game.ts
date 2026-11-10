@@ -55,6 +55,7 @@ import { ASCEND_STYLES, createAscendConfirm } from './ui/ascend';
 import { ascend } from './game/ascend';
 import { createToast, GEAR_STYLES } from './ui/gear';
 import { RAINBOW_STYLES } from './ui/rainbow';
+import { createMotion } from './motion';
 import { createNowPlaying, NOW_PLAYING_STYLES } from './ui/now-playing';
 import { createQuest, QUEST_STYLES } from './ui/quest';
 
@@ -145,7 +146,9 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   let themeMode = opts.theme;
   let palette: Palette = currentPalette();
   const sprites = new SpriteCache(palette);
-  const scene = new SceneRenderer();
+  // Animations setting (On by default, even when the OS asks for reduced motion).
+  const motion = createMotion(box, saved?.settings.motion);
+  const scene = new SceneRenderer(motion.reduced);
   let state: GameState = createState(saved?.progress);
   let view: View = computeView(1, 1, 1, sceneContent());
   let debugPanel: DebugPanel | null = null;
@@ -183,10 +186,19 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     confirmAscend: () =>
       setTimeout(() => dialogs.open(ascendConfirm.el, menuButton, ascendConfirm.noButton), 0),
     save: {
-      read: () => toSaveData(state, audioSettings, __VERSION__),
+      read: saveData,
       apply: importSave,
       tracks: TRACK_CYCLE,
       link: saveLink,
+    },
+    motion: {
+      get: motion.get,
+      toggle() {
+        motion.set(motion.reduced() ? 'on' : 'reduced');
+        menu.refreshSettings();
+        if (!loop.running) draw();
+        saveNow();
+      },
     },
   });
   const sound = createSoundPanel(
@@ -283,7 +295,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   function saveNow(): void {
     if (!started || !tabGuard.owner) return;
-    writeSave(storage, opts.saveKey, toSaveData(state, audioSettings, __VERSION__));
+    writeSave(storage, opts.saveKey, saveData());
   }
 
   // ── Theme & sizing ───────────────────────────────────────────────────────
@@ -305,6 +317,11 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     refreshPauseButton();
     refreshAudioButtons();
     if (!loop.running) draw();
+  }
+
+  /** Everything the game saves right now. */
+  function saveData(): SaveData {
+    return toSaveData(state, audioSettings, __VERSION__, { motion: motion.get() });
   }
 
   function iconUrl(def: SpriteDef): string {
@@ -414,12 +431,14 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     if (!result.ok) return result.errors;
     state = createState(result.progress);
     Object.assign(audioSettings, result.audio);
+    motion.set(result.settings.motion);
+    menu.refreshSettings();
     audio.setMuted(audioSettings.muted);
     audio.setTrack(audioSettings.track);
     audio.setMusicVolume(audioSettings.musicVolume);
     audio.setSfxVolume(audioSettings.sfxVolume);
     refreshAudioButtons();
-    writeSave(storage, opts.saveKey, toSaveData(state, audioSettings, __VERSION__));
+    writeSave(storage, opts.saveKey, saveData());
     if (!started) startButton.textContent = `Continue · ${state.world}.${state.stage}`;
     refreshUi();
     if (!loop.running) draw();
@@ -428,7 +447,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
 
   /** Help → Load: the current game becomes the backup, then `data` replaces it. */
   function importSave(data: SaveData): string[] | null {
-    writeSave(storage, opts.saveKey, toSaveData(state, audioSettings, __VERSION__));
+    writeSave(storage, opts.saveKey, saveData());
     return debugApply(data);
   }
 
@@ -617,7 +636,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     debugPanel = createDebugPanel(
       box,
       {
-        read: () => toSaveData(state, audioSettings, __VERSION__),
+        read: saveData,
         apply: debugApply,
         reset: debugReset,
         offerPick: () => act(forcePickOffer),

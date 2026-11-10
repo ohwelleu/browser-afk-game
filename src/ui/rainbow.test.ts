@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  goldGradient,
+  goldLight,
   RAINBOW_HUES,
   RAINBOW_LIGHTNESS,
   RAINBOW_PERIOD_MS,
@@ -128,8 +130,8 @@ describe('RAINBOW_STYLES', () => {
     expect(RAINBOW_STYLES).toMatch(/animation: afk-rainbow-flow [^;]*ease-in-out infinite/);
   });
 
-  it('takes its speed from --afk-rainbow-period (default 20s)', () => {
-    expect(RAINBOW_STYLES).toContain('var(--afk-rainbow-period, 20s)');
+  it('takes its speed from --afk-rainbow-period (default 4s)', () => {
+    expect(RAINBOW_STYLES).toContain('var(--afk-rainbow-period, 4s)');
   });
 
   it('has the frame, fill and text classes', () => {
@@ -138,12 +140,13 @@ describe('RAINBOW_STYLES', () => {
     expect(RAINBOW_STYLES).toMatch(/\.rainbow \{[^}]*background-clip: text/);
   });
 
-  it('stops the animation for prefers-reduced-motion', () => {
-    expect(RAINBOW_STYLES).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation: none/);
+  it('follows the Animations setting, not the OS: no prefers-reduced-motion query', () => {
+    expect(RAINBOW_STYLES).not.toContain('prefers-reduced-motion');
   });
 
-  it('keeps the gradient still (centred) under reduced motion in the game rules', () => {
-    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('@media (prefers-reduced-motion'));
+  it('keeps the gradient still (centred) when the game box has .motion-reduced', () => {
+    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('.motion-reduced'));
+    expect(reduced).toMatch(/animation: none/);
     expect(reduced).toContain('background-position: 50% 50%');
     for (const sel of [
       '.rainbow',
@@ -151,10 +154,48 @@ describe('RAINBOW_STYLES', () => {
       '.rainbow-frame::before',
       '.rainbow-glow::after',
     ])
-      expect(reduced).toContain(sel);
+      expect(reduced).toContain(`.motion-reduced ${sel}`);
   });
 
   it('has no debug-demo override: that lives only in the demo styles', () => {
     expect(RAINBOW_STYLES).not.toContain('dbg-');
+  });
+});
+
+describe('goldLight', () => {
+  it('is the half-way colour between the palette orange and yellow (lighter than the orange)', () => {
+    expect(goldLight({ orange: '#ff6b00', yellow: '#eab308' })).toBe('#f58f04');
+    expect(goldLight({ orange: '#ff7a1a', yellow: '#facc15' })).toBe('#fda318');
+    expect(goldLight({ orange: '#f60', yellow: '#fc0' })).toBe('#ff9900');
+  });
+
+  it('falls back to a CSS mix for colours it cannot read', () => {
+    expect(goldLight({ orange: 'rebeccapurple', yellow: '#eab308' })).toBe(
+      'color-mix(in srgb, rebeccapurple 50%, #eab308)',
+    );
+  });
+});
+
+describe('gold flow (S tier)', () => {
+  it('is the same flow with a light orange ↔ the palette yellow as the gradient', () => {
+    const g = goldGradient();
+    expect(g).toMatch(
+      /^radial-gradient\(circle, color-mix\(in srgb, var\(--_orange\) 50%, var\(--_yellow\)\), var\(--_yellow\), color-mix\(/,
+    );
+    // The darkest orange (the palette's own) is not a stop.
+    expect(g).not.toMatch(/var\(--_orange\)[,)]/);
+    const rule =
+      /\.gold\.rainbow, \.gold\.rainbow-fill, \.gold\.rainbow-frame::before \{([^}]*)\}/.exec(
+        RAINBOW_STYLES,
+      );
+    expect(rule).not.toBeNull();
+    // Only the colours change: no own animation, period or keyframes.
+    expect(rule![1].trim()).toBe(`--afk-rainbow-gradient: ${g};`);
+  });
+
+  it('stays still with the Animations setting on Reduced, like the rainbow', () => {
+    const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('.motion-reduced'));
+    expect(reduced).toContain('.motion-reduced .rainbow-frame::before');
+    expect(reduced).toContain('.motion-reduced .rainbow,');
   });
 });

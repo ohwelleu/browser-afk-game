@@ -18,6 +18,7 @@ import {
   validatePassives,
   validatePick,
 } from './save-passives';
+import { isMotionSetting, MOTION_DEFAULT, MOTION_SETTINGS, type MotionSetting } from './motion';
 
 export const DEFAULT_SAVE_KEY = 'afk-game';
 /**
@@ -104,6 +105,10 @@ export type AudioSettings = {
   sfxVolume: number;
 };
 
+/** Game settings other than sound. Optional in a save: a missing one gets the default. */
+export type GameSettings = { motion: MotionSetting };
+export const SETTINGS_DEFAULTS: GameSettings = { motion: MOTION_DEFAULT };
+
 /**
  * What the game saves. In localStorage it is stored as a save string (see
  * `encodeSave`); the previous good save is kept under `<key>.bak`.
@@ -112,9 +117,21 @@ export type SaveData = Progress & {
   version: number;
   gameVersion: string;
   audio: AudioSettings;
+  /** Missing in saves written before the Animations setting (they load the defaults). */
+  settings?: GameSettings;
 };
 
-export type Loaded = { progress: Progress; audio: Partial<AudioSettings> };
+export type Loaded = {
+  progress: Progress;
+  audio: Partial<AudioSettings>;
+  settings: Partial<GameSettings>;
+};
+
+/** Lenient settings read: anything missing or unknown is left out (the game uses its default). */
+function loadSettings(v: unknown): Partial<GameSettings> {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  return isMotionSetting(o.motion) ? { motion: o.motion } : {};
+}
 
 /**
  * `ok`: the main save loaded. `backup`: the main save was broken, the backup
@@ -150,7 +167,7 @@ export function loadSave(storage: StorageLike | undefined, key: string): LoadRes
 function parseStored(raw: string): Loaded | null {
   if (raw.startsWith(`${SAVE_PREFIX}.`)) {
     const r = decodeSave(raw);
-    return r.ok ? { progress: r.progress, audio: r.audio } : null;
+    return r.ok ? { progress: r.progress, audio: r.audio, settings: r.settings } : null;
   }
   const data = parseJsonObject(raw);
   return data ? repairV1(data) : null;
@@ -213,6 +230,7 @@ function repairV1(data: Record<string, unknown>): Loaded {
       ...(isVolume(audio.musicVolume) ? { musicVolume: audio.musicVolume } : {}),
       ...(isVolume(audio.sfxVolume) ? { sfxVolume: audio.sfxVolume } : {}),
     },
+    settings: loadSettings(data.settings),
   };
 }
 
@@ -233,7 +251,8 @@ function loadCharacter(v: unknown): Character {
 }
 
 export type Validated =
-  { ok: true; progress: Progress; audio: AudioSettings } | { ok: false; errors: string[] };
+  | { ok: true; progress: Progress; audio: AudioSettings; settings: GameSettings }
+  | { ok: false; errors: string[] };
 
 /**
  * Strict schema check (save strings, debugger): nothing is repaired. Every
@@ -337,6 +356,18 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
     }
   }
 
+  // Optional: saves from before the Animations setting have no `settings`.
+  const st = d.settings;
+  if (st !== undefined) {
+    if (!st || typeof st !== 'object' || Array.isArray(st)) {
+      errors.push('settings must be an object.');
+    } else if (!isMotionSetting((st as Record<string, unknown>).motion)) {
+      errors.push(
+        `settings.motion must be one of: ${MOTION_SETTINGS.map((m) => JSON.stringify(m)).join(', ')}.`,
+      );
+    }
+  }
+
   if (errors.length) return { ok: false, errors };
   const au = a as AudioSettings;
   return {
@@ -373,6 +404,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       musicVolume: au.musicVolume,
       sfxVolume: au.sfxVolume,
     },
+    settings: { motion: st === undefined ? MOTION_DEFAULT : (st as GameSettings).motion },
   };
 }
 
@@ -386,7 +418,12 @@ const pickCharacter = (c: Character): Character => ({
 
 const pickCompanions = (c: CompanionLevels): CompanionLevels => perCompanion((id) => c[id]);
 
-export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: string): SaveData {
+export function toSaveData(
+  s: GameState,
+  audio: AudioSettings,
+  gameVersion: string,
+  settings: GameSettings = SETTINGS_DEFAULTS,
+): SaveData {
   return {
     version: SAVE_VERSION,
     gameVersion,
@@ -410,6 +447,7 @@ export function toSaveData(s: GameState, audio: AudioSettings, gameVersion: stri
     passives: savePassives(s.passives),
     pick: savePick(s.pick),
     audio,
+    settings: { motion: settings.motion },
   };
 }
 
@@ -426,7 +464,13 @@ export function encodeSave(data: SaveData): string {
 }
 
 export type Decoded =
-  | { ok: true; data: Record<string, unknown>; progress: Progress; audio: AudioSettings }
+  | {
+      ok: true;
+      data: Record<string, unknown>;
+      progress: Progress;
+      audio: AudioSettings;
+      settings: GameSettings;
+    }
   | { ok: false; errors: string[] };
 
 /** Checks the format, checksum and schema of a save string. Pure, never throws. */
@@ -448,7 +492,7 @@ export function decodeSave(text: string, tracks?: readonly string[]): Decoded {
   const data = parseJsonObject(json);
   if (!data) return { ok: false, errors: ['Save data is not a JSON object.'] };
   const r = validateSaveData(data, tracks);
-  return r.ok ? { ok: true, data, progress: r.progress, audio: r.audio } : r;
+  return r.ok ? { ok: true, data, progress: r.progress, audio: r.audio, settings: r.settings } : r;
 }
 
 /** FNV-1a 32-bit over char codes (the payload is ASCII), as 8 hex digits. */

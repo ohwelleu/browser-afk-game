@@ -1,3 +1,5 @@
+import { reducedCss } from '../motion';
+
 /**
  * Rainbow: a flowing gradient for S-tier things. One big radial gradient with
  * a rainbow of stops, drawn twice as large as the box, whose position drifts
@@ -7,7 +9,7 @@
  * same lightness, so no band is much darker or brighter than the others.
  *
  * Ways to use it (all pure CSS, one keyframes animation, no JS per frame, and
- * a still gradient under `prefers-reduced-motion`):
+ * a still gradient when the Animations setting is Reduced, see `motion.ts`):
  * - `rainbow-frame`: a hollow animated border on a box. Put a child inside.
  *   Add `rainbow-glow` for a soft glow in the same colours.
  * - `rainbow-fill`: the gradient as the background (bars, chips).
@@ -24,7 +26,7 @@ export const RAINBOW_HUES = [0, 30, 45, 60, 70, 90, 120, 180, 200, 240, 270, 300
 export const RAINBOW_LIGHTNESS = 75;
 
 /** One full flow around the box, in milliseconds. */
-export const RAINBOW_PERIOD_MS = 20000;
+export const RAINBOW_PERIOD_MS = 4000;
 
 /** Frame thickness, in px. */
 export const RAINBOW_BORDER_PX = 3;
@@ -76,11 +78,55 @@ export function rainbowStep(
 }
 
 /**
+ * Gold flow (S tier): a light orange ↔ the palette yellow, alternating, so the
+ * bands flow like the rainbow's. The palette's own orange is the darkest accent
+ * and too dark for the flow, so the light orange is half-way to the yellow.
+ */
+export const GOLD_STOPS = [
+  'color-mix(in srgb, var(--_orange) 50%, var(--_yellow))',
+  'var(--_yellow)',
+] as const;
+/** Bands in the gold gradient (more bands = more visible flow on small boxes). */
+const GOLD_BANDS = 7;
+
+/** The CSS gold `radial-gradient(...)`: light orange, yellow, light orange, … from the palette variables. */
+export function goldGradient(): string {
+  const stops = Array.from({ length: GOLD_BANDS }, (_, i) => GOLD_STOPS[i % 2]);
+  return `radial-gradient(circle, ${stops.join(', ')})`;
+}
+
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const toRgb = (hex: string): number[] | null => {
+  const m = HEX.exec(hex.trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+};
+
+/**
+ * The same light orange as `GOLD_STOPS[0]`, as a colour for the canvas: the
+ * half-way mix of the palette orange and yellow. Hex colours are mixed here;
+ * anything else (a host override like `rebeccapurple`) becomes a CSS `color-mix`.
+ */
+export function goldLight(p: { orange: string; yellow: string }): string {
+  const a = toRgb(p.orange);
+  const b = toRgb(p.yellow);
+  if (!a || !b) return `color-mix(in srgb, ${p.orange} 50%, ${p.yellow})`;
+  const hex = (i: number) =>
+    Math.round((a[i] + b[i]) / 2)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${hex(0)}${hex(1)}${hex(2)}`;
+}
+
+/**
  * The flowing gradient as CSS. Add it to a stylesheet. Settings (inherited, so
- * set them on the box or a parent): `--afk-rainbow-period` (default 20s) and
+ * set them on the box or a parent): `--afk-rainbow-period` (default 4s) and
  * `--afk-rainbow-l` (stop lightness, default 75%), `--afk-rainbow-ink` (outline
  * colour of `rainbow` text, default `#1f1f1f`). `rainbow-outline` gives the same
  * outline to other rainbow-coloured text, such as JS-drawn `rainbowColor(t)`.
+ * Add `gold` next to any of the classes (`rainbow-frame gold`, `rainbow gold`)
+ * for the S-tier gold flow: same animation and period, only the colours change.
  */
 export const RAINBOW_STYLES = `
 @keyframes afk-rainbow-flow {
@@ -95,6 +141,10 @@ export const RAINBOW_STYLES = `
   background-image: var(--afk-rainbow-gradient);
   background-size: 200% 200%;
   animation: afk-rainbow-flow var(--afk-rainbow-period, ${RAINBOW_PERIOD_MS / 1000}s) ease-in-out infinite;
+}
+/* Gold: same flow, light orange ↔ palette yellow. Only the gradient changes. */
+.gold.rainbow, .gold.rainbow-fill, .gold.rainbow-frame::before {
+  --afk-rainbow-gradient: ${goldGradient()};
 }
 /* Thin dark outline so pale stops (yellow) stay readable on the light theme. Fixed, like the rainbow. */
 .rainbow, .rainbow-outline {
@@ -131,10 +181,9 @@ export const RAINBOW_STYLES = `
   z-index: -1;
   filter: blur(4px);
 }
-@media (prefers-reduced-motion: reduce) {
-  .rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after {
-    animation: none;
-    background-position: 50% 50%;
-  }
+/* Animations setting = Reduced (class on the game box, see motion.ts). */
+${reducedCss('.rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after')} {
+  animation: none;
+  background-position: 50% 50%;
 }
 `;

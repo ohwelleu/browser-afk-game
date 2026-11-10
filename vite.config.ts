@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { stagingChangelogPlugin } from './scripts/staging-changelog-plugin.ts';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
   version: string;
@@ -24,7 +25,7 @@ export default defineConfig({
   define: {
     __VERSION__: JSON.stringify(pkg.version),
   },
-  plugins: [demoDevEntry()],
+  plugins: [demoDevEntry(), stagingChangelogPlugin(pkg.version)],
   publicDir: false,
   // Escape non-ASCII (♥, →, ·) so the bundle works on host pages without <meta charset>.
   esbuild: { charset: 'ascii' },
@@ -42,6 +43,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
   },
 });

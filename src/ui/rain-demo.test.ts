@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { RAIN_MAX_LINES } from '../game/rain';
+import { RAIN_LINES_PER_ITEM, RAIN_MAX_LINES } from '../game/rain';
 import { mountRainDemo, rainPreviewCounts, RAIN_DEMO_HTML } from './rain-demo';
 
 // No DOM library in the project: the section is stood in by tiny fakes.
@@ -33,22 +33,27 @@ describe('rain preview', () => {
     expect(els['.dbg-rain-note'].textContent).toMatch(/^Off/);
   });
 
-  it('previews the typed counts once switched on, and goes back to items when off', () => {
+  it('previews 5 lines per typed item once switched on, and goes back to items when off', () => {
     const { els, onChange } = mount();
     els['[name="rain-on"]'].checked = true;
     els['[name="rain-on"]'].fire();
-    expect(onChange).toHaveBeenLastCalledWith({ rainbow: 2, yellow: 2 });
+    expect(onChange).toHaveBeenLastCalledWith({ rainbow: 10, yellow: 10 });
+    expect(els['.dbg-rain-note'].textContent).toContain('10 rainbow + 10 gold lines');
     els['[name="rain-yellow"]'].value = '30';
     els['[name="rain-yellow"]'].fire();
-    expect(onChange).toHaveBeenLastCalledWith({ rainbow: 2, yellow: RAIN_MAX_LINES - 2 });
+    expect(onChange).toHaveBeenLastCalledWith({ rainbow: 10, yellow: RAIN_MAX_LINES - 10 });
     els['[name="rain-on"]'].checked = false;
     els['[name="rain-on"]'].fire();
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
 
-  it('rainPreviewCounts: null while off, capped while on', () => {
+  it('rainPreviewCounts: null while off, 5 per item and capped while on', () => {
     expect(rainPreviewCounts(false, 3, 3)).toBeNull();
     expect(rainPreviewCounts(true, 0, 0)).toEqual({ rainbow: 0, yellow: 0 });
+    expect(rainPreviewCounts(true, 1, 2)).toEqual({
+      rainbow: RAIN_LINES_PER_ITEM,
+      yellow: 2 * RAIN_LINES_PER_ITEM,
+    });
     expect(rainPreviewCounts(true, 99, 99)).toEqual({ rainbow: RAIN_MAX_LINES, yellow: 0 });
   });
 });

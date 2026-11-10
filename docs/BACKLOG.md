@@ -94,6 +94,15 @@ Each line below is its own thread, in this order.
 - [x] Rings and pendants with small bonuses (PR #15, #17).
 - [ ] **More items**: more slots and types (e.g. potions, belts, cloaks),
       more stats per item.
+- [ ] **Stage-gated equipping** (owner, 2026-11-10, rethink the logic
+      later): you can only equip an item if you have finished the stage it
+      belongs to. Example: after an ascend you start over, and you can only
+      wear items whose stage you have cleared again (items from higher
+      stages stay in the bag until you get there). Open: which stage an item
+      "belongs to" (where it dropped, or its level), whether the gate is
+      per run or permanent, how it shows in the UI (locked frame and
+      "Clear stage N"), and how it fits with ascend. Design first, then
+      check with the simulator.
 - [x] **Rarity tiers** C / B / A / **S** with own frame colours; S glows and
       sparkles (PR #15, #17).
 - [ ] Item defence is weak under the % formula (1–4 % per item): raise
@@ -116,10 +125,9 @@ Each line below is its own thread, in this order.
       `rainbowStep`/`rainbowColor` from `src/ui/rainbow.ts`, and shows still
       or off under `prefers-reduced-motion`. Open: does a worn S tier item
       also get a (smaller) effect, and is there a debug toggle to preview it.
-- [ ] **Rainbow cycle 5 s** (owner, 2026-11-09): the default cycle is 20 s
-      (`RAINBOW_PERIOD_MS` in `src/ui/rainbow.ts`, also the CSS fallback and
-      the slider default in `src/ui/rainbow-demo.ts`). Make it 5 s
-      everywhere so the rainbow flows visibly.
+- [x] **Rainbow cycle 4 s** (owner, 2026-11-09, changed to 4 s on
+      2026-11-10): `RAINBOW_PERIOD_MS`, the CSS fallback and the debug slider
+      default are 4 s (was 20 s).
 - [ ] **Check that item frames match the debugger**: S+ items in the
       Inventory list and the drop toast should look exactly like the
       S-tier item frame in the debug panel's Rainbow section (same
@@ -159,6 +167,13 @@ Each line below is its own thread, in this order.
 - [x] **Starter quest: buy the companion**. At the start, a small quest
       ("Buy the crow to start clicking") points to Shop → Companions, so new
       players learn clicking early. Reward or highlight when done.
+- [ ] **Rearrange the quest** (owner, 2026-11-10): rework how the starter
+      quest is laid out (where the quest button sits, how its steps and
+      path read). Ask the owner what exactly to move before building.
+- [ ] **Quest path: animated arrow** (owner, 2026-11-10): the quest path
+      (menu button → Shop → Companions sub tab) is shown with an animated
+      pixel arrow pointing at the next thing to tap, instead of today's
+      blinking yellow border (`.quest-hint` in `src/ui/quest.ts`).
 - [~] **Clicker**: clicking makes the crow peck (PR #18) with a click burst
       (PR #20). Still open: click the mob for bonus damage (cap clicks per second so
       autoclickers don't break the balance).
@@ -199,6 +214,10 @@ Each line below is its own thread, in this order.
       top in Inventory.
 - [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
       on top while scrolling, like the main tabs.
+- [ ] **"No animations" setting** (owner, 2026-11-10, low priority): a
+      third Animations value next to On / Reduced that turns off idle
+      motion. Kinda useless, because the game is mostly about watching the
+      idle animations, so only do it if someone asks.
 - [x] **Fix: sound settings**: the [X] close button overlaps the on/off
       button in the sound settings popover. Move it so both are usable.
 - [x] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,

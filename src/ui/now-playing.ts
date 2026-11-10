@@ -1,4 +1,5 @@
 import type { TrackCredit } from '../audio';
+import { reducedCss } from '../motion';
 
 export const NOW_PLAYING_STYLES = `
 .now-playing {
@@ -18,9 +19,7 @@ export const NOW_PLAYING_STYLES = `
   transition: opacity 0.3s, visibility 0.3s;
 }
 .now-playing[hidden] { display: block; opacity: 0; visibility: hidden; }
-@media (prefers-reduced-motion: reduce) {
-  .now-playing { transition: none; }
-}
+${reducedCss('.now-playing')} { transition: none; }
 `;
 
 /** "Music: Gaming Time by Otrebil" → "♪ Gaming Time by Otrebil". */

@@ -59,6 +59,7 @@ import {
 import { dialogHtml } from './modal';
 import { createPassivesView, PASSIVES_HTML } from './passives';
 import { createSavePanel, type SavePanelDeps } from './save-panel';
+import type { MotionSetting } from '../motion';
 import { ascendBlockedReason, ascendGateText, ASCEND_PANEL } from './ascend';
 
 // Sizes are in em so a future pixel font can change the metrics in one place.
@@ -239,6 +240,8 @@ export type MenuDeps = {
   save: SavePanelDeps;
   /** Opens the "Ascend?" confirm dialog (it replaces the menu until answered). */
   confirmAscend(): void;
+  /** The Animations setting in Help: read it, and switch On ↔ Reduced (the game saves it). */
+  motion: { get(): MotionSetting; toggle(): void };
 };
 
 export type Menu = {
@@ -251,6 +254,8 @@ export type Menu = {
   select(tab: MenuTab, focus?: boolean): void;
   /** Selects a sub tab, e.g. `selectSub('shop', 'companions')`. */
   selectSub(tab: string, sub: string, focus?: boolean): void;
+  /** Shows the current settings (Animations) in Help. */
+  refreshSettings(): void;
 };
 
 /** Icons are drawn at a whole-number scale only (pixel art). */
@@ -478,6 +483,9 @@ const HELP = `
       <p>Every time you clear a new stage with AUTO on, the game waits while you choose <b>one of two passive skills</b> (C, B, A, S or S+). They stack for the run: see <b>Inventory → Passives</b> and the chances in the hero stats.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. It pecks the monster by itself, and extra when you click or tap anywhere on the game. The <b>wolf</b> unlocks later and bites on its own. Each companion adds a share of your hit and has one upgrade.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
+      <h3>Settings</h3>
+      <div class="row"><span>Animations</span><button type="button" class="motion-toggle" data-act="motion" aria-label="Animations"></button></div>
+      <p class="note">On plays the rainbow, item rain and sparkles even if your system asks for less motion. Reduced keeps them still.</p>
       <div class="save-slot"></div>
       <h3>Credits</h3>
       <p>Sound effects: ZzFX by Frank Force (MIT licence).<br />${musicCreditsHtml(trackCredits())}<br />Sprites: original pixel art, drawn in code.</p>
@@ -627,6 +635,10 @@ export function createMenu(deps: MenuDeps): Menu {
       return;
     }
     switch (target.dataset.act) {
+      case 'motion':
+        deps.motion.toggle();
+        savePanel.refresh(); // the save string in Help now holds the new setting
+        break;
       case 'help':
         // Toggles: a second press goes back to the last tab.
         select(current === 'help' ? lastTab : 'help');
@@ -911,8 +923,17 @@ export function createMenu(deps: MenuDeps): Menu {
     setFlag($('.inv-comp-note'), 'hidden', owned === 0);
   }
 
+  const motionToggle = $<HTMLButtonElement>('.motion-toggle');
+  /** The Animations button: "On" (pressed) or "Reduced". */
+  function refreshSettings(): void {
+    const on = deps.motion.get() === 'on';
+    motionToggle.setAttribute('aria-pressed', String(on));
+    show(motionToggle, on ? 'On' : 'Reduced');
+  }
+
   for (const t of TABS) if (t.subs.length) selectSub(t.id, currentSub[t.id]);
   select(current);
+  refreshSettings();
   return {
     el,
     get focusTarget() {
@@ -922,5 +943,6 @@ export function createMenu(deps: MenuDeps): Menu {
     refreshIcons,
     select,
     selectSub,
+    refreshSettings,
   };
 }
