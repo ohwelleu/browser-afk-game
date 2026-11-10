@@ -227,41 +227,62 @@ export function itemSellPrice(world: number, stage: number, tier: ItemTier): num
 
 // ── Companions (docs/design/active-play.md → 1. Crow) ──────────────────────
 
-export type CompanionId = 'crow';
+/** Shop order. A new companion is a new id here and an entry in `COMPANIONS`. */
+export const COMPANION_IDS = ['crow', 'wolf'] as const;
+export type CompanionId = (typeof COMPANION_IDS)[number];
+
+/*
+ * Companion numbers. Each companion has ONE upgrade (its level) and deals a
+ * share of the hero's hit damage on every attack:
+ *
+ *   percent = BASE_PERCENT + PERCENT_PER_LEVEL × (level − 1)
+ *
+ * so attack speed and damage are not separate upgrades: the level raises the
+ * percent and the attack interval stays fixed. Percents are in whole %
+ * (2 = 2 % of the hero's hit). Keep the per-level steps to multiples of 0.25
+ * so the sums stay exact in floating point.
+ */
+export const CROW_PRICE = 25;
+export const CROW_BASE_PERCENT = 2;
+export const CROW_PERCENT_PER_LEVEL = 0.5;
+export const CROW_UPGRADE = { base: 10, growth: 1.15 };
+
+export const WOLF_PRICE = 500;
+export const WOLF_BASE_PERCENT = 5;
+export const WOLF_PERCENT_PER_LEVEL = 1.25;
+export const WOLF_UPGRADE = { base: 100, growth: 1.15 };
+
+/** Where a companion stands: on the hero's hat (flies out) or behind the hero (lunges). */
+export type CompanionPosition = 'hat' | 'behind';
 
 /**
  * A companion is data, so another one (an animal, a drone…) is a new entry
- * here, not new code. There is one companion slot.
+ * here, not new code. Any number of companions can be owned; each one attacks
+ * on its own timer.
  */
 export type CompanionDef = {
   id: CompanionId;
   name: string;
+  /** Shop blurb while the companion is not bought yet. */
+  pitch: string;
   price: number;
   /** Shows up in the shop once `best` reaches this stage level (2 = 1.1 cleared). */
   unlockLevel: number;
-  /** Flat part of a peck: `baseDmg × dmgLevel × attack.damageMult`. */
-  baseDmg: number;
-  /**
-   * Share of the hero's hit damage added to every peck: `base + perLevel ×
-   * (dmgLevel − 1)`, never above `max`. Keeps the companion useful as the
-   * hero's weapons grow.
-   */
-  heroShare: { base: number; perLevel: number; max: number };
-  /** `hitFrame / fps` is the fly-out time before the peck lands. */
-  attack: AttackDef;
-  /** Seconds between click pecks. Clicks during the cooldown are ignored. */
-  clickCooldown: number;
-  /** Auto attack interval at speed level 1, in seconds. */
-  autoStart: number;
-  /** Auto attacks never get faster than this. */
-  autoMinInterval: number;
-  /** Seconds taken off the auto interval per speed level. */
-  autoStep: number;
+  /** Share of the hero's hit per attack at level 1, in whole % (2 = 2 %). */
+  basePercent: number;
+  /** Added to the percent per level above 1, in whole %. */
+  percentPerLevel: number;
   /** Cost from `level` to `level + 1`: `base × growth^(level−1)`. */
-  dmgUpgrade: { base: number; growth: number };
-  /** One-off price that unlocks the auto attack. */
-  autoPrice: number;
-  speedUpgrade: { base: number; growth: number };
+  upgrade: { base: number; growth: number };
+  /**
+   * `interval` is the seconds between auto attacks; `hitFrame / fps` is the
+   * time from the start of an attack to its hit (the crow's fly-out, the
+   * wolf's lunge).
+   */
+  attack: AttackDef;
+  /** Seconds between click attacks, or null when clicking does nothing (auto only). */
+  clickCooldown: number | null;
+  position: CompanionPosition;
   /** Sprite set key. */
   sprites: string;
 };
@@ -270,67 +291,73 @@ export const COMPANIONS: Record<CompanionId, CompanionDef> = {
   crow: {
     id: 'crow',
     name: 'Crow',
-    price: 25,
+    pitch: 'Pecks the mob by itself, and when you click or tap',
+    price: CROW_PRICE,
     unlockLevel: 2,
-    baseDmg: 1,
-    heroShare: { base: 0.1, perLevel: 0.005, max: 0.3 },
+    basePercent: CROW_BASE_PERCENT,
+    percentPerLevel: CROW_PERCENT_PER_LEVEL,
+    upgrade: CROW_UPGRADE,
     attack: {
       id: 'peck',
       heroAnim: 'peck',
       hitFrame: 2,
       fps: 12,
-      interval: 3.0,
+      interval: 1.0,
       targets: 'single',
       damageMult: 1,
     },
     clickCooldown: 0.5,
-    autoStart: 3.0,
-    autoMinInterval: 1.0,
-    autoStep: 0.1,
-    dmgUpgrade: { base: 10, growth: 1.15 },
-    autoPrice: 150,
-    speedUpgrade: { base: 50, growth: 1.3 },
+    position: 'hat',
     sprites: 'crow',
+  },
+  wolf: {
+    id: 'wolf',
+    name: 'Wolf',
+    pitch: 'Stands behind the hero and bites the mob by itself',
+    price: WOLF_PRICE,
+    unlockLevel: 8,
+    basePercent: WOLF_BASE_PERCENT,
+    percentPerLevel: WOLF_PERCENT_PER_LEVEL,
+    upgrade: WOLF_UPGRADE,
+    attack: {
+      id: 'bite',
+      heroAnim: 'bite',
+      hitFrame: 2,
+      fps: 10,
+      interval: 1.0,
+      targets: 'single',
+      damageMult: 1,
+    },
+    clickCooldown: null,
+    position: 'behind',
+    sprites: 'wolf',
   },
 };
 
-/** Share of the hero's hit the companion adds at `dmgLevel`: 10 % +0.5 % per level, max 30 %. */
-export function companionHeroShare(def: CompanionDef, dmgLevel: number): number {
-  const { base, perLevel, max } = def.heroShare;
-  return Math.min(max, base + perLevel * Math.max(0, dmgLevel - 1));
+/** Share of the hero's hit, in whole % (2 = 2 %), a level `level` companion deals per attack. */
+export function companionPercent(def: CompanionDef, level: number): number {
+  return def.basePercent + def.percentPerLevel * Math.max(0, level - 1);
 }
 
 /**
- * `damage = baseDmg × dmgLevel × damageMult + heroShare × heroHit`, rounded
- * down once. `heroHit` is the hero's current hit (weapon + items, before
- * crit and defence), so the crow keeps up with the hero's weapons.
+ * `damage = heroHit × percent`, rounded down, at least 1 (like every hit in
+ * the game). `heroHit` is the hero's current hit (weapon + items, before crit
+ * and defence), so a companion keeps up with the hero's weapons.
  */
-export function companionDamage(def: CompanionDef, dmgLevel: number, heroHit: number): number {
-  const flat = def.baseDmg * dmgLevel * def.attack.damageMult;
-  return safeInt(flat + companionHeroShare(def, dmgLevel) * heroHit);
+export function companionDamage(def: CompanionDef, level: number, heroHit: number): number {
+  const dmg = safeInt((heroHit * companionPercent(def, level) * def.attack.damageMult) / 100);
+  return Math.max(1, dmg);
 }
 
-/** `autoInterval = max(autoMinInterval, autoStart − autoStep × (speedLevel − 1))`, in seconds. */
-export function companionAutoInterval(def: CompanionDef, speedLevel: number): number {
-  return Math.max(def.autoMinInterval, def.autoStart - def.autoStep * (speedLevel - 1));
-}
+/** Damage per second of one companion: damage per attack ÷ seconds between attacks. */
+export const companionDps = (def: CompanionDef, level: number, heroHit: number): number =>
+  companionDamage(def, level, heroHit) / def.attack.interval;
 
-/** Highest useful speed level (the one that reaches `autoMinInterval`): 21 for the crow. */
-export function companionMaxSpeedLevel(def: CompanionDef): number {
-  return 1 + Math.round((def.autoStart - def.autoMinInterval) / def.autoStep);
-}
-
-const growthCost = (p: { base: number; growth: number }, level: number) =>
-  level < 1 ? Number.MAX_SAFE_INTEGER : safeInt(Math.ceil(p.base * p.growth ** (level - 1)));
-
-/** Damage upgrade cost from `level` to `level + 1`. */
-export const companionDmgCost = (def: CompanionDef, level: number): number =>
-  growthCost(def.dmgUpgrade, level);
-
-/** Speed upgrade cost from `level` to `level + 1` (MAX_SAFE_INTEGER once capped). */
-export function companionSpeedCost(def: CompanionDef, level: number): number {
-  if (level >= companionMaxSpeedLevel(def)) return Number.MAX_SAFE_INTEGER;
-  return growthCost(def.speedUpgrade, level);
+/** Upgrade cost from `level` to `level + 1`: `base × growth^(level−1)`. */
+export function companionUpgradeCostAt(def: CompanionDef, level: number): number {
+  return level < 1
+    ? Number.MAX_SAFE_INTEGER
+    : safeInt(Math.ceil(def.upgrade.base * def.upgrade.growth ** (level - 1)));
 }
 
 // ── Character upgrades (bought with coins in Shop → Character) ─────────────

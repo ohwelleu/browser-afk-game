@@ -1,4 +1,4 @@
-import { COMPANIONS } from '../game/balance';
+import { COMPANION_IDS, COMPANIONS } from '../game/balance';
 import type { Progress } from '../game/state';
 import {
   decodeSave,
@@ -57,7 +57,10 @@ export function parseSaveText(text: string, tracks?: readonly string[]): Parsed 
 export function savePreviewText(p: Progress): string {
   const g = p.items;
   const items = g.bag.length + (g.ring ? 1 : 0) + (g.pendant ? 1 : 0);
-  const companion = p.companion ? COMPANIONS[p.companion.id].name.toLowerCase() : 'no companion';
+  const owned = COMPANION_IDS.filter((id) => p.companions[id] >= 1);
+  const companion = owned.length
+    ? owned.map((id) => COMPANIONS[id].name.toLowerCase()).join(' + ')
+    : 'no companion';
   return [
     `Stage ${p.world}.${p.stage}`,
     `${p.coins.toLocaleString('en-US')} coins`,

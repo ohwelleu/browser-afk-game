@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUY_AMOUNTS, COMPANIONS, WEAPONS } from '../game/balance';
+import { BUY_AMOUNTS, COMPANION_IDS, COMPANIONS, WEAPONS } from '../game/balance';
 import { weapons } from '../sprites';
 import { AMOUNT_BUTTON, AMOUNT_POPOVER } from './amount-popover';
 import {
@@ -84,12 +84,26 @@ describe('upgrade buttons live in the Shop', () => {
     expect(SHOP.weapons).toContain(`${AMOUNT_BUTTON}<button type="button" data-act="upgrade"`);
   });
 
-  it('puts the crow upgrades, each with an amount button, in Shop → Companions', () => {
-    for (const kind of ['dmg', 'auto', 'speed']) {
-      expect(SHOP.companions).toContain(`data-act="comp-up" data-kind="${kind}"`);
+  it('gives every companion one Upgrade button with an amount button before it', () => {
+    for (const id of COMPANION_IDS) {
+      expect(SHOP.companions).toContain(`data-act="buy-companion" data-comp="${id}"`);
+      expect(SHOP.companions).toContain(
+        `${AMOUNT_BUTTON}<button type="button" data-act="comp-up" data-comp="${id}"`,
+      );
     }
-    // Damage and Faster take an amount; Auto attack is a single purchase.
-    expect(count(SHOP.companions, /data-act="amount-menu"/)).toBe(2);
+    expect(count(SHOP.companions, /data-act="comp-up"/)).toBe(COMPANION_IDS.length);
+    expect(count(SHOP.companions, /data-act="amount-menu"/)).toBe(COMPANION_IDS.length);
+    // One upgrade each: no separate damage / auto attack / speed buttons.
+    expect(SHOP.companions).not.toMatch(/data-kind=/);
+    expect(SHOP.companions).not.toMatch(/Faster|Auto attack/);
+  });
+
+  it('lists a row for every companion in Shop and Inventory', () => {
+    for (const id of COMPANION_IDS) {
+      expect(count(SHOP.companions, new RegExp(`data-comp="${id}" class="comp-buy"`))).toBe(1);
+      expect(INVENTORY.companions).toContain(`data-comp="${id}"`);
+      expect(SHOP.companions).toContain(COMPANIONS[id].name);
+    }
   });
 
   it('gives Defence in Shop → Character an amount button before its Buy button', () => {

@@ -7,3 +7,5 @@ export * from './items';
 export * from './effects';
 export * from './gear';
 export * from './crow';
+export * from './wolf';
+export * from './companions';

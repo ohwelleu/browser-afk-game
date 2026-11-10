@@ -9,20 +9,18 @@ import {
   corruptSaveString,
   describeStored,
   extraStats,
+  FIELDS,
   findFont,
   FONT_LETTERS,
   FONT_SAMPLE,
   fontInfoText,
-  fromFormView,
   giveItem,
   saveStatus,
-  toFormView,
 } from './debug';
 
 const audio = { muted: false, track: 'synthwave', musicVolume: 0.5, sfxVolume: 0.5 };
 const save = (p: Partial<ReturnType<typeof newProgress>> = {}) =>
   toSaveData(createState({ ...newProgress(), items: newGear(42), ...p }), audio, '0.2.0');
-const crow = { id: 'crow' as const, dmgLevel: 4, autoUnlocked: true, speedLevel: 11 };
 
 function memory(init: Record<string, string> = {}) {
   const m = new Map(Object.entries(init));
@@ -32,36 +30,18 @@ function memory(init: Record<string, string> = {}) {
   };
 }
 
-describe('crow fields', () => {
-  it('round-trips an owned crow and validates', () => {
-    const data = save({ companion: crow });
-    const back = fromFormView(toFormView(data));
-    expect(back.companion).toEqual(crow);
-    expect(validateSaveData(back).ok).toBe(true);
+describe('companion fields', () => {
+  it('has one level field per companion, 0 meaning not bought', () => {
+    expect(FIELDS.filter((f) => f.key.startsWith('companions.')).map((f) => f.key)).toEqual([
+      'companions.crow',
+      'companions.wolf',
+    ]);
   });
 
-  it('turns "not owned" into no companion, and gives a missing crow default fields', () => {
-    const view = toFormView(save());
-    expect(view.companion).toEqual({
-      owned: false,
-      dmgLevel: 1,
-      autoUnlocked: false,
-      speedLevel: 1,
-    });
-    expect(fromFormView(view).companion).toBeNull();
-    const owned = { ...view, companion: { ...(view.companion as object), owned: true } };
-    expect(fromFormView(owned).companion).toEqual({
-      id: 'crow',
-      dmgLevel: 1,
-      autoUnlocked: false,
-      speedLevel: 1,
-    });
-  });
-
-  it('leaves bad levels for validation to reject', () => {
-    const view = toFormView(save({ companion: crow }));
-    (view.companion as Record<string, unknown>).dmgLevel = Number.NaN;
-    expect(validateSaveData(fromFormView(view)).ok).toBe(false);
+  it('an owned pair validates, a bad level is left for validation to reject', () => {
+    const data = save({ companions: { crow: 4, wolf: 12 } });
+    expect(validateSaveData(data).ok).toBe(true);
+    expect(validateSaveData({ ...data, companions: { crow: 4, wolf: Number.NaN } }).ok).toBe(false);
   });
 });
 
@@ -111,20 +91,22 @@ describe('forceNextDrop', () => {
 });
 
 describe('extraStats', () => {
-  it('shows crow DPS, item totals and the drop chance', () => {
+  it('shows companion DPS, item totals and the drop chance', () => {
     const ring = { id: 1, slot: 'ring' as const, tier: 'B' as const, world: 1, stage: 1 };
     const text = extraStats(
       save({
         stage: 6,
-        companion: crow,
+        weaponLevels: [200, 0, 0, 0, 0],
+        companions: { crow: 4, wolf: 2 },
         items: { ...newGear(1), ring: { ...ring, stats: { damage: 5, speed: 0.1 } }, nextId: 2 },
       }),
     );
-    // dmg 4, auto every 3.0 − 0.1 × 10 = 2.0 s → 2 DPS.
-    expect(text).toContain('crow dmg 4 every 2.0s dps 2');
+    // The hero hits for 200 + 5. The crow at level 4 is 3.5 %, the wolf at level 2 is 6.25 %.
+    expect(text).toContain('crow dmg 7 every 1.0s dps 7');
+    expect(text).toContain('wolf dmg 12 every 1.0s dps 12');
     expect(text).toContain('items dmg +5 def +0 (total 0) spd +10% find +0%');
     expect(text).toContain(`drop ${ITEMS.dropChance.boss * 100}% bag 0/`);
-    expect(extraStats(save(), true)).toContain('crow none');
+    expect(extraStats(save(), true)).toContain('companions none');
     expect(extraStats(save(), true)).toContain('drop 100% (forced)');
   });
 });

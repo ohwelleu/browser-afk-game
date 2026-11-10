@@ -82,23 +82,28 @@ describe('characterStats', () => {
     expect(value(s, 'Hero', 'Crit chance')).toContain(`${CRIT.maxChance * 100}%`);
   });
 
-  it('has no crow section until the crow is owned', () => {
-    expect(characterStats(stateOf()).map((x) => x.title)).not.toContain('Crow');
+  it('has no companion section until a companion is owned', () => {
+    const titles = characterStats(stateOf()).map((x) => x.title);
+    expect(titles).not.toContain('Crow');
+    expect(titles).not.toContain('Wolf');
   });
 
-  it('shows the crow damage (with the hero share) and DPS once auto attack is unlocked', () => {
-    const companion = { id: 'crow' as const, dmgLevel: 1, autoUnlocked: false, speedLevel: 1 };
-    const base = { weaponLevels: [100, 0, 0, 0, 0] };
-    const locked = characterStats(stateOf({ ...base, companion }));
-    // 1 flat + 10 % of the 100 hit.
-    expect(value(locked, 'Crow', 'Damage per peck')).toBe('11');
-    expect(value(locked, 'Crow', 'DPS (auto attack)')).toBe('Auto locked');
+  it('shows each owned companion: share of the hero hit, damage per hit and DPS', () => {
+    // The stick at level 1000 hits for 1000.
+    const base = { weaponLevels: [1000, 0, 0, 0, 0] };
+    const s = characterStats(stateOf({ ...base, companions: { crow: 10, wolf: 0 } }));
+    expect(value(s, 'Crow', 'Level')).toBe('10');
+    expect(value(s, 'Crow', 'Hero damage dealt')).toBe('6.5%');
+    expect(value(s, 'Crow', 'Damage per hit')).toBe('65');
+    expect(value(s, 'Crow', 'DPS')).toBe('65');
+    expect(s.map((x) => x.title)).not.toContain('Wolf');
 
-    const auto = characterStats(
-      stateOf({ ...base, companion: { ...companion, autoUnlocked: true } }),
-    );
-    // 11 damage every 3 s.
-    expect(value(auto, 'Crow', 'DPS (auto attack)')).toBe('3.7');
+    const both = characterStats(stateOf({ ...base, companions: { crow: 1, wolf: 50 } }));
+    expect(both.map((x) => x.title).slice(0, 3)).toEqual(['Hero', 'Crow', 'Wolf']);
+    expect(value(both, 'Crow', 'Damage per hit')).toBe('20');
+    expect(value(both, 'Wolf', 'Hero damage dealt')).toBe('66.25%');
+    expect(value(both, 'Wolf', 'Damage per hit')).toBe('662');
+    expect(value(both, 'Wolf', 'DPS')).toBe('662');
   });
 
   it('lists only the item totals that are not zero', () => {

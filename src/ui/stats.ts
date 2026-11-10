@@ -1,7 +1,7 @@
 import { weaponAttack } from '../game/attacks';
 import {
-  companionAutoInterval,
   companionDamage,
+  companionPercent,
   CRIT,
   defenceReduction,
   WEAPONS,
@@ -9,11 +9,11 @@ import {
 import { formatNumber } from '../game/format';
 import { gearTotals } from '../game/items';
 import {
-  companionDef,
   critChance,
   heroDamage,
   heroDefence,
   heroMaxHp,
+  ownedCompanions,
   type GameState,
 } from '../game/state';
 import { html } from './dom';
@@ -27,7 +27,7 @@ export type StatSection = { title: string; rows: StatRow[] };
 /** Percent with at most one decimal: 0.2 → "20%", 0.075 → "7.5%". */
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 
-/** Damage per second: one decimal below 100 (a slow crow still shows), else 1.2K style. */
+/** Damage per second: one decimal below 100 (a small companion still shows), else 1.2K style. */
 const perSecond = (n: number) => (n < 100 ? `${+n.toFixed(1)}` : formatNumber(n));
 
 /** "Stone sword · Lv 3" for a weapon tier, or "—" when it isn't owned. */
@@ -72,16 +72,17 @@ export function characterStats(s: GameState): StatSection[] {
   };
   const sections = [hero];
 
-  const crow = companionDef(s);
-  if (crow && s.companion) {
-    const dmg = companionDamage(crow, s.companion.dmgLevel, hit);
-    const auto = s.companion.autoUnlocked;
-    const interval = companionAutoInterval(crow, s.companion.speedLevel);
+  // One section per owned companion: its share of the hero's hit, damage per hit and DPS.
+  for (const def of ownedCompanions(s)) {
+    const level = s.companions[def.id];
+    const dmg = companionDamage(def, level, hit);
     sections.push({
-      title: crow.name,
+      title: def.name,
       rows: [
-        { label: 'Damage per peck', value: formatNumber(dmg) },
-        { label: 'DPS (auto attack)', value: auto ? perSecond(dmg / interval) : 'Auto locked' },
+        { label: 'Level', value: formatNumber(level) },
+        { label: 'Hero damage dealt', value: `${+companionPercent(def, level).toFixed(2)}%` },
+        { label: 'Damage per hit', value: formatNumber(dmg) },
+        { label: 'DPS', value: perSecond(dmg / def.attack.interval) },
       ],
     });
   }

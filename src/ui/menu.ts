@@ -1,8 +1,8 @@
 import {
   capCritChance,
-  companionAutoInterval,
+  COMPANION_IDS,
   companionDamage,
-  companionMaxSpeedLevel,
+  companionPercent,
   COMPANIONS,
   CRIT,
   CRIT_BUY_MAX_PERCENT,
@@ -16,6 +16,7 @@ import {
   WEAPONS,
   type BuyAmount,
   type CompanionDef,
+  type CompanionId,
 } from '../game/balance';
 import { trackCredits } from '../audio';
 import { formatNumber } from '../game/format';
@@ -29,14 +30,9 @@ import {
   heroMaxHp,
   buyWeapon,
   canBuyCompanion,
-  canUpgradeCompanion,
   canBuyWeapon,
-  companionDef,
-  companionUpgradeCost,
+  companionStatus,
   equip,
-  shopCompanion,
-  upgradeCompanion,
-  type CompanionUpgrade,
   nextWeapon,
   type GameState,
   upgradeMaxed,
@@ -44,7 +40,7 @@ import {
   type UpgradeTarget,
 } from '../game/state';
 import { hiddenWeaponCount } from '../game/reveal';
-import { coinSpin, crowIcon, weapons as weaponSprites, type SpriteDef } from '../sprites';
+import { coinSpin, companionSprites, weapons as weaponSprites, type SpriteDef } from '../sprites';
 import { createShow, html, setClass, setFlag } from './dom';
 import { musicCreditsHtml } from './credits';
 import { createGearView, GEAR_HTML } from './gear';
@@ -369,11 +365,31 @@ const CHARACTER_ROWS: readonly CharacterRow[] = [
   },
 ];
 
-const companionIcon = `<span class="icon"><img alt="" data-icon="companion" /></span>`;
+/** One companion's icon (the sprite is set in `refreshIcons`). */
+const companionIcon = (id: string) =>
+  `<span class="icon"><img alt="" data-icon="companion" data-comp="${id}" /></span>`;
 
-/** Crow stats line (Shop and Inventory fill it the same way). */
+/** A companion's numbers: its share of the hero's hit, and the damage that makes (→ next level, in the Shop). */
 const companionStats = (next: boolean) =>
-  `<span>Damage <span class="comp-dmg"></span>${next ? ' → <span class="dmg-next comp-next"></span>' : ''}</span><span class="comp-auto"></span>`;
+  `<span><span class="comp-pct"></span> of your hit</span><span>Damage <span class="comp-dmg"></span>${next ? ' → <span class="dmg-next comp-next"></span>' : ''}</span>`;
+
+/** Companion rows. The Shop buys and upgrades; the Inventory only lists what is owned. */
+const companionRows = (
+  cls: string,
+  body: (id: CompanionId) => string,
+  action: (id: CompanionId) => string,
+) =>
+  `<ul class="list ${cls}">${COMPANION_IDS.map(
+    (id) => `
+      <li class="item" data-comp="${id}">
+        ${companionIcon(id)}
+        <div class="item-body">
+          <span class="item-name">${COMPANIONS[id].name}<span class="comp-lv"> · Lv <span class="comp-level"></span></span></span>
+          ${body(id)}
+        </div>
+        <div class="action">${action(id)}</div>
+      </li>`,
+  ).join('')}</ul>`;
 
 export const SHOP = {
   character: `
@@ -408,29 +424,19 @@ export const SHOP = {
   )}
     <p class="note">Upgrades raise a weapon's damage, equipped or not. Switch weapons in Inventory → Weapons.</p>
     <p class="note shop-more" hidden>More weapons appear as you earn coins.</p>`,
-  companions: `
-    <ul class="list"><li class="item comp-shop">
-      ${companionIcon}
-      <div class="item-body">
-        <span class="item-name">${COMPANIONS.crow.name}</span>
-        <span class="item-stats comp-pitch"><span>Pecks the mob when you click or tap</span></span>
-        <span class="item-stats comp-stats" hidden>${companionStats(true)}</span>
-        <span class="note comp-unlock"></span>
-      </div>
-      <div class="action">
-        <span class="tag on comp-owned">Owned · Lv <span class="comp-level"></span></span>
-        <button type="button" data-act="buy-companion" class="comp-buy">Buy ${price('comp-price')}</button>
-        <span class="tag comp-locked">Locked</span>
-      </div>
-    </li></ul>
-    <div class="comp-up" hidden>
-      <h3>Upgrades</h3>
-      <div class="buy-row">
-        <span class="bulk">${AMOUNT_BUTTON}${bulkButton('Damage', 'data-act="comp-up" data-kind="dmg"')}</span>
-        <button type="button" data-act="comp-up" data-kind="auto">Auto attack ${price('comp-cost-auto')}</button>
-        <span class="bulk">${AMOUNT_BUTTON}${bulkButton('<span class="comp-speed-label">Faster</span>', 'data-act="comp-up" data-kind="speed"')}</span>
-      </div>
-    </div>`,
+  companions: `${companionRows(
+    'comp-shop',
+    (id) => `
+          <span class="item-stats comp-pitch"><span>${COMPANIONS[id].pitch}</span></span>
+          <span class="item-stats comp-stats" hidden>${companionStats(true)}</span>
+          <span class="note comp-unlock"></span>`,
+    (id) =>
+      `<button type="button" data-act="buy-companion" data-comp="${id}" class="comp-buy">Buy ${price('comp-price')}</button>` +
+      AMOUNT_BUTTON +
+      bulkButton('Upgrade', `data-act="comp-up" data-comp="${id}" class="comp-upgrade"`) +
+      `<span class="tag comp-locked">Locked</span>`,
+  )}
+    <p class="note">Companions fight on their own. Each has one upgrade: every level raises the share of your hit it adds. Click or tap the game to make the crow peck extra.</p>`,
   ascend: `
     <p class="soon">Coming soon</p>
     <p class="note">Ascend will let you start over with a permanent bonus.</p>`,
@@ -447,18 +453,13 @@ export const INVENTORY = {
     <p class="note">Upgrade weapons in Shop → Weapons.</p>
     <p class="note inv-hint">Buy more weapons in Shop → Weapons.</p>`,
   companions: `
-    <h3>Companion slot</h3>
-    <p class="inv-comp-empty">Empty. Companions are sold in Shop → Companions.</p>
-    <div class="inv-comp" hidden>
-      <ul class="list"><li class="item">
-        ${companionIcon}
-        <div class="item-body">
-          <span class="item-name"><span class="comp-name"></span> · Lv <span class="comp-level"></span> <span class="tag on">Equipped</span></span>
-          <span class="item-stats">${companionStats(false)}</span>
-        </div>
-      </li></ul>
-      <p class="note">Upgrade your companion in Shop → Companions.</p>
-    </div>`,
+    <p class="inv-comp-empty">No companions yet. Companions are sold in Shop → Companions.</p>
+    ${companionRows(
+      'inv-comp',
+      () => `<span class="item-stats">${companionStats(false)}</span>`,
+      () => '',
+    )}
+    <p class="note inv-comp-note">Upgrade companions in Shop → Companions.</p>`,
   accessories: GEAR_HTML,
 };
 
@@ -468,7 +469,7 @@ const HELP = `
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
       <p>Monsters sometimes drop a <b>ring</b> or <b>pendant</b> (C, B, A, S or the very rare S+). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
-      <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. Click or tap anywhere on the game to make it peck the monster.</p>
+      <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. It pecks the monster by itself, and extra when you click or tap anywhere on the game. The <b>wolf</b> unlocks later and bites on its own. Each companion adds a share of your hit and has one upgrade.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <div class="save-slot"></div>
       <h3>Credits</h3>
@@ -657,17 +658,15 @@ export function createMenu(deps: MenuDeps): Menu {
         if (row) deps.act((s) => buyUpgrades(s, row.target, a));
         break;
       }
-      case 'buy-companion':
-        deps.act(buyCompanion);
+      case 'buy-companion': {
+        const id = target.dataset.comp as CompanionId;
+        deps.act((s) => buyCompanion(s, id));
         break;
+      }
       case 'comp-up': {
-        const kind = target.dataset.kind as CompanionUpgrade;
+        const id = target.dataset.comp as CompanionId;
         const a = amount;
-        deps.act((s) =>
-          kind === 'auto'
-            ? upgradeCompanion(s, kind)
-            : buyUpgrades(s, { type: 'companion', kind }, a),
-        );
+        deps.act((s) => buyUpgrades(s, { type: 'companion', id }, a));
         break;
       }
       default:
@@ -693,9 +692,10 @@ export function createMenu(deps: MenuDeps): Menu {
       setWeaponIcon(img, Number(img.dataset.tier));
     }
     for (const img of $$<HTMLImageElement>('img[data-icon="companion"]')) {
-      img.src = deps.iconUrl(crowIcon);
-      img.width = crowIcon.width * iconScale(crowIcon);
-      img.height = crowIcon.height * iconScale(crowIcon);
+      const icon = companionSprites[img.dataset.comp as CompanionId].icon;
+      img.src = deps.iconUrl(icon);
+      img.width = icon.width * iconScale(icon);
+      img.height = icon.height * iconScale(icon);
     }
     gear.refreshIcons();
   }
@@ -810,23 +810,32 @@ export function createMenu(deps: MenuDeps): Menu {
   }
 
   function refreshShopCompanions(state: GameState): void {
-    const def = COMPANIONS.crow;
-    const offer = shopCompanion(state);
-    const owned = state.companion !== null;
-    const locked = !owned && !offer;
-    setClass($('.comp-shop'), 'locked', locked);
-    setFlag($('.comp-owned'), 'hidden', !owned);
-    setFlag($('.comp-locked'), 'hidden', !locked);
-    const unlock = $('.comp-unlock');
-    show(unlock, companionUnlockText(def));
-    setFlag(unlock, 'hidden', !locked);
-    const buyComp = $<HTMLButtonElement>('.comp-buy');
-    setFlag(buyComp, 'hidden', !offer);
-    show($('.comp-price'), formatNumber(def.price));
-    const canComp = canBuyCompanion(state);
-    setFlag(buyComp, 'disabled', !canComp);
-    show(buyComp, offer && !canComp ? 'Not enough coins' : '', 'title');
-    refreshCompanionUpgrades(state);
+    for (const li of $$('.comp-shop .item')) {
+      const id = li.dataset.comp as CompanionId;
+      const def = COMPANIONS[id];
+      const status = companionStatus(state, id);
+      const owned = status === 'owned';
+      setClass(li, 'locked', status === 'locked');
+      setFlag(li.querySelector('.comp-lv')!, 'hidden', !owned);
+      setFlag(li.querySelector('.comp-pitch')!, 'hidden', owned);
+      setFlag(li.querySelector('.comp-stats')!, 'hidden', !owned);
+      const unlock = li.querySelector('.comp-unlock')!;
+      show(unlock, companionUnlockText(def));
+      setFlag(unlock, 'hidden', status !== 'locked');
+      setFlag(li.querySelector('.comp-locked')!, 'hidden', status !== 'locked');
+      const buy = li.querySelector<HTMLButtonElement>('.comp-buy')!;
+      setFlag(buy, 'hidden', status !== 'offer');
+      show(li.querySelector('.comp-price')!, formatNumber(def.price));
+      const can = canBuyCompanion(state, id);
+      setFlag(buy, 'disabled', !can);
+      show(buy, status === 'offer' && !can ? 'Not enough coins' : '', 'title');
+      const upgrade = li.querySelector<HTMLButtonElement>('.comp-upgrade')!;
+      setFlag(upgrade, 'hidden', !owned);
+      if (owned) {
+        fillCompanionStats(li, state, id);
+        setBulkButton(upgrade, state, { type: 'companion', id });
+      }
+    }
   }
 
   function refreshInventoryWeapons(state: GameState): void {
@@ -847,60 +856,31 @@ export function createMenu(deps: MenuDeps): Menu {
     setFlag($('.inv-hint'), 'hidden', owned >= WEAPONS.length);
   }
 
-  /** Crow level, damage (→ next, if shown) and auto line inside `root`. */
-  function fillCompanionStats(root: HTMLElement, state: GameState): void {
-    const c = state.companion;
-    const def = companionDef(state);
-    if (!c || !def) return;
+  /** Level, share of the hero's hit and damage (→ next level, if shown) inside `root`. */
+  function fillCompanionStats(root: HTMLElement, state: GameState, id: CompanionId): void {
+    const def = COMPANIONS[id];
+    const level = state.companions[id];
     const q = (sel: string) => root.querySelector<HTMLElement>(sel);
-    const name = q('.comp-name');
-    if (name) show(name, def.name);
-    show(q('.comp-level')!, formatNumber(c.dmgLevel));
+    show(q('.comp-level')!, formatNumber(level));
+    show(q('.comp-pct')!, `${+companionPercent(def, level).toFixed(2)}%`);
     const hit = heroDamage(state);
-    show(q('.comp-dmg')!, formatNumber(companionDamage(def, c.dmgLevel, hit)));
+    show(q('.comp-dmg')!, formatNumber(companionDamage(def, level, hit)));
     const next = q('.comp-next');
-    if (next) show(next, formatNumber(companionDamage(def, c.dmgLevel + 1, hit)));
-    const interval = companionAutoInterval(def, c.speedLevel).toFixed(1);
-    show(q('.comp-auto')!, c.autoUnlocked ? `Auto every ${interval} s` : 'Auto attack: locked');
+    if (next) show(next, formatNumber(companionDamage(def, level + 1, hit)));
   }
 
   function refreshInventoryCompanion(state: GameState): void {
-    const has = !!state.companion && !!companionDef(state);
-    setFlag($('.inv-comp'), 'hidden', !has);
-    setFlag($('.inv-comp-empty'), 'hidden', has);
-    if (has) fillCompanionStats($('.inv-comp'), state);
-  }
-
-  /** Shop → Companions once the crow is bought: its stats and upgrade buttons. */
-  function refreshCompanionUpgrades(state: GameState): void {
-    const c = state.companion;
-    const def = companionDef(state);
-    const has = !!c && !!def;
-    setFlag($('.comp-up'), 'hidden', !has);
-    setFlag($('.comp-pitch'), 'hidden', has);
-    setFlag($('.comp-stats'), 'hidden', !has);
-    if (!c || !def) return;
-    fillCompanionStats($('.comp-shop'), state);
-    const maxed = c.speedLevel >= companionMaxSpeedLevel(def);
-    show($('.comp-speed-label'), maxed ? 'Fastest' : 'Faster');
-    for (const btn of $$<HTMLButtonElement>('[data-act="comp-up"]')) {
-      const kind = btn.dataset.kind as CompanionUpgrade;
-      setFlag(
-        btn,
-        'hidden',
-        (kind === 'auto' && c.autoUnlocked) || (kind === 'speed' && !c.autoUnlocked),
-      );
-      if (kind !== 'auto') {
-        setBulkButton(btn, state, { type: 'companion', kind });
-        continue;
-      }
-      const cost = companionUpgradeCost(state, kind);
-      setFlag(btn.querySelector('.price')!, 'hidden', cost === null);
-      if (cost !== null) show(btn.querySelector(`.comp-cost-${kind}`)!, formatNumber(cost));
-      const ok = canUpgradeCompanion(state, kind);
-      setFlag(btn, 'disabled', !ok);
-      show(btn, ok || cost === null ? '' : 'Not enough coins', 'title');
+    let owned = 0;
+    for (const li of $$('.inv-comp .item')) {
+      const id = li.dataset.comp as CompanionId;
+      const has = state.companions[id] >= 1;
+      setFlag(li, 'hidden', !has);
+      if (!has) continue;
+      owned++;
+      fillCompanionStats(li, state, id);
     }
+    setFlag($('.inv-comp-empty'), 'hidden', owned > 0);
+    setFlag($('.inv-comp-note'), 'hidden', owned === 0);
   }
 
   for (const t of TABS) if (t.subs.length) selectSub(t.id, currentSub[t.id]);
