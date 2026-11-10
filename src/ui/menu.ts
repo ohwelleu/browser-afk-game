@@ -12,6 +12,7 @@ import {
   defenceFromLevel,
   defenceReduction,
   hpFromLevel,
+  manaFromLevel,
   ITEM_SLOTS,
   STAGES_PER_WORLD,
   weaponDamage,
@@ -31,6 +32,7 @@ import {
   heroDamage,
   heroDefence,
   heroMaxHp,
+  heroMaxMana,
   buyWeapon,
   canBuyCompanion,
   canBuyWeapon,
@@ -334,6 +336,22 @@ const CHARACTER_ROWS: readonly CharacterRow[] = [
       };
     },
     target: { type: 'hp' },
+  },
+  {
+    id: 'mana',
+    name: 'Max mana',
+    level: (s) => s.character.manaLevel,
+    stat: (s) => {
+      const now = heroMaxMana(s);
+      const next =
+        now + manaFromLevel(s.character.manaLevel + 1) - manaFromLevel(s.character.manaLevel);
+      return {
+        now: formatNumber(now),
+        next: formatNumber(next),
+        effect: `+${formatNumber(next - now)} mana per level`,
+      };
+    },
+    target: { type: 'mana' },
   },
   {
     id: 'defence',

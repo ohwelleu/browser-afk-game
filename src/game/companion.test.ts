@@ -50,7 +50,7 @@ const tanky = (l: Partial<CompanionLevels> = {}, p: Partial<Progress> = {}) =>
     world: 3,
     best: 13,
     companions: levels(l),
-    character: { defenceLevel: 0, critLevel: 0, hpLevel: 100 },
+    character: { defenceLevel: 0, critLevel: 0, hpLevel: 100, manaLevel: 0 },
     ...p,
   });
 

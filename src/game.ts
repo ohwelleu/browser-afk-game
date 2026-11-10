@@ -15,6 +15,7 @@ import {
   heroDamage,
   heroDps,
   heroMaxHp,
+  heroMaxMana,
   setAutoAdvance,
   stageSwitchTarget,
   switchStage,
@@ -89,6 +90,11 @@ const HTML = `
           <span class="bar"><span class="bar-fill"></span></span>
           <span class="hp-text"></span>
         </button>
+        <div class="mana" title="Mana · the crow returns 1 per click">
+          <span class="mana-icon" aria-hidden="true"></span>
+          <span class="bar"><span class="bar-fill"></span></span>
+          <span class="mana-text"></span>
+        </div>
         <div class="coins" title="Coins"><img class="coin-icon" width="16" height="16" alt="" /><span class="coin-text"></span></div>
       </div>
       <div class="hud-center">
@@ -348,6 +354,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     fill.style.width = `${pct}%`;
     fill.classList.toggle('low', pct < 30);
     show($('.hp-text'), `${hp}/${maxHp}`);
+    const maxMana = heroMaxMana(state);
+    $('.mana .bar-fill').style.width =
+      `${Math.max(0, Math.min(100, (state.mana / maxMana) * 100))}%`;
+    show($('.mana-text'), `${state.mana}/${maxMana}`);
     show($('.coin-text'), formatNumber(state.coins));
     const stage = $('.stage');
     show(stage, `${isBoss(state.stage) ? 'BOSS' : 'STAGE'} ${state.world}.${state.stage}`);

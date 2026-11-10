@@ -14,6 +14,7 @@ import {
   heroDamage,
   heroDefence,
   heroMaxHp,
+  heroMaxMana,
   ownedCompanions,
   type GameState,
 } from '../game/state';
@@ -65,6 +66,7 @@ export function characterStats(s: GameState): StatSection[] {
     title: 'Hero',
     rows: [
       { label: 'HP', value: `${formatNumber(s.duel.heroHp)} / ${formatNumber(heroMaxHp(s))}` },
+      { label: 'Mana', value: `${formatNumber(s.mana)} / ${formatNumber(heroMaxMana(s))}` },
       {
         label: 'Defence',
         value: `${formatNumber(defence)} (−${pct(defenceReduction(defence))} damage taken)`,
