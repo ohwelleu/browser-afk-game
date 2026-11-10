@@ -23,7 +23,7 @@ import {
 } from '../sprites';
 import type { Palette } from '../theme';
 import { boldPrefix, fontStack, snapFontSize } from '../ui/font';
-import { RainField } from './rain';
+import { RainField, type RainArea } from './rain';
 import { frameAt, type SpriteCache } from './sprites';
 import type { View } from './view';
 
@@ -33,6 +33,8 @@ const GROUND = 4;
 const TOP_GAP = 6;
 /** Side margin and the minimum gap between hero and mob, in art pixels. */
 const MARGIN = 8;
+/** Art pixels the item rain reaches past the hero on each side. */
+const RAIN_PAD = 4;
 const COMPACT_MARGIN = 2;
 const FLASH = 0.12;
 const MOB_LUNGE = 6;
@@ -112,22 +114,15 @@ type ClickMark = { x: number; y: number; born: number };
 
 const seconds = (ticks: number) => ticks / TICK_RATE;
 
-let reducedMotionQuery: MediaQueryList | null | undefined;
-/** The system asks for less motion. The query is made once; `.matches` stays live. */
-const prefersReducedMotion = (): boolean => {
-  if (reducedMotionQuery === undefined) {
-    reducedMotionQuery =
-      typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
-  }
-  return reducedMotionQuery?.matches ?? false;
-};
-
 export class SceneRenderer {
   private texts: FloatText[] = [];
   private clicks: ClickMark[] = [];
   private nudge = 0;
   private readonly rain = new RainField();
   private rainPreview: RainCounts | null = null;
+
+  /** `reduced`: the Animations setting is Reduced (see motion.ts); the game passes its `Motion.reduced`. */
+  constructor(private readonly reducedMotion: () => boolean = () => false) {}
 
   /** Debug: show this rain instead of the one the equipped items make. `null` = back to items. */
   setRainPreview(counts: RainCounts | null): void {
@@ -187,10 +182,11 @@ export class SceneRenderer {
 
     const l = layout(s, view);
 
-    // First, so it falls behind the hero, the mob and the effects.
-    const reduced = prefersReducedMotion();
-    this.rain.advance(s.ticks, this.rainPreview ?? rainLines(s), view.width, view.height, reduced);
-    this.rain.draw(ctx, s.ticks, palette, view.height, reduced);
+    // First, so it falls behind the hero, the mob and the effects; only in a column at the hero.
+    const reduced = this.reducedMotion();
+    const area = rainArea(l);
+    this.rain.advance(s.ticks, this.rainPreview ?? rainLines(s), area, reduced);
+    this.rain.draw(ctx, s.ticks, palette, area, reduced);
 
     // Companions behind the hero go first, so the hero covers a little of them.
     const owned = ownedCompanions(s);
@@ -242,6 +238,19 @@ export class SceneRenderer {
       );
     }
   }
+}
+
+/**
+ * The item rain's column: the hero's box plus `RAIN_PAD` on each side, from
+ * the top of the hero sprite down to the ground (so never up under the HUD).
+ */
+export function rainArea(l: Layout): RainArea {
+  return {
+    left: Math.max(0, l.heroX - RAIN_PAD),
+    right: l.heroX + l.hero.width + RAIN_PAD,
+    top: l.heroY,
+    bottom: l.groundY,
+  };
 }
 
 export type Layout = {

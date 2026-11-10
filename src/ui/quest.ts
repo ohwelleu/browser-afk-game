@@ -1,13 +1,14 @@
 import { crowUnlockLevel, nextRun, questStep, type QuestRun, type QuestStep } from '../game/quest';
 import type { GameState } from '../game/state';
+import { reducedCss } from '../motion';
 import { createShow, setClass, setFlag } from './dom';
 import { stageName } from './menu';
 
 /**
  * Starter quest line: a small button under the stage label that names the
  * current step and opens Shop → Companions. The menu button and the
- * Companions sub tab pulse while a step is open (no pulse with reduced
- * motion, just a static frame). The rules are in game/quest.ts.
+ * Companions sub tab pulse while a step is open (no pulse when the
+ * Animations setting is Reduced, just a static frame). The rules are in game/quest.ts.
  */
 export const QUEST_STYLES = `
 .quest {
@@ -23,9 +24,8 @@ export const QUEST_STYLES = `
 .quest-btn.done { color: var(--_bg); background: var(--_green); border-color: var(--_green); }
 .quest-sub { display: block; opacity: 0.7; }
 .quest-hint { outline: 3px solid var(--_yellow); outline-offset: 2px; }
-@media (prefers-reduced-motion: no-preference) {
-  .quest-hint { animation: afk-quest-pulse 1.2s steps(2) infinite; }
-}
+.quest-hint { animation: afk-quest-pulse 1.2s steps(2) infinite; }
+${reducedCss('.quest-hint')} { animation: none; }
 @keyframes afk-quest-pulse { 50% { outline-color: transparent; } }
 @container (max-width: 767px) {
   .quest { top: 112px; left: 12px; right: 70px; transform: none; max-width: none; }

@@ -9,15 +9,21 @@ const LENGTH = { min: 6, max: 10 };
 const WIDTH = { min: 1, max: 2 };
 /** Fall speed in art pixels per second (the scene is ~50 art pixels tall: about a second down). */
 const SPEED = { min: 50, max: 80 };
-/** A respawned streak waits above the top for up to this share of the scene height. */
+/** A respawned streak waits above the area for up to this share of the area's height. */
 const RESPAWN_SPREAD = 0.5;
 /** Longest step we move in one frame, in seconds (a tab that was hidden doesn't jump). */
 const MAX_STEP = 0.25;
 /** One trip through the rainbow stops for a rainbow line, in milliseconds. */
 export const RAIN_RAINBOW_PERIOD_MS = 6000;
 
+/**
+ * Where the rain falls, in art pixels: the columns `left` (inclusive) to
+ * `right` (exclusive) and the rows `top` to `bottom`. Streaks are cut at both.
+ */
+export type RainArea = { left: number; right: number; top: number; bottom: number };
+
 type Streak = {
-  /** Left edge and top, in art pixels. `y` is above the scene while it waits to fall. */
+  /** Left edge and top, in art pixels. `y` is above the area while it waits to fall. */
   x: number;
   y: number;
   len: number;
@@ -30,7 +36,7 @@ const randInt = (rng: Rng, min: number, max: number): number =>
   min + Math.floor(nextFloat(rng) * (max - min + 1));
 
 /**
- * The falling lines behind the scene. A fixed pool of `RAIN_MAX_LINES` streaks
+ * The falling lines behind the hero. A fixed pool of `RAIN_MAX_LINES` streaks
  * (the first ones rainbow, the next yellow, the rest idle), reused for ever:
  * nothing is allocated per frame. Time comes from the game's tick count, so the
  * rain stands still when the game is paused. Its random numbers come from a
@@ -55,10 +61,11 @@ export class RainField {
   }
 
   /**
-   * Moves the streaks to game tick `ticks` in a scene `width` × `height` art
-   * pixels. `reduced` (prefers-reduced-motion): the streaks stand still.
+   * Moves the streaks to game tick `ticks` inside `area`. `reduced` (the
+   * Animations setting is Reduced): the streaks stand still.
    */
-  advance(ticks: number, counts: RainCounts, width: number, height: number, reduced = false): void {
+  advance(ticks: number, counts: RainCounts, area: RainArea, reduced = false): void {
+    const height = area.bottom - area.top;
     const before = this.count;
     this.rainbow = counts.rainbow;
     this.yellow = counts.yellow;
@@ -70,24 +77,24 @@ export class RainField {
     for (let i = 0; i < this.count; i++) {
       const st = this.streaks[i];
       if (i >= before) {
-        this.respawn(st, width);
+        this.respawn(st, area);
         // New lines start above the top, or somewhere on screen when still.
         st.y = reduced
-          ? Math.floor(nextFloat(this.rng) * height)
-          : -st.len - this.spread(height, 1);
+          ? area.top + Math.floor(nextFloat(this.rng) * height)
+          : area.top - st.len - this.spread(height, 1);
         continue;
       }
       if (reduced) continue;
       st.y += st.speed * dt;
-      if (st.y > height || st.x + st.width > width) {
-        this.respawn(st, width);
-        st.y = -st.len - this.spread(height, RESPAWN_SPREAD);
+      if (st.y > area.bottom || st.x < area.left || st.x + st.width > area.right) {
+        this.respawn(st, area);
+        st.y = area.top - st.len - this.spread(height, RESPAWN_SPREAD);
       }
     }
   }
 
   /** Draws the streaks in art pixels; call with the scene transform set. Needs `advance` first. */
-  draw(ctx: CanvasRenderingContext2D, ticks: number, p: Palette, height: number, reduced = false) {
+  draw(ctx: CanvasRenderingContext2D, ticks: number, p: Palette, area: RainArea, reduced = false) {
     const ms = reduced ? 0 : (ticks / TICK_RATE) * 1000;
     // Each rainbow line is a different step of the cycle, so the lines are not one colour.
     const offset = RAIN_RAINBOW_PERIOD_MS / RAIN_MAX_LINES;
@@ -95,9 +102,9 @@ export class RainField {
       const st = this.streaks[i];
       ctx.fillStyle =
         i < this.rainbow ? rainbowStep(ms + i * offset, RAIN_RAINBOW_PERIOD_MS) : p.yellow;
-      // Whole pixels, cut at the top and bottom of the scene.
-      const top = Math.max(0, Math.round(st.y));
-      const bottom = Math.min(height, Math.round(st.y) + st.len);
+      // Whole pixels, cut at the top and bottom of the area.
+      const top = Math.max(area.top, Math.round(st.y));
+      const bottom = Math.min(area.bottom, Math.round(st.y) + st.len);
       if (bottom > top) ctx.fillRect(st.x, top, st.width, bottom - top);
     }
   }
@@ -106,11 +113,14 @@ export class RainField {
     return Math.floor(nextFloat(this.rng) * height * share);
   }
 
-  /** New random size, speed and column; the caller sets `y`. */
-  private respawn(st: Streak, width: number): void {
+  /** New random size, speed and column inside `area`; the caller sets `y`. */
+  private respawn(st: Streak, area: RainArea): void {
     st.len = randInt(this.rng, LENGTH.min, LENGTH.max);
     st.width = randInt(this.rng, WIDTH.min, WIDTH.max);
     st.speed = rand(this.rng, SPEED.min, SPEED.max);
-    st.x = Math.floor(nextFloat(this.rng) * Math.max(1, width - st.width + 1));
+    // A column too narrow for this streak gets a 1 px one.
+    if (st.width > area.right - area.left) st.width = WIDTH.min;
+    const room = Math.max(1, area.right - area.left - st.width + 1);
+    st.x = area.left + Math.floor(nextFloat(this.rng) * room);
   }
 }

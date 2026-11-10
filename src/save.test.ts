@@ -712,3 +712,40 @@ describe('ascend records in the save (v9)', () => {
     });
   });
 });
+
+describe('Animations setting in the save', () => {
+  it('round-trips "reduced" through a save string and localStorage', () => {
+    const data = toSaveData(createState(), audio, '0.6.0', { motion: 'reduced' });
+    expect(data.settings).toEqual({ motion: 'reduced' });
+    const r = decodeSave(encodeSave(data));
+    expect(r.ok && r.settings).toEqual({ motion: 'reduced' });
+    const s = memory();
+    writeSave(s, 'k', data);
+    expect(loadSave(s, 'k').saved!.settings).toEqual({ motion: 'reduced' });
+  });
+
+  it('defaults to "on" (animations play) when the save has no settings', () => {
+    const data = toSaveData(createState(), audio, '0.6.0');
+    expect(data.settings).toEqual({ motion: 'on' });
+    const old = JSON.parse(JSON.stringify(data));
+    delete old.settings;
+    const r = validateSaveData(old);
+    expect(r.ok && r.settings).toEqual({ motion: 'on' });
+  });
+
+  it('rejects an unknown value in a save string', () => {
+    const bad = { ...toSaveData(createState(), audio, '0.6.0'), settings: { motion: 'fast' } };
+    const r = validateSaveData(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toContain('settings.motion');
+    expect(validateSaveData({ ...bad, settings: 'on' }).ok).toBe(false);
+  });
+
+  it('a v1 plain-JSON save keeps a valid setting and drops a bad one', () => {
+    const v1 = (settings: unknown) =>
+      loadSave(storage(JSON.stringify({ world: 1, stage: 2, settings })), 'k').saved!.settings;
+    expect(v1({ motion: 'reduced' })).toEqual({ motion: 'reduced' });
+    expect(v1({ motion: 'nope' })).toEqual({});
+    expect(v1(undefined)).toEqual({});
+  });
+});

@@ -3,7 +3,7 @@ import { windup } from '../game/attacks';
 import { COMPANION_IDS, COMPANIONS, type CompanionId } from '../game/balance';
 import { createState, newProgress, secToTicks, type GameState } from '../game/state';
 import { companionSprites } from '../sprites';
-import { clickBurst, companionPose, layout, sceneContent } from './scene';
+import { clickBurst, companionPose, layout, rainArea, sceneContent } from './scene';
 import { computeView } from './view';
 
 const { crow, wolf } = companionSprites;
@@ -117,4 +117,19 @@ it('click burst grows and thins out', () => {
   expect(clickBurst(0)).toHaveLength(8);
   expect(clickBurst(0.9)).toHaveLength(4);
   expect(r(0.9)).toBeGreaterThan(r(0));
+});
+
+describe.each(VIEWS)('item rain area (%s)', (_, view) => {
+  const l = layout(owning({}), view);
+  const area = rainArea(l);
+
+  it('is a column at the hero, clear of the mob and the HUD, down to the ground', () => {
+    expect(area.left).toBeGreaterThanOrEqual(0);
+    expect(area.left).toBeLessThanOrEqual(l.heroX);
+    expect(area.right).toBeGreaterThanOrEqual(l.heroX + l.hero.width);
+    expect(area.right).toBeLessThan(l.mobX);
+    expect(area.top).toBe(l.heroY);
+    expect(area.top).toBeGreaterThanOrEqual(0);
+    expect(area.bottom).toBe(l.groundY);
+  });
 });

@@ -11,6 +11,7 @@ import { sellPrice, type Item } from '../game/items';
 import type { GameState } from '../game/state';
 import { itemIcons } from '../sprites/gear';
 import type { SpriteDef } from '../sprites';
+import { reducedCss } from '../motion';
 import { createShow, setFlag } from './dom';
 
 /**
@@ -29,6 +30,9 @@ export const GEAR_STYLES = `
 .tier.tc-SS { border-color: transparent; box-shadow: none; }
 .tier .sparkle { position: absolute; top: -13px; right: -10px; font-size: 18px; line-height: 1; animation: afk-sparkle 0.9s steps(2) infinite; pointer-events: none; }
 .tier .sparkle + .sparkle { top: auto; right: auto; bottom: -11px; left: -9px; font-size: 14px; animation-delay: -0.45s; }
+/* S+ sparkles blink and flow: the blink alone would replace the rainbow's flow animation. */
+.tier .sparkle.rainbow { animation: afk-sparkle 0.9s steps(2) infinite, afk-rainbow-flow var(--afk-rainbow-period, 20s) ease-in-out infinite; }
+.tier .sparkle.rainbow + .sparkle.rainbow { animation-delay: -0.45s, 0s; }
 .tier-name.rainbow { color: transparent; }
 @keyframes afk-sparkle { 50% { opacity: 0.2; transform: scale(0.6); } }
 .tier-name { font-weight: bold; color: var(--_tier, inherit); }
@@ -53,10 +57,8 @@ export const GEAR_STYLES = `
 }
 .toast[hidden] { display: flex; opacity: 0; }
 .toast .toast-text { display: grid; }
-@media (prefers-reduced-motion: reduce) {
-  .tier.tc-S::after, .tier .sparkle { animation: none; }
-  .toast { transition: none; }
-}
+${reducedCss('.tier.tc-S::after, .tier .sparkle, .tier .sparkle.rainbow')} { animation: none; }
+${reducedCss('.toast')} { transition: none; }
 `;
 
 const STAT_LABEL: Record<ItemStat, (v: number) => string> = {

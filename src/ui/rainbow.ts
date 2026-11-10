@@ -1,3 +1,5 @@
+import { reducedCss } from '../motion';
+
 /**
  * Rainbow: a flowing gradient for S-tier things. One big radial gradient with
  * a rainbow of stops, drawn twice as large as the box, whose position drifts
@@ -7,7 +9,7 @@
  * same lightness, so no band is much darker or brighter than the others.
  *
  * Ways to use it (all pure CSS, one keyframes animation, no JS per frame, and
- * a still gradient under `prefers-reduced-motion`):
+ * a still gradient when the Animations setting is Reduced, see `motion.ts`):
  * - `rainbow-frame`: a hollow animated border on a box. Put a child inside.
  *   Add `rainbow-glow` for a soft glow in the same colours.
  * - `rainbow-fill`: the gradient as the background (bars, chips).
@@ -131,10 +133,9 @@ export const RAINBOW_STYLES = `
   z-index: -1;
   filter: blur(4px);
 }
-@media (prefers-reduced-motion: reduce) {
-  .rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after {
-    animation: none;
-    background-position: 50% 50%;
-  }
+/* Animations setting = Reduced (class on the game box, see motion.ts). */
+${reducedCss('.rainbow, .rainbow-fill, .rainbow-frame::before, .rainbow-glow::after')} {
+  animation: none;
+  background-position: 50% 50%;
 }
 `;

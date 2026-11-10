@@ -5,7 +5,9 @@ import {
   encodeSave,
   loadSave,
   SAVE_PREFIX,
+  SETTINGS_DEFAULTS,
   type AudioSettings,
+  type GameSettings,
   type SaveData,
 } from '../save';
 import { buildSaveLink } from '../save-link';
@@ -14,7 +16,13 @@ import { html, setFlag } from './dom';
 // ── Pure parts ───────────────────────────────────────────────────────────────
 
 export type Parsed =
-  { ok: true; progress: Progress; audio: Partial<AudioSettings> } | { ok: false; error: string };
+  | {
+      ok: true;
+      progress: Progress;
+      audio: Partial<AudioSettings>;
+      settings: Partial<GameSettings>;
+    }
+  | { ok: false; error: string };
 
 export const SAVE_ERRORS = {
   empty: 'Paste a save string first.',
@@ -46,7 +54,7 @@ export function parseSaveText(text: string, tracks?: readonly string[]): Parsed 
     return saved ? { ok: true, ...saved } : { ok: false, error: SAVE_ERRORS.notJsonSave };
   }
   const r = decodeSave(t, tracks);
-  if (r.ok) return { ok: true, progress: r.progress, audio: r.audio };
+  if (r.ok) return { ok: true, progress: r.progress, audio: r.audio, settings: r.settings };
   const first = r.errors[0] ?? '';
   if (first.startsWith('Not a save string')) return { ok: false, error: SAVE_ERRORS.notSave };
   if (first.startsWith('Checksum')) return { ok: false, error: SAVE_ERRORS.checksum };
@@ -75,9 +83,14 @@ export function saveFileName(date: Date): string {
   return `afk-save-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.txt`;
 }
 
-/** The parsed save as full save data; audio the save doesn't set keeps the current values. */
+/** The parsed save as full save data; audio and settings the save doesn't set keep the current values. */
 export function toImport(current: SaveData, parsed: Extract<Parsed, { ok: true }>): SaveData {
-  return { ...current, ...parsed.progress, audio: { ...current.audio, ...parsed.audio } };
+  return {
+    ...current,
+    ...parsed.progress,
+    audio: { ...current.audio, ...parsed.audio },
+    settings: { ...SETTINGS_DEFAULTS, ...current.settings, ...parsed.settings },
+  };
 }
 
 /** Error for a `#save=` link that doesn't hold a valid save. */
