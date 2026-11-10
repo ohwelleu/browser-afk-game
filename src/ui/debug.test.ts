@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ITEMS } from '../game/balance';
+import { ASCEND_COST, ASCEND_GATE_LEVEL, ITEMS } from '../game/balance';
+import { canAscend } from '../game/ascend';
 import { forceNextDrop, newGear, onKill, rollItem } from '../game/items';
 import { createState, newProgress } from '../game/state';
 import { backupKey, loadSave, toSaveData, validateSaveData, writeSave } from '../save';
@@ -14,8 +15,11 @@ import {
   FONT_LETTERS,
   FONT_SAMPLE,
   fontInfoText,
+  forceAscend,
   giveItem,
   saveStatus,
+  setBestItem,
+  unlockAscend,
 } from './debug';
 
 const audio = { muted: false, track: 'synthwave', musicVolume: 0.5, sfxVolume: 0.5 };
@@ -154,5 +158,49 @@ describe('font picker', () => {
     for (const c of 'ąčęėįšųūžĄČĘĖĮŠŲŪŽ') {
       expect(FONT_SAMPLE + FONT_LETTERS).toContain(c);
     }
+  });
+});
+
+describe('ascend debug helpers', () => {
+  it('unlockAscend reaches the gate and the price without touching the rest', () => {
+    const data = save({ coins: 5, kills: 9 });
+    expect(canAscend(data)).toBe(false);
+    const next = unlockAscend(data);
+    expect(canAscend(next)).toBe(true);
+    expect(next.best).toBe(ASCEND_GATE_LEVEL);
+    expect(next.coins).toBe(ASCEND_COST);
+    expect(next.kills).toBe(9);
+    expect(validateSaveData(JSON.parse(JSON.stringify(next))).ok).toBe(true);
+  });
+
+  it('unlockAscend never lowers what you have', () => {
+    const next = unlockAscend(save({ best: ASCEND_GATE_LEVEL + 9, coins: ASCEND_COST * 2 }));
+    expect(next.best).toBe(ASCEND_GATE_LEVEL + 9);
+    expect(next.coins).toBe(ASCEND_COST * 2);
+  });
+
+  it('forceAscend resets like an ascend, keeps items and counts, and stays a valid save', () => {
+    const data = giveItem(
+      save({ coins: 7, weaponLevels: [9, 1, 0, 0, 0], ascends: 1 }),
+      'ring',
+      'A',
+    );
+    expect(typeof data).not.toBe('string');
+    const before = data as ReturnType<typeof save>;
+    const next = forceAscend(before);
+    expect(next.ascends).toBe(2);
+    expect(next.coins).toBe(0);
+    expect(next.weaponLevels).toEqual([1, 0, 0, 0, 0]);
+    expect(next.items).toEqual(before.items);
+    expect(next.bestItem?.tier).toBe('A');
+    expect(next.version).toBe(before.version);
+    expect(validateSaveData(JSON.parse(JSON.stringify(next))).ok).toBe(true);
+  });
+
+  it('setBestItem puts an item of that tier in the record, not in the bag', () => {
+    const next = setBestItem(save(), 'SS');
+    expect(next.bestItem?.tier).toBe('SS');
+    expect(next.items.bag).toHaveLength(0);
+    expect(validateSaveData(JSON.parse(JSON.stringify(next))).ok).toBe(true);
   });
 });

@@ -15,10 +15,16 @@ import {
   type ItemTier,
 } from './balance';
 import {
+  bestOwnedItem,
+  betterItem,
+  compareItems,
   equipItem,
+  forceNextDrop,
   gearTotals,
+  itemValue,
   mobHitDamage,
   newGear,
+  onKill,
   rollDrop,
   rollItem,
   sellItem,
@@ -27,7 +33,15 @@ import {
   type Item,
 } from './items';
 import { nextFloat, pickWeighted } from './rng';
-import { createState, heroDamage, newProgress, secToTicks, update, type GameEvent } from './state';
+import {
+  createState,
+  heroDamage,
+  newProgress,
+  secToTicks,
+  update,
+  type GameEvent,
+  type GameState,
+} from './state';
 
 const item = (p: Partial<Item> = {}): Item => ({
   id: 1,
@@ -385,5 +399,61 @@ describe('items in combat', () => {
     expect(drops.length).toBe(3);
     expect(s.items.bag.length).toBe(3);
     expect(s.items.nextId).toBe(4);
+  });
+});
+
+describe('best item', () => {
+  const mk = (tier: Item['tier'], stats: Item['stats'], id = 1): Item => ({
+    id,
+    slot: 'ring',
+    tier,
+    world: 1,
+    stage: 1,
+    stats,
+  });
+
+  it('ranks by tier first, then by total stat value (% stats in percent points)', () => {
+    expect(compareItems(mk('A', { damage: 1 }), mk('B', { damage: 999 }))).toBeGreaterThan(0);
+    expect(compareItems(mk('SS', { damage: 1 }), mk('S', { damage: 999 }))).toBeGreaterThan(0);
+    expect(compareItems(mk('B', { damage: 5 }), mk('B', { damage: 4 }))).toBeGreaterThan(0);
+    // +5 % crit = 5 points, which beats 4 flat damage.
+    expect(itemValue(mk('B', { crit: 0.05 }))).toBe(5);
+    expect(compareItems(mk('B', { crit: 0.05 }), mk('B', { damage: 4 }))).toBeGreaterThan(0);
+  });
+
+  it('betterItem keeps the first on a tie and ignores a missing one', () => {
+    const a = mk('B', { damage: 5 }, 1);
+    const b = mk('B', { damage: 5 }, 2);
+    expect(betterItem(a, b)).toBe(a);
+    expect(betterItem(null, b)).toBe(b);
+    expect(betterItem(a, null)).toBe(a);
+    expect(betterItem(null, null)).toBeNull();
+    expect(betterItem(a, mk('A', { damage: 1 }, 3))?.id).toBe(3);
+  });
+
+  it('bestOwnedItem looks at worn items and the bag', () => {
+    const g = {
+      ...newGear(1),
+      ring: mk('C', { damage: 1 }, 1),
+      bag: [mk('A', { damage: 1 }, 2), mk('B', { damage: 9 }, 3)],
+    };
+    expect(bestOwnedItem(g)?.id).toBe(2);
+    expect(bestOwnedItem(newGear(1))).toBeNull();
+  });
+
+  it('a drop is remembered as the best item, even when the bag is full and it is sold at once', () => {
+    let s = createState();
+    s = {
+      ...s,
+      items: {
+        ...s.items,
+        bag: Array.from({ length: ITEMS.inventorySize }, (_, i) => mk('C', { damage: 1 }, 100 + i)),
+      },
+    };
+    forceNextDrop();
+    const draft = { ...s, events: [] as GameState['events'] };
+    onKill(draft, 1, 1);
+    expect(draft.bestItem).not.toBeNull();
+    expect(draft.items.bag).toHaveLength(ITEMS.inventorySize);
   });
 });

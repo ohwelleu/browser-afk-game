@@ -76,6 +76,19 @@ export function loadGear(raw: unknown): Gear {
   };
 }
 
+/** Lenient read of one item (the best item record): a bad one becomes null. */
+export function loadItem(raw: unknown): Item | null {
+  return itemError(raw) === null ? copyItem(raw as Item) : null;
+}
+
+/** Strict check of one optional item (null = none); the item, or undefined with an error pushed. */
+export function validateItem(raw: unknown, where: string, errors: string[]): Item | null {
+  if (raw === null) return null;
+  const e = itemError(raw);
+  if (e) errors.push(`${where}: ${e}.`);
+  return e ? null : copyItem(raw as Item);
+}
+
 /** Strict check for the debugger: lists every problem, repairs nothing. */
 export function validateGear(raw: unknown, errors: string[]): Gear | null {
   const before = errors.length;

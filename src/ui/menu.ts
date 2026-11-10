@@ -1,4 +1,5 @@
 import {
+  ASCEND_COST,
   capCritChance,
   COMPANION_IDS,
   companionDamage,
@@ -20,6 +21,7 @@ import {
   type CompanionId,
 } from '../game/balance';
 import { trackCredits } from '../audio';
+import { ascendUnlocked } from '../game/ascend';
 import { formatNumber } from '../game/format';
 import { equipItem, sellItem, unequipItem } from '../game/items';
 import {
@@ -56,6 +58,7 @@ import {
 } from './amount-popover';
 import { dialogHtml } from './modal';
 import { createSavePanel, type SavePanelDeps } from './save-panel';
+import { ascendBlockedReason, ascendGateText, ASCEND_PANEL } from './ascend';
 
 // Sizes are in em so a future pixel font can change the metrics in one place.
 export const MENU_STYLES = `
@@ -141,7 +144,6 @@ ${AMOUNT_STYLES}.menu button:hover:not(:disabled) .price,
 .note { opacity: 0.75; }
 #afk-panel-help a { color: inherit; }
 .list + .note { margin-top: 10px; }
-.soon { margin-top: 1.5em !important; text-align: center; font-weight: bold; }
 
 /* Narrow boxes (phones): the menu fills the game box, touch-sized controls. */
 @container afk-box (max-width: 767px) {
@@ -233,6 +235,8 @@ export type MenuDeps = {
   iconUrl(def: SpriteDef): string;
   /** Save export/import in Help. */
   save: SavePanelDeps;
+  /** Opens the "Ascend?" confirm dialog (it replaces the menu until answered). */
+  confirmAscend(): void;
 };
 
 export type Menu = {
@@ -438,9 +442,7 @@ export const SHOP = {
       `<span class="tag comp-locked">Locked</span>`,
   )}
     <p class="note">Companions fight on their own. Each has one upgrade: every level raises the share of your hit it adds. Click or tap the game to make the crow peck extra.</p>`,
-  ascend: `
-    <p class="soon">Coming soon</p>
-    <p class="note">Ascend will let you start over with a permanent bonus.</p>`,
+  ascend: ASCEND_PANEL,
 };
 
 export const INVENTORY = {
@@ -666,6 +668,9 @@ export function createMenu(deps: MenuDeps): Menu {
         deps.act((s) => buyCompanion(s, id));
         break;
       }
+      case 'ascend':
+        deps.confirmAscend();
+        return;
       case 'comp-up': {
         const id = target.dataset.comp as CompanionId;
         const a = amount;
@@ -734,6 +739,7 @@ export function createMenu(deps: MenuDeps): Menu {
       if (sub === 'character') refreshShopCharacter(state);
       else if (sub === 'weapons') refreshShopWeapons(state);
       else if (sub === 'companions') refreshShopCompanions(state);
+      else if (sub === 'ascend') refreshShopAscend(state);
     } else if (current === 'inventory') {
       if (sub === 'weapons') refreshInventoryWeapons(state);
       else if (sub === 'companions') refreshInventoryCompanion(state);
@@ -762,6 +768,18 @@ export function createMenu(deps: MenuDeps): Menu {
       show(li.querySelector('.char-effect')!, st.effect);
       setBulkButton(li.querySelector<HTMLButtonElement>('[data-act="buy-char"]')!, state, r.target);
     }
+  }
+
+  function refreshShopAscend(state: GameState): void {
+    show($('.asc-n'), formatNumber(state.ascends));
+    const gate = $('.asc-gate');
+    show(gate, ascendGateText(state, stageName(state.best)));
+    setClass(gate, 'open', ascendUnlocked(state));
+    show($('.asc-price'), formatNumber(ASCEND_COST));
+    const btn = $<HTMLButtonElement>('.asc-btn');
+    const why = ascendBlockedReason(state);
+    setFlag(btn, 'disabled', why !== '');
+    show(btn, why, 'title');
   }
 
   function refreshShopWeapons(state: GameState): void {

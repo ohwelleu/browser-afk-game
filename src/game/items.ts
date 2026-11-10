@@ -12,6 +12,7 @@ import {
   itemRarityWeights,
   itemSellPrice,
   itemStatValue,
+  ITEM_TIERS,
   stageLevel,
   safeInt,
   type ItemSlot,
@@ -136,6 +137,40 @@ export function rollDrop(g: Gear, world: number, stage: number, force = false): 
 
 export const sellPrice = (item: Item): number => itemSellPrice(item.world, item.stage, item.tier);
 
+// ── Best item ──────────────────────────────────────────────────────────────
+
+/**
+ * Total stat value of an item: flat stats as they are, % stats in percent
+ * points (0.02 → 2). Only used to order items of the same tier.
+ */
+export function itemValue(item: Item): number {
+  let total = 0;
+  for (const stat of ITEM_STATS) {
+    const v = item.stats[stat] ?? 0;
+    total += ITEMS.stats[stat].flat ? v : v * 100;
+  }
+  return total;
+}
+
+/** Order of two items: higher tier first, then higher total stat value. > 0 when `a` is better. */
+export function compareItems(a: Item, b: Item): number {
+  return ITEM_TIERS.indexOf(a.tier) - ITEM_TIERS.indexOf(b.tier) || itemValue(a) - itemValue(b);
+}
+
+/** The better of two items; `a` wins a tie (and a missing `b`). */
+export function betterItem(a: Item | null, b: Item | null): Item | null {
+  if (!a || !b) return a ?? b;
+  return compareItems(b, a) > 0 ? b : a;
+}
+
+/** The best item among those worn and in the bag, or null when there are none. */
+export function bestOwnedItem(g: Gear): Item | null {
+  return [g.ring, g.pendant, ...g.bag].reduce<Item | null>(
+    (best, it) => betterItem(best, it),
+    null,
+  );
+}
+
 // ── Game state hooks ───────────────────────────────────────────────────────
 
 let forcedDrop = false;
@@ -151,6 +186,7 @@ export function onKill(s: GameState, world: number, stage: number): void {
   forcedDrop = false;
   s.items = r.gear;
   if (!r.item) return;
+  s.bestItem = betterItem(s.bestItem, r.item); // also counts a drop that was sold at once
   if (r.soldFor) s.coins = safeInt(s.coins + r.soldFor);
   s.events.push(
     { type: 'item', item: r.item, soldFor: r.soldFor },

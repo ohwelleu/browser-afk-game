@@ -1,4 +1,6 @@
 import {
+  ASCEND_COST,
+  ASCEND_GATE_LEVEL,
   COMPANION_IDS,
   COMPANIONS,
   companionDamage,
@@ -11,6 +13,7 @@ import {
   type ItemSlot,
   type ItemTier,
 } from '../game/balance';
+import { ascendProgress } from '../game/ascend';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
 import type { RainCounts } from '../game/rain';
@@ -91,7 +94,9 @@ export const FIELDS: Field[] = [
   { key: 'autoAdvance', label: 'Auto-advance', kind: 'bool' },
   { key: 'kills', label: 'Kills', kind: 'int' },
   { key: 'deaths', label: 'Deaths', kind: 'int' },
-  { key: 'maxDps', label: 'Max DPS', kind: 'int' },
+  { key: 'maxDps', label: 'Best DPS (all time)', kind: 'int' },
+  { key: 'ascends', label: 'Ascends', kind: 'int' },
+  { key: 'bestStage', label: 'Best stage ever (level)', kind: 'int' },
   { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
   { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
   { key: 'character.hpLevel', label: 'Max HP upgrade level', kind: 'int' },
@@ -204,6 +209,14 @@ export function createDebugPanel(
         <select name="slot" aria-label="Item slot">${ITEM_SLOTS.map((s) => `<option>${s}</option>`).join('')}</select>
         <select name="tier" aria-label="Item tier">${ITEM_TIERS.map((t) => `<option value="${t}">${ITEM_TIER_LABEL[t]}</option>`).join('')}</select>
         <button type="button" data-dbg="give">Give item</button>
+      </div>
+      <div class="dbg-row">
+        <button type="button" data-dbg="unlock-ascend">Unlock ascend (6.1 + coins)</button>
+        <button type="button" data-dbg="force-ascend">Force ascend now</button>
+      </div>
+      <div class="dbg-row">
+        <button type="button" data-dbg="best-item">Set best item (tier above)</button>
+        <button type="button" data-dbg="clear-best-item">Clear best item</button>
       </div>
       <div class="dbg-row">
         <button type="button" data-dbg="force">Force drop on next kill</button>
@@ -438,6 +451,21 @@ export function createDebugPanel(
         else apply(data, `Gave a tier ${ITEM_TIER_LABEL[tier]} ${slot}.`);
         return;
       }
+      case 'unlock-ascend':
+        apply(unlockAscend(api.read()), 'Ascend unlocked: highest stage 6.1 and enough coins.');
+        return;
+      case 'force-ascend':
+        apply(forceAscend(api.read()), 'Ascended (no gate, no price). Items kept.');
+        return;
+      case 'best-item':
+        apply(
+          setBestItem(api.read(), tierSelect.value as ItemTier),
+          `Best item set to a tier ${ITEM_TIER_LABEL[tierSelect.value as ItemTier]} item.`,
+        );
+        return;
+      case 'clear-best-item':
+        apply({ ...api.read(), bestItem: null }, 'Best item cleared.');
+        return;
       case 'force':
         forceNextDrop();
         forcedAt = api.read().items.nextId;
@@ -590,6 +618,24 @@ export function giveItem(data: SaveData, slot: ItemSlot, tier: ItemTier): SaveDa
     tier,
   });
   return { ...data, items: { ...g, bag: [...g.bag, item], rng: rng.state, nextId: g.nextId + 1 } };
+}
+
+/** Makes the gate (6.1) the highest stage reached and tops the coins up to the price. */
+export const unlockAscend = (data: SaveData): SaveData => ({
+  ...data,
+  best: Math.max(data.best, ASCEND_GATE_LEVEL),
+  bestStage: Math.max(data.bestStage, ASCEND_GATE_LEVEL),
+  coins: Math.max(data.coins, ASCEND_COST),
+});
+
+/** An ascend without the gate and the price (same reset as the real one). */
+export const forceAscend = (data: SaveData): SaveData => ({ ...data, ...ascendProgress(data) });
+
+/** Sets the best-item record to a new item of `tier` (not added to the bag). */
+export function setBestItem(data: SaveData, tier: ItemTier): SaveData {
+  const rng = { state: data.items.rng };
+  const item = rollItem(rng, data.items.nextId, data.world, data.stage, 0, { tier });
+  return { ...data, bestItem: item };
 }
 
 export const clearBag = (data: SaveData): SaveData => ({
