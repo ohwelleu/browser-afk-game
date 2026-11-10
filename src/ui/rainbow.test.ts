@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  flowStep,
   goldGradient,
   RAINBOW_HUES,
   RAINBOW_LIGHTNESS,
@@ -181,23 +180,5 @@ describe('gold flow (S tier)', () => {
     const reduced = RAINBOW_STYLES.slice(RAINBOW_STYLES.indexOf('.motion-reduced'));
     expect(reduced).toContain('.motion-reduced .rainbow-frame::before');
     expect(reduced).toContain('.motion-reduced .rainbow,');
-  });
-});
-
-describe('flowStep (stepped, any colours)', () => {
-  const gold = ['orange', 'yellow'];
-  it('splits the period evenly and wraps', () => {
-    expect(flowStep(0, 1000, gold)).toBe('orange');
-    expect(flowStep(499, 1000, gold)).toBe('orange');
-    expect(flowStep(500, 1000, gold)).toBe('yellow');
-    expect(flowStep(999, 1000, gold)).toBe('yellow');
-    expect(flowStep(1000, 1000, gold)).toBe('orange');
-    expect(flowStep(-250, 1000, gold)).toBe('yellow');
-  });
-
-  it('handles odd input', () => {
-    expect(flowStep(123, 1000, [])).toBe('');
-    expect(flowStep(Number.NaN, 1000, gold)).toBe('orange');
-    expect(flowStep(5, 0, gold)).toBe('orange');
   });
 });

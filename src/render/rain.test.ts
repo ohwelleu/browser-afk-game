@@ -7,6 +7,14 @@ const H = 50;
 /** A 40 px column in the middle of a 100 px scene, from row 10 down to the ground at `H`. */
 const AREA: RainArea = { left: 30, right: 70, top: 10, bottom: H };
 const TICKS_PER_SEC = 60;
+/** A tall area: after a moment a line is mid-way down and cut at neither end. */
+const TALL: RainArea = { left: 30, right: 70, top: 10, bottom: 400 };
+/** One line, fully on screen: runs the field for 2 s in `TALL`, so the line is mid-way down. */
+function midLine(counts: { rainbow: number; yellow: number }) {
+  const f = new RainField();
+  for (let t = 0; t <= 2 * TICKS_PER_SEC; t += 2) f.advance(t, counts, TALL);
+  return { f, t: 2 * TICKS_PER_SEC };
+}
 
 type Rect = { fill: string; x: number; y: number; w: number; h: number };
 function fakeCtx() {
@@ -20,6 +28,23 @@ function fakeCtx() {
   return { ctx: ctx as unknown as CanvasRenderingContext2D, rects };
 }
 const palette = DEFAULT_PALETTES.dark;
+
+/** One falling line as drawn: its rects (runs of rows) from top to bottom. */
+type Line = Rect[];
+/** Groups rects into lines: a line is a run of rects with the same x and width that touch. */
+function lines(rects: Rect[]): Line[] {
+  const out: Line[] = [];
+  for (const r of rects) {
+    const last = out[out.length - 1];
+    const prev = last?.[last.length - 1];
+    if (prev && prev.x === r.x && prev.w === r.w && prev.y + prev.h === r.y) last.push(r);
+    else out.push([r]);
+  }
+  return out;
+}
+/** The colour of every row of a line, top to bottom. */
+const rowColours = (line: Line): string[] =>
+  line.flatMap((r) => Array.from({ length: r.h }, () => r.fill));
 const run = (
   f: RainField,
   from: number,
@@ -66,12 +91,49 @@ describe('RainField', () => {
     f.advance(0, counts, AREA, true); // still: every streak is on screen
     const { ctx, rects } = fakeCtx();
     f.draw(ctx, 0, palette, AREA, true);
-    // Still (t = 0): neighbouring gold lines start on different colours.
-    expect(rects.map((r) => r.fill).slice(2)).toEqual([palette.orange, palette.yellow]);
-    const [a, b] = rects.slice(0, 2).map((r) => r.fill);
-    expect(a).toMatch(/^hsl\(/);
-    expect(b).toMatch(/^hsl\(/);
-    expect(a).not.toBe(b);
+    const [r1, r2, g1, g2] = lines(rects);
+    // Gold lines are palette orange and yellow only; neighbours start on different colours.
+    for (const g of [g1, g2]) {
+      for (const c of rowColours(g)) expect([palette.orange, palette.yellow]).toContain(c);
+    }
+    expect(rowColours(g1)[0]).not.toBe(rowColours(g2)[0]);
+    // Rainbow lines are hsl, and differ from each other.
+    for (const r of [r1, r2]) for (const c of rowColours(r)) expect(c).toMatch(/^hsl\(/);
+    expect(rowColours(r1)[0]).not.toBe(rowColours(r2)[0]);
+  });
+
+  it('changes colour ALONG a line: every row of a rainbow line is a step further on', () => {
+    const { f, t } = midLine({ rainbow: 1, yellow: 0 });
+    const { ctx, rects } = fakeCtx();
+    f.draw(ctx, t, palette, TALL);
+    const rows = rowColours(lines(rects)[0]);
+    expect(rows.length).toBeGreaterThanOrEqual(6);
+    for (let r = 1; r < rows.length; r++) expect(rows[r]).not.toBe(rows[r - 1]);
+  });
+
+  it('makes gold lines in orange / yellow bands 2 rows tall', () => {
+    const { f, t } = midLine({ rainbow: 0, yellow: 1 });
+    const { ctx, rects } = fakeCtx();
+    f.draw(ctx, t, palette, TALL);
+    const line = lines(rects)[0];
+    const rows = rowColours(line);
+    expect(rows.length).toBeGreaterThanOrEqual(6);
+    // Runs are whole bands (2 rows), alternating orange / yellow; the last may be cut short.
+    for (const r of line.slice(0, -1)) expect(r.h).toBe(2);
+    for (let i = 1; i < line.length; i++) expect(line[i].fill).not.toBe(line[i - 1].fill);
+    expect(new Set(rows)).toEqual(new Set([palette.orange, palette.yellow]));
+  });
+
+  it('moves the colours down the line as time passes (falling pattern)', () => {
+    const { f, t } = midLine({ rainbow: 1, yellow: 0 });
+    const at = (ticks: number) => {
+      const { ctx, rects } = fakeCtx();
+      f.draw(ctx, ticks, palette, TALL); // only the time changes: the line stays where it is
+      return rowColours(lines(rects)[0]);
+    };
+    const a = at(t);
+    const b = at(t + 30); // 0.5 s = one step later
+    expect(b.slice(1)).toEqual(a.slice(0, -1));
   });
 
   it('keeps falling: streaks come back at new places', () => {
@@ -121,7 +183,7 @@ describe('RainField', () => {
     f.advance(600, counts, AREA, true);
     const b = fakeCtx();
     f.draw(b.ctx, 600, palette, AREA, true);
-    expect(a.rects).toHaveLength(4);
+    expect(lines(a.rects)).toHaveLength(4);
     expect(b.rects).toEqual(a.rects);
   });
 
@@ -161,8 +223,9 @@ describe('RainField', () => {
     for (let t = 0; t < 6 * TICKS_PER_SEC; t += 10) {
       const { ctx, rects } = fakeCtx();
       f.draw(ctx, t, palette, AREA);
-      fills.add(rects[0].fill);
-      golds.add(rects[1].fill);
+      const [r, g] = lines(rects);
+      rowColours(r).forEach((c) => fills.add(c));
+      rowColours(g).forEach((c) => golds.add(c));
     }
     expect(fills.size).toBeGreaterThan(6);
     expect(golds).toEqual(new Set([palette.orange, palette.yellow]));
@@ -181,7 +244,7 @@ describe('RainField', () => {
         f.advance(t, counts, AREA);
         const { ctx, rects } = fakeCtx();
         f.draw(ctx, t, palette, AREA);
-        expect(rects).toHaveLength(counts.rainbow + counts.yellow);
+        expect(lines(rects)).toHaveLength(counts.rainbow + counts.yellow);
       }
     }
   });
@@ -192,7 +255,7 @@ describe('RainField', () => {
     f.advance(0, counts, AREA);
     const { ctx, rects } = fakeCtx();
     f.draw(ctx, 0, palette, AREA);
-    expect(rects).toHaveLength(RAIN_MAX_LINES);
+    expect(lines(rects)).toHaveLength(RAIN_MAX_LINES);
   });
 
   it("staggers an item's 5 lines over the height (they don't fall in step)", () => {
@@ -200,7 +263,9 @@ describe('RainField', () => {
     f.advance(0, rainForItems(0, 1), AREA);
     const { ctx, rects } = fakeCtx();
     f.draw(ctx, 0, palette, AREA);
-    const tops = rects.map((r) => r.y + r.h).sort((a, b) => a - b);
+    const tops = lines(rects)
+      .map((l) => l[l.length - 1].y + l[l.length - 1].h)
+      .sort((a, b) => a - b);
     expect(new Set(tops).size).toBe(RAIN_LINES_PER_ITEM);
     // Spread over most of the zone, not bunched up.
     expect(tops[tops.length - 1] - tops[0]).toBeGreaterThan((AREA.bottom - AREA.top) / 2);

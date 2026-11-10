@@ -2,7 +2,7 @@ import { RAIN_LINES_PER_ITEM, RAIN_MAX_LINES, type RainCounts } from '../game/ra
 import { nextFloat, type Rng } from '../game/rng';
 import { TICK_RATE } from '../loop';
 import type { Palette } from '../theme';
-import { flowStep, RAINBOW_HUES, rainbowStep } from '../ui/rainbow';
+import { RAINBOW_HUES, rainbowHsl } from '../ui/rainbow';
 
 /** Streak length and width, in art pixels. */
 const LENGTH = { min: 6, max: 10 };
@@ -15,8 +15,12 @@ const MAX_STEP = 0.25;
 export const RAIN_RAINBOW_PERIOD_MS = 6000;
 /** Time a rain line shows one colour, in milliseconds. */
 const STEP_MS = RAIN_RAINBOW_PERIOD_MS / (RAINBOW_HUES.length - 1);
-/** One orange → yellow trip for a gold (S) line: the same time per colour as a rainbow line. */
-export const RAIN_GOLD_PERIOD_MS = STEP_MS * 2;
+/** The rainbow's stops as CSS colours, built once (hue 360 repeats red, so it is left out). */
+const RAINBOW_CYCLE: readonly string[] = RAINBOW_HUES.slice(0, -1).map((h) => rainbowHsl(h));
+/** Rows of one gold band (orange or yellow) along a gold line. */
+const GOLD_BAND_ROWS = 2;
+
+const mod = (n: number, m: number): number => ((n % m) + m) % m;
 
 /**
  * Where the rain falls, in art pixels: the columns `left` (inclusive) to
@@ -110,19 +114,37 @@ export class RainField {
 
   /** Draws the streaks in art pixels; call with the scene transform set. Needs `advance` first. */
   draw(ctx: CanvasRenderingContext2D, ticks: number, p: Palette, area: RainArea, reduced = false) {
-    const ms = reduced ? 0 : (ticks / TICK_RATE) * 1000;
-    // Each line is one step further along its cycle, so neighbouring lines differ.
-    const gold = [p.orange, p.yellow];
+    const step = reduced ? 0 : Math.floor(((ticks / TICK_RATE) * 1000) / STEP_MS);
     for (let i = 0; i < this.count; i++) {
       const st = this.streaks[i];
-      ctx.fillStyle =
-        i < this.rainbow
-          ? rainbowStep(ms + i * STEP_MS, RAIN_RAINBOW_PERIOD_MS)
-          : flowStep(ms + i * STEP_MS, RAIN_GOLD_PERIOD_MS, gold);
-      // Whole pixels, cut at the top and bottom of the area.
-      const top = Math.max(area.top, Math.round(st.y));
-      const bottom = Math.min(area.bottom, Math.round(st.y) + st.len);
-      if (bottom > top) ctx.fillRect(st.x, top, st.width, bottom - top);
+      const rainbow = i < this.rainbow;
+      // Whole pixels, cut at the top and bottom of the area. `row` counts from the
+      // line's own top, so the colours fall with it and flow down along it: row r
+      // shows the colour row r - 1 showed one step ago. Line i starts i steps on.
+      const y0 = Math.round(st.y);
+      const top = Math.max(area.top, y0);
+      const bottom = Math.min(area.bottom, y0 + st.len);
+      let runTop = top;
+      let runColour = '';
+      for (let y = top; y <= bottom; y++) {
+        const row = y - y0;
+        const colour =
+          y === bottom
+            ? ''
+            : rainbow
+              ? RAINBOW_CYCLE[mod(step + i - row, RAINBOW_CYCLE.length)]
+              : mod(step + i - Math.floor(row / GOLD_BAND_ROWS), 2) === 0
+                ? p.orange
+                : p.yellow;
+        if (colour === runColour) continue;
+        // Colour changed: flush the run above (equal rows are drawn as one rect).
+        if (runColour && y > runTop) {
+          ctx.fillStyle = runColour;
+          ctx.fillRect(st.x, runTop, st.width, y - runTop);
+        }
+        runTop = y;
+        runColour = colour;
+      }
     }
   }
 

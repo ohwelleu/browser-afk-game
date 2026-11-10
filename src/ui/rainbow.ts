@@ -89,18 +89,6 @@ export function goldGradient(): string {
 }
 
 /**
- * Stepped flow over any colour list at time `t` ms: each colour for an equal
- * share of `periodMs`, then it wraps. `flowStep(t, p, [orange, yellow])` is the
- * gold of the canvas (S rain lines).
- */
-export function flowStep(t: number, periodMs: number, colours: readonly string[]): string {
-  const n = colours.length;
-  if (n === 0) return '';
-  const i = Math.min(Math.floor(rainbowPhase(t, periodMs) * n + 1e-9), n - 1);
-  return colours[i];
-}
-
-/**
  * The flowing gradient as CSS. Add it to a stylesheet. Settings (inherited, so
  * set them on the box or a parent): `--afk-rainbow-period` (default 4s) and
  * `--afk-rainbow-l` (stop lightness, default 75%), `--afk-rainbow-ink` (outline
