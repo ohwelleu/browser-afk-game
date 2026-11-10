@@ -1,8 +1,9 @@
 import {
+  ASCEND_COST,
+  ASCEND_GATE_LEVEL,
+  COMPANION_IDS,
   COMPANIONS,
-  companionAutoInterval,
   companionDamage,
-  companionMaxSpeedLevel,
   dropChance,
   ITEM_SLOTS,
   ITEM_TIER_LABEL,
@@ -12,9 +13,11 @@ import {
   type ItemSlot,
   type ItemTier,
 } from '../game/balance';
+import { ascendProgress } from '../game/ascend';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
 import { picksEnabled, setPicksEnabled } from '../game/passives';
+import type { RainCounts } from '../game/rain';
 import { critChance, heroDamage, heroDefence } from '../game/state';
 import {
   crispSize,
@@ -28,6 +31,7 @@ import {
   type FontCandidate,
 } from './font';
 import { mountRainbowDemo, RAINBOW_DEMO_HTML, RAINBOW_DEMO_STYLES } from './rainbow-demo';
+import { mountRainDemo, RAIN_DEMO_HTML, RAIN_DEMO_STYLES } from './rain-demo';
 import {
   backupKey,
   decodeSave,
@@ -49,6 +53,8 @@ export type DebugApi = {
   reset(): void;
   /** Opens a stage-pick offer right now. */
   offerPick(): void;
+  /** Shows this item rain instead of the equipped items' (`null` = back to the items). */
+  previewRain?(counts: RainCounts | null): void;
 };
 
 /** Optional wiring; the defaults fit the demo page. */
@@ -72,7 +78,7 @@ type Field =
   | { key: string; label: string; kind: 'bool' }
   | { key: string; label: string; kind: 'track' };
 
-const FIELDS: Field[] = [
+export const FIELDS: Field[] = [
   { key: 'world', label: 'World', kind: 'int' },
   { key: 'stage', label: 'Stage (1–6)', kind: 'int' },
   { key: 'best', label: 'Highest stage reached (level)', kind: 'int' },
@@ -91,18 +97,17 @@ const FIELDS: Field[] = [
   { key: 'autoAdvance', label: 'Auto-advance', kind: 'bool' },
   { key: 'kills', label: 'Kills', kind: 'int' },
   { key: 'deaths', label: 'Deaths', kind: 'int' },
-  { key: 'maxDps', label: 'Max DPS', kind: 'int' },
+  { key: 'maxDps', label: 'Best DPS (all time)', kind: 'int' },
+  { key: 'ascends', label: 'Ascends', kind: 'int' },
+  { key: 'bestStage', label: 'Best stage ever (level)', kind: 'int' },
   { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
   { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
   { key: 'character.hpLevel', label: 'Max HP upgrade level', kind: 'int' },
-  { key: 'companion.owned', label: 'Crow owned', kind: 'bool' },
-  { key: 'companion.dmgLevel', label: 'Crow damage level', kind: 'int' },
-  { key: 'companion.autoUnlocked', label: 'Crow auto attack', kind: 'bool' },
-  {
-    key: 'companion.speedLevel',
-    label: `Crow speed level (1–${companionMaxSpeedLevel(COMPANIONS.crow)})`,
-    kind: 'int',
-  },
+  ...COMPANION_IDS.map((id) => ({
+    key: `companions.${id}`,
+    label: `${COMPANIONS[id].name} level (0 = not bought)`,
+    kind: 'int' as const,
+  })),
   { key: 'audio.muted', label: 'Muted', kind: 'bool' },
   { key: 'audio.track', label: 'Music track', kind: 'track' },
   { key: 'audio.musicVolume', label: 'Music volume (0–1)', kind: 'volume' },
@@ -154,7 +159,7 @@ const STYLES = `
 .dbg-err { margin: 0; color: var(--_red); white-space: pre-wrap; }
 .dbg-ok { margin: 0; color: var(--_green); }
 .dbg [hidden] { display: none; }
-${RAINBOW_DEMO_STYLES}`;
+${RAINBOW_DEMO_STYLES}${RAIN_DEMO_STYLES}`;
 
 /**
  * Bottom-left debugger: live stats, reset, an editor for every saved value
@@ -191,7 +196,7 @@ export function createDebugPanel(
       <details class="dbg-compare">
         <summary>Compare all fonts</summary>
         <div class="dbg-compare-list">${FONT_CANDIDATES.map(compareRowHtml).join('')}</div>
-      </details>${RAINBOW_DEMO_HTML}
+      </details>${RAINBOW_DEMO_HTML}${RAIN_DEMO_HTML}
       <div class="dbg-row">
         <button type="button" data-dbg="load">Load current</button>
         <button type="button" data-dbg="reset">Reset all progress</button>
@@ -207,6 +212,14 @@ export function createDebugPanel(
         <select name="slot" aria-label="Item slot">${ITEM_SLOTS.map((s) => `<option>${s}</option>`).join('')}</select>
         <select name="tier" aria-label="Item tier">${ITEM_TIERS.map((t) => `<option value="${t}">${ITEM_TIER_LABEL[t]}</option>`).join('')}</select>
         <button type="button" data-dbg="give">Give item</button>
+      </div>
+      <div class="dbg-row">
+        <button type="button" data-dbg="unlock-ascend">Unlock ascend (6.1 + coins)</button>
+        <button type="button" data-dbg="force-ascend">Force ascend now</button>
+      </div>
+      <div class="dbg-row">
+        <button type="button" data-dbg="best-item">Set best item (tier above)</button>
+        <button type="button" data-dbg="clear-best-item">Clear best item</button>
       </div>
       <div class="dbg-row">
         <button type="button" data-dbg="force">Force drop on next kill</button>
@@ -287,6 +300,7 @@ export function createDebugPanel(
   });
   pickFont(findFont(storage?.getItem(FONT_KEY) ?? null), false);
   const stopRainbow = mountRainbowDemo(el);
+  mountRainDemo(el, (counts) => api.previewRain?.(counts));
 
   function fieldHtml(f: Field): string {
     const id = `dbg-${f.key.replace(/\./g, '-')}`;
@@ -307,9 +321,8 @@ export function createDebugPanel(
 
   function load(): void {
     const data = api.read();
-    const view = toFormView(data);
     for (const f of FIELDS) {
-      const value = get(view, f.key);
+      const value = get(data, f.key);
       const c = control(f.key);
       if (f.kind === 'bool') (c as HTMLInputElement).checked = value === true;
       else c.value = String(value);
@@ -329,7 +342,7 @@ export function createDebugPanel(
       weaponLevels: [],
       revealedWeapons: [],
       audio: {},
-      companion: {},
+      companions: {},
       character: {},
     };
     for (const f of FIELDS) {
@@ -345,7 +358,7 @@ export function createDebugPanel(
               : Number(raw);
       set(data, f.key, value);
     }
-    return fromFormView(data);
+    return data;
   }
 
   function apply(data: unknown, success = 'Applied.'): void {
@@ -445,6 +458,21 @@ export function createDebugPanel(
         else apply(data, `Gave a tier ${ITEM_TIER_LABEL[tier]} ${slot}.`);
         return;
       }
+      case 'unlock-ascend':
+        apply(unlockAscend(api.read()), 'Ascend unlocked: highest stage 6.1 and enough coins.');
+        return;
+      case 'force-ascend':
+        apply(forceAscend(api.read()), 'Ascended (no gate, no price). Items kept.');
+        return;
+      case 'best-item':
+        apply(
+          setBestItem(api.read(), tierSelect.value as ItemTier),
+          `Best item set to a tier ${ITEM_TIER_LABEL[tierSelect.value as ItemTier]} item.`,
+        );
+        return;
+      case 'clear-best-item':
+        apply({ ...api.read(), bestItem: null }, 'Best item cleared.');
+        return;
       case 'force':
         forceNextDrop();
         forcedAt = api.read().items.nextId;
@@ -595,26 +623,6 @@ export const fontLabel = (f: FontCandidate): string =>
 
 const percent = (f: number): string => `${Math.round(f * 1000) / 10}%`;
 
-/** Save → form values: the crow always has fields; `owned` says whether it exists. */
-export function toFormView(data: SaveData): Record<string, unknown> {
-  const c = data.companion;
-  return {
-    ...data,
-    companion: {
-      owned: c !== null,
-      dmgLevel: c?.dmgLevel ?? 1,
-      autoUnlocked: c?.autoUnlocked ?? false,
-      speedLevel: c?.speedLevel ?? 1,
-    },
-  };
-}
-
-/** Form values → save object (the inverse of `toFormView`). */
-export function fromFormView(view: Record<string, unknown>): Record<string, unknown> {
-  const { owned, ...crow } = view.companion as Record<string, unknown>;
-  return { ...view, companion: owned ? { id: 'crow', ...crow } : null };
-}
-
 /** Adds an item of `slot` and `tier`, rolled for the current stage, to the bag. */
 export function giveItem(data: SaveData, slot: ItemSlot, tier: ItemTier): SaveData | string {
   const g = data.items;
@@ -627,28 +635,44 @@ export function giveItem(data: SaveData, slot: ItemSlot, tier: ItemTier): SaveDa
   return { ...data, items: { ...g, bag: [...g.bag, item], rng: rng.state, nextId: g.nextId + 1 } };
 }
 
+/** Makes the gate (6.1) the highest stage reached and tops the coins up to the price. */
+export const unlockAscend = (data: SaveData): SaveData => ({
+  ...data,
+  best: Math.max(data.best, ASCEND_GATE_LEVEL),
+  bestStage: Math.max(data.bestStage, ASCEND_GATE_LEVEL),
+  coins: Math.max(data.coins, ASCEND_COST),
+});
+
+/** An ascend without the gate and the price (same reset as the real one). */
+export const forceAscend = (data: SaveData): SaveData => ({ ...data, ...ascendProgress(data) });
+
+/** Sets the best-item record to a new item of `tier` (not added to the bag). */
+export function setBestItem(data: SaveData, tier: ItemTier): SaveData {
+  const rng = { state: data.items.rng };
+  const item = rollItem(rng, data.items.nextId, data.world, data.stage, 0, { tier });
+  return { ...data, bestItem: item };
+}
+
 export const clearBag = (data: SaveData): SaveData => ({
   ...data,
   items: { ...data.items, bag: [] },
 });
 
-/** Live stat lines for the crow, the items and drops. */
+/** Live stat lines for the companions, the items and drops. */
 export function extraStats(data: SaveData, dropForced = false): string {
-  const c = data.companion;
-  let crow = 'crow none';
-  if (c) {
-    const def = COMPANIONS[c.id];
-    const dmg = companionDamage(def, c.dmgLevel, heroDamage(data));
-    const every = companionAutoInterval(def, c.speedLevel);
-    crow = c.autoUnlocked
-      ? `crow dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`
-      : `crow dmg ${formatNumber(dmg)} dps 0 (no auto attack)`;
-  }
+  const hit = heroDamage(data);
+  const owned = COMPANION_IDS.filter((id) => data.companions[id] >= 1).map((id) => {
+    const def = COMPANIONS[id];
+    const dmg = companionDamage(def, data.companions[id], hit);
+    const every = def.attack.interval;
+    return `${id} dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`;
+  });
+  const companions = owned.length ? owned.join('\n') : 'companions none';
   const t = gearTotals(data.items);
   const chance = dropChance(data.world, data.stage);
   const drop = dropForced ? '100% (forced)' : percent(chance);
   return (
-    `${crow}\n` +
+    `${companions}\n` +
     `items dmg +${formatNumber(t.damage)} def +${formatNumber(t.defence)} (total ${formatNumber(heroDefence(data))}) ` +
     `spd +${percent(t.speed)} find +${percent(t.itemFind)} crit ${percent(critChance(data))}\n` +
     `drop ${drop} bag ${data.items.bag.length}/${ITEMS.inventorySize}`

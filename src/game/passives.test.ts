@@ -61,11 +61,12 @@ describe('tierWeights', () => {
 });
 
 describe('ascendsOf', () => {
-  it('is 0 for a state without the field, and reads a plain number', () => {
-    expect(ascendsOf({})).toBe(0);
+  it('reads state.ascends, and counts a bad value as 0', () => {
+    expect(ascendsOf({ ascends: 0 })).toBe(0);
     expect(ascendsOf({ ascends: 3 })).toBe(3);
     expect(ascendsOf({ ascends: -1 })).toBe(0);
-    expect(ascendsOf({ ascends: 'x' })).toBe(0);
+    expect(ascendsOf({ ascends: Number.NaN })).toBe(0);
+    expect(ascendsOf({ ascends: 2.5 })).toBe(0);
   });
 });
 

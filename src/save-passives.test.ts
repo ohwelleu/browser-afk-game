@@ -5,6 +5,7 @@ import {
   decodeSave,
   encodeSave,
   loadSave,
+  migrateSave,
   SAVE_VERSION,
   toSaveData,
   validateSaveData,
@@ -53,20 +54,37 @@ describe('passives in the save', () => {
     expect(createState(loaded).passives).toEqual(loaded.passives);
   });
 
-  it('an old save (version 7, no passives) loads unchanged with none', () => {
+  it('an old save (version 9, no passives) loads unchanged with none', () => {
     const {
       passives: _p,
       pick: _k,
       ...old
     } = toSaveData(createState(newProgress()), audio, '0.5.0');
-    const v7 = { ...old, version: 7 };
-    const r = validateSaveData(v7);
+    const v9 = { ...old, version: 9 };
+    const r = validateSaveData(v9);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.progress.passives).toEqual([]);
     expect(r.progress.pick).toBeNull();
     expect(r.progress.coins).toBe(old.coins);
     expect(r.progress.world).toBe(old.world);
+  });
+
+  it('migration 9 → 10 adds an empty list and no offer, and keeps the rest', () => {
+    expect(migrateSave({ version: 9, coins: 7 })).toEqual({
+      version: SAVE_VERSION,
+      coins: 7,
+      passives: [],
+      pick: null,
+    });
+    // A v10 save keeps what it has.
+    const v10 = {
+      version: SAVE_VERSION,
+      passives: [{ id: 'speed', tier: 'C', level: 2 }],
+      pick: null,
+    };
+    expect(migrateSave(v10)).toEqual(v10);
+    expect(SAVE_VERSION).toBe(10);
   });
 
   it('a plain-JSON v1 save without the fields is repaired to none', () => {

@@ -12,6 +12,7 @@ import {
   readSavePreview,
   SAVE_VERSION,
   toSaveData,
+  validateSaveData,
   writeSave,
   type AudioSettings,
 } from './save';
@@ -138,8 +139,11 @@ describe('writeSave / loadSave', () => {
       kills: 0,
       deaths: 0,
       maxDps: 42,
+      ascends: 0,
+      bestStage: 10, // the stage reached at save time (the test raised `best` by hand)
+      bestItem: null,
       items: st.items,
-      companion: null,
+      companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       passives: [],
       pick: null,
@@ -235,7 +239,11 @@ describe('v1 migration (plain JSON saves)', () => {
     const again = loadSave(s, 'k');
     expect(again.status).toBe('ok');
     // A v1 save has no maxDps; createState raises it to the current DPS.
-    expect(again.saved!.progress).toEqual({ ...saved!.progress, maxDps: st.maxDps });
+    expect(again.saved!.progress).toEqual({
+      ...saved!.progress,
+      maxDps: st.maxDps,
+      bestStage: st.bestStage,
+    });
   });
 
   it('repairs bad v1 values instead of crashing', () => {
@@ -253,7 +261,7 @@ describe('v1 migration (plain JSON saves)', () => {
       ...newProgress(),
       weaponLevels: [1, 0, 0, 0, 0],
       items: { ...newGear(), rng: expect.any(Number) },
-      companion: null,
+      companions: { crow: 0, wolf: 0 },
     });
     expect(saved!.audio).toEqual({});
   });
@@ -303,7 +311,23 @@ describe('items in the save (v2)', () => {
       stage: 6,
       stats: { defence: 1 },
     };
-    const items = { ring, pendant: null, bag: [bagItem], rng: 42, nextId: 6 };
+    const earring: Item = {
+      id: 4,
+      slot: 'earring',
+      tier: 'A',
+      world: 2,
+      stage: 3,
+      stats: { crit: 0.03, itemFind: 0.08, damage: 2 },
+    };
+    const belt: Item = {
+      id: 2,
+      slot: 'belt',
+      tier: 'S',
+      world: 3,
+      stage: 2,
+      stats: { defence: 5, damage: 9, speed: 0.04, crit: 0.04 },
+    };
+    const items = { ring, pendant: null, earring, belt, bag: [bagItem], rng: 42, nextId: 6 };
     const st = { ...createState(), items };
     const s = memory();
     writeSave(s, 'k', toSaveData(st, audio, '0.2.0'));
@@ -322,13 +346,38 @@ describe('items in the save (v2)', () => {
     const items = {
       ring: null,
       pendant: ss,
+      earring: { ...ss, id: 3, slot: 'earring' as const },
+      belt: { ...ss, id: 4, slot: 'belt' as const },
       bag: [{ ...ss, id: 2, slot: 'ring' as const }],
       rng: 9,
-      nextId: 3,
+      nextId: 5,
     };
     const s = memory();
     writeSave(s, 'k', toSaveData({ ...createState(), items }, audio, '0.2.0'));
     expect(loadSave(s, 'k').saved!.progress.items).toEqual(items);
+  });
+
+  it('loads an older save that has ring and pendant but no earring or belt', () => {
+    const item = { id: 1, slot: 'ring', tier: 'C', world: 1, stage: 1, stats: { damage: 1 } };
+    const raw = JSON.stringify({
+      items: { ring: item, pendant: null, bag: [], rng: 5, nextId: 2 },
+    });
+    const { items } = load(raw).progress;
+    expect(items.ring?.id).toBe(1);
+    expect(items.earring).toBeNull();
+    expect(items.belt).toBeNull();
+    expect(items.nextId).toBe(2);
+  });
+
+  it('keeps an earring and belt only in their own slot', () => {
+    const e = { id: 1, slot: 'earring', tier: 'C', world: 1, stage: 1, stats: { crit: 0.02 } };
+    const b = { id: 2, slot: 'belt', tier: 'C', world: 1, stage: 1, stats: { defence: 1 } };
+    const raw = JSON.stringify({
+      items: { ring: null, pendant: null, earring: b, belt: e, bag: [], rng: 5, nextId: 3 },
+    });
+    const { items } = load(raw).progress;
+    expect(items.earring).toBeNull();
+    expect(items.belt).toBeNull();
   });
 
   it('migrates a v1 save (no items) to empty gear and keeps the rest', () => {
@@ -359,44 +408,81 @@ describe('items in the save (v2)', () => {
   });
 });
 
-describe('companion in the save (v3)', () => {
+describe('companions in the save (v8)', () => {
   const load = (raw: string) => loadSave(memory({ k: raw }), 'k').saved!;
 
-  it('keeps the companion across a save round trip', () => {
-    const companion = { id: 'crow' as const, dmgLevel: 4, autoUnlocked: true, speedLevel: 3 };
-    const st = createState({ ...newProgress(), stage: 2, companion });
+  it('keeps both companion levels across a save round trip', () => {
+    const companions = { crow: 4, wolf: 12 };
+    const st = createState({ ...newProgress(), stage: 2, companions });
     const data = toSaveData(st, audio, '0.3.0');
     expect(data.version).toBe(SAVE_VERSION);
-    expect(data.companion).toEqual(companion);
+    expect(data.companions).toEqual(companions);
+    expect('companion' in data).toBe(false);
     const s = memory();
     writeSave(s, 'k', data);
-    expect(loadSave(s, 'k').saved!.progress.companion).toEqual(companion);
+    expect(loadSave(s, 'k').saved!.progress.companions).toEqual(companions);
   });
 
-  it('repairs a broken companion in a plain JSON save', () => {
-    const comp = (companion: unknown) =>
-      load(JSON.stringify({ version: 2, companion })).progress.companion;
-    expect(comp({ id: 'dragon', dmgLevel: 3 })).toBeNull();
-    expect(comp('crow')).toBeNull();
-    expect(comp({ id: 'crow', dmgLevel: 0, autoUnlocked: 'yes', speedLevel: 99 })).toEqual({
-      id: 'crow',
-      dmgLevel: 1,
-      autoUnlocked: false,
-      speedLevel: 21,
+  it('repairs broken companion levels in a plain JSON save', () => {
+    const comp = (companions: unknown) =>
+      load(JSON.stringify({ version: 8, companions })).progress.companions;
+    expect(comp(undefined)).toEqual({ crow: 0, wolf: 0 });
+    expect(comp('crow')).toEqual({ crow: 0, wolf: 0 });
+    expect(comp({ crow: 3 })).toEqual({ crow: 3, wolf: 0 }); // the wolf is missing: not bought
+    expect(comp({ crow: -2, wolf: 'x', dragon: 9 })).toEqual({ crow: 0, wolf: 0 });
+    expect(comp({ crow: 1.5, wolf: 7 })).toEqual({ crow: 0, wolf: 7 });
+  });
+});
+
+describe('save migration v7 → v8 (companion slot becomes companion levels)', () => {
+  const v7 = (companion: unknown) => ({ version: 7, coins: 9, companion });
+
+  it('the crow keeps its damage level; auto and speed upgrades are dropped; the wolf is not bought', () => {
+    const crow = { id: 'crow', dmgLevel: 12, autoUnlocked: true, speedLevel: 9 };
+    expect(migrateSave(v7(crow))).toEqual({
+      version: SAVE_VERSION,
+      coins: 9,
+      companions: { crow: 12, wolf: 0 },
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
+      passives: [],
+      pick: null,
     });
+  });
+
+  it('no companion, or a broken one, becomes not bought', () => {
+    for (const c of [null, undefined, 'crow', { id: 'dragon', dmgLevel: 3 }, { id: 'crow' }]) {
+      expect(migrateSave(v7(c)).companions).toEqual({ crow: 0, wolf: 0 });
+    }
+    expect(migrateSave(v7({ id: 'crow', dmgLevel: 0 })).companions).toEqual({ crow: 0, wolf: 0 });
+  });
+
+  it('an old save string with the crow loads with the wolf missing, and saves as v8', () => {
+    const old = {
+      ...toSaveData(createState(), audio, '0.5.0'),
+      version: 7,
+      companion: { id: 'crow', dmgLevel: 6, autoUnlocked: false, speedLevel: 1 },
+    } as Record<string, unknown>;
+    delete old.companions;
+    const r = decodeSave(encodeSave(old as never));
+    expect(r.ok && r.progress.companions).toEqual({ crow: 6, wolf: 0 });
   });
 });
 
 describe('save migration', () => {
-  it('v1/v2 saves (and saves without a version) get an empty companion slot', () => {
+  it('v1/v2 saves (and saves without a version) start without companions', () => {
     const want = {
       version: SAVE_VERSION,
       coins: 5,
-      companion: null,
+      companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       revealedWeapons: [true, false, false, false, false],
       passives: [],
       pick: null,
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
     };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
     expect(migrateSave({ version: 2, coins: 5 })).toEqual(want);
@@ -404,7 +490,7 @@ describe('save migration', () => {
   });
 
   it('does not touch current or newer saves, nor its input', () => {
-    const current = { version: SAVE_VERSION, companion: { id: 'crow' } };
+    const current = { version: SAVE_VERSION, companions: { crow: 2, wolf: 0 } };
     expect(migrateSave(current)).toEqual(current);
     const v1 = { version: 1 };
     migrateSave(v1);
@@ -433,11 +519,12 @@ describe('save migration', () => {
       ...newProgress(),
       stage: 3,
       best: 3,
+      bestStage: 3,
       coins: 40,
       weaponLevels: [3, 0, 0, 0, 0],
       kills: 12,
       items: { ...newGear(), rng: expect.any(Number) },
-      companion: null,
+      companions: { crow: 0, wolf: 0 },
     });
   });
 });
@@ -463,7 +550,7 @@ describe('character upgrades in the save (v4)', () => {
   it('v3 → v4 adds character with defence level 0', () => {
     const v3 = { version: 3, coins: 5, companion: null };
     expect(migrateSave(v3)).toMatchObject({
-      ...v3,
+      coins: 5,
       version: SAVE_VERSION,
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
     });
@@ -496,13 +583,18 @@ describe('revealed weapons in the save (v5)', () => {
   });
 
   it('v4 → v5 reveals owned weapons plus what the coins reach 90% of', () => {
+    const { companion: _, ...rest } = v4(0);
     expect(migrateSave(v4(0))).toEqual({
-      ...v4(0),
+      ...rest,
+      companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       version: SAVE_VERSION,
       revealedWeapons: [true, true, false, false, false],
       passives: [],
       pick: null,
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
     });
     // 2,700 is 90% of the stone sword (3,000); not yet the iron sword.
     expect(migrateSave(v4(2_700)).revealedWeapons).toEqual([true, true, true, false, false]);
@@ -561,9 +653,74 @@ describe('max HP upgrade in the save (v7)', () => {
     expect(migrateSave(v6)).toEqual({
       ...v6,
       version: SAVE_VERSION,
+      companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 3, critLevel: 2, hpLevel: 0 },
       passives: [],
       pick: null,
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
+    });
+  });
+});
+
+describe('ascend records in the save (v9)', () => {
+  const item: Item = {
+    id: 4,
+    slot: 'ring',
+    tier: 'B',
+    world: 2,
+    stage: 3,
+    stats: { damage: 9, crit: 0.03 },
+  };
+
+  it('v8 → v9 adds ascends 0, bestStage from best and no best item', () => {
+    const v8 = { version: 8, best: 15, coins: 9 };
+    expect(migrateSave(v8)).toEqual({
+      ...v8,
+      version: SAVE_VERSION,
+      ascends: 0,
+      bestStage: 15,
+      bestItem: null,
+      passives: [],
+      pick: null,
+    });
+  });
+
+  it('old saves load with safe defaults, and the best item comes from the items owned', () => {
+    const old = JSON.parse(JSON.stringify(toSaveData(createState(), audio, '0.5.0')));
+    old.version = 7;
+    old.items.bag = [item];
+    old.items.nextId = item.id + 1;
+    delete old.ascends;
+    delete old.bestStage;
+    delete old.bestItem;
+    const r = validateSaveData(old);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.progress).toMatchObject({ ascends: 0, bestStage: 1, bestItem: null });
+    expect(createState(r.progress).bestItem).toEqual(item);
+  });
+
+  it('round-trips ascends, bestStage and bestItem', () => {
+    const st = { ...createState(), ascends: 3, bestStage: 40, bestItem: item };
+    const s = memory();
+    writeSave(s, 'k', toSaveData(st, audio, '0.6.0'));
+    const { saved, status } = loadSave(s, 'k');
+    expect(status).toBe('ok');
+    expect(saved!.progress).toMatchObject({ ascends: 3, bestStage: 40, bestItem: item });
+  });
+
+  it('rejects a bad ascends count or best item, and repairs them in a v1 save', () => {
+    const base = JSON.parse(JSON.stringify(toSaveData(createState(), audio, '0.6.0')));
+    expect(validateSaveData({ ...base, ascends: -1 }).ok).toBe(false);
+    expect(validateSaveData({ ...base, bestStage: 0 }).ok).toBe(false);
+    expect(validateSaveData({ ...base, bestItem: { tier: 'Z' } }).ok).toBe(false);
+    const v1 = JSON.stringify({ coins: 5, ascends: 'many', bestStage: 2.5, bestItem: 7 });
+    expect(loadSave(memory({ k: v1 }), 'k').saved!.progress).toMatchObject({
+      ascends: 0,
+      bestStage: 1,
+      bestItem: null,
     });
   });
 });

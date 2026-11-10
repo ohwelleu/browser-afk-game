@@ -111,7 +111,7 @@ describe('validateSaveData', () => {
     };
     const save = (it: unknown) => ({
       ...valid(),
-      items: { ring: it, pendant: null, bag: [], rng: 7, nextId: 2 },
+      items: { ring: it, pendant: null, earring: null, belt: null, bag: [], rng: 7, nextId: 2 },
     });
     const r = validateSaveData(save(item), TRACKS);
     expect(r.ok && r.progress.items.ring).toEqual(item);
@@ -120,6 +120,41 @@ describe('validateSaveData', () => {
       expect(bad.ok).toBe(false);
       if (!bad.ok) expect(bad.errors.join(' ')).toContain('tier must be');
     }
+  });
+
+  it('accepts earring and belt, and old saves without them', () => {
+    const earring = {
+      id: 1,
+      slot: 'earring',
+      tier: 'B',
+      world: 1,
+      stage: 2,
+      stats: { crit: 0.03, itemFind: 0.07 },
+    };
+    const belt = { id: 2, slot: 'belt', tier: 'C', world: 1, stage: 2, stats: { defence: 2 } };
+    const gear = { ring: null, pendant: null, earring, belt, bag: [], rng: 7, nextId: 3 };
+    const r = validateSaveData({ ...valid(), items: gear }, TRACKS);
+    expect(r.ok && r.progress.items).toEqual(gear);
+
+    const old = { ring: null, pendant: null, bag: [], rng: 7, nextId: 1 };
+    const o = validateSaveData({ ...valid(), items: old }, TRACKS);
+    expect(o.ok && o.progress.items).toEqual({ ...old, earring: null, belt: null });
+  });
+
+  it('rejects an earring or belt in the wrong slot', () => {
+    const belt = { id: 2, slot: 'belt', tier: 'C', world: 1, stage: 2, stats: { defence: 2 } };
+    const gear = {
+      ring: null,
+      pendant: null,
+      earring: belt,
+      belt: null,
+      bag: [],
+      rng: 7,
+      nextId: 3,
+    };
+    const r = validateSaveData({ ...valid(), items: gear }, TRACKS);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors).toEqual(['items.earring must hold a earring.']);
   });
 
   it('rejects non-objects', () => {
@@ -168,32 +203,45 @@ describe('validateSaveData', () => {
     expect(!r.ok && r.errors).toEqual(['items must be an object.']);
   });
 
-  it('accepts a companion or an empty slot, and migrates v1 saves', () => {
-    const crow = { id: 'crow', dmgLevel: 5, autoUnlocked: true, speedLevel: 21 };
-    const r = validateSaveData({ ...valid(), companion: crow }, TRACKS);
-    expect(r.ok && r.progress.companion).toEqual(crow);
-    expect(validateSaveData({ ...valid(), companion: null }, TRACKS).ok).toBe(true);
+  it('accepts companion levels (0 = not bought), and migrates old saves', () => {
+    const companions = { crow: 5, wolf: 0 };
+    const r = validateSaveData({ ...valid(), companions }, TRACKS);
+    expect(r.ok && r.progress.companions).toEqual(companions);
+    const both = validateSaveData({ ...valid(), companions: { crow: 1, wolf: 30 } }, TRACKS);
+    expect(both.ok && both.progress.companions).toEqual({ crow: 1, wolf: 30 });
     const v1 = { ...valid(), version: 1 };
-    delete v1.companion;
+    delete v1.companions;
     const m = validateSaveData(v1, TRACKS);
-    expect(m.ok && m.progress.companion).toBeNull();
+    expect(m.ok && m.progress.companions).toEqual({ crow: 0, wolf: 0 });
+  });
+
+  it('migrates a v7 save with the old companion slot', () => {
+    const v7 = {
+      ...valid(),
+      version: 7,
+      companion: { id: 'crow', dmgLevel: 5, autoUnlocked: true, speedLevel: 21 },
+    };
+    delete v7.companions;
+    const r = validateSaveData(v7, TRACKS);
+    expect(r.ok && r.progress.companions).toEqual({ crow: 5, wolf: 0 });
   });
 
   it.each([
-    [{ id: 'dragon', dmgLevel: 1, autoUnlocked: false, speedLevel: 1 }, 'companion.id'],
-    [{ id: 'crow', dmgLevel: 0, autoUnlocked: false, speedLevel: 1 }, 'companion.dmgLevel'],
-    [{ id: 'crow', dmgLevel: 1, autoUnlocked: 1, speedLevel: 1 }, 'companion.autoUnlocked'],
-    [{ id: 'crow', dmgLevel: 1, autoUnlocked: true, speedLevel: 22 }, 'companion.speedLevel'],
-    ['crow', 'companion must be'],
-  ])('rejects companion %j', (companion, msg) => {
-    const r = validateSaveData({ ...valid(), companion }, TRACKS);
+    [{ crow: -1, wolf: 0 }, 'companions.crow'],
+    [{ crow: 1, wolf: 1.5 }, 'companions.wolf'],
+    [{ crow: 1, wolf: 'yes' }, 'companions.wolf'],
+    [{ crow: 1 }, 'companions.wolf'],
+    ['crow', 'companions must be'],
+    [null, 'companions must be'],
+  ])('rejects companions %j', (companions, msg) => {
+    const r = validateSaveData({ ...valid(), companions }, TRACKS);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.join(' ')).toContain(msg);
   });
 
-  it('requires the companion field on current saves', () => {
+  it('requires the companions field on current saves', () => {
     const d = valid();
-    delete d.companion;
+    delete d.companions;
     expect(validateSaveData(d, TRACKS).ok).toBe(false);
   });
 });

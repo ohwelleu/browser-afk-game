@@ -4,21 +4,20 @@
  * quest can never get out of step with what the player owns.
  */
 import { COMPANIONS } from './balance';
-import { shopCompanion, type GameState } from './state';
+import { companionStatus, type GameState } from './state';
 
 /** `unlock`: the crow is not in the shop yet. `buy` / `upgrade`: the two quest steps. */
 export type QuestStep = 'unlock' | 'buy' | 'upgrade';
 
-type QuestInput = Pick<GameState, 'best' | 'companion'>;
+type QuestInput = Pick<GameState, 'best' | 'companions'>;
 
-/** True once any crow upgrade was bought (damage level, auto pecks or speed). */
-export const crowUpgraded = (c: NonNullable<GameState['companion']>): boolean =>
-  c.dmgLevel > 1 || c.autoUnlocked || c.speedLevel > 1;
+/** True once the crow was upgraded (its level is above 1). */
+export const crowUpgraded = (s: Pick<GameState, 'companions'>): boolean => s.companions.crow > 1;
 
 /** Where the player is in the quest by what they own; null when both steps are done. */
 export function questStep(s: QuestInput): QuestStep | null {
-  if (!s.companion) return shopCompanion(s) ? 'buy' : 'unlock';
-  return crowUpgraded(s.companion) ? null : 'upgrade';
+  if (s.companions.crow < 1) return companionStatus(s, 'crow') === 'offer' ? 'buy' : 'unlock';
+  return crowUpgraded(s) ? null : 'upgrade';
 }
 
 /**

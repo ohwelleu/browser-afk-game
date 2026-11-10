@@ -9,7 +9,7 @@ export type AttackDef = {
    * Animation to play: a hero animation (key of `heroAnimations`) for weapon
    * attacks, a companion animation for companion attacks.
    */
-  heroAnim: 'slash' | 'peck';
+  heroAnim: 'slash' | 'peck' | 'bite';
   /** Effect sprite family drawn during the attack. */
   effect?: 'slashArc';
   /** Animation frame where damage lands. */

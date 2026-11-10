@@ -3,8 +3,8 @@ import {
   bulkQuote,
   characterCost,
   COMPANIONS,
-  companionMaxSpeedLevel,
-  companionSpeedCost,
+  companionUpgradeCostAt,
+  CRIT_MAX_LEVEL,
   upgradeCost,
 } from './balance';
 import {
@@ -14,7 +14,6 @@ import {
   createState,
   newProgress,
   upgradeQuote,
-  type Companion,
   type UpgradeTarget,
 } from './state';
 
@@ -41,11 +40,10 @@ describe('bulkQuote', () => {
   });
 
   it('stops at a cap (MAX_SAFE_INTEGER price)', () => {
-    const def = COMPANIONS.crow;
-    const cap = companionMaxSpeedLevel(def);
-    const speed = (l: number) => companionSpeedCost(def, l);
-    expect(bulkQuote(speed, cap - 3, 10, 0)).toEqual({ levels: 3, cost: sum(cap - 3, 3, speed) });
-    expect(bulkQuote(speed, cap, 1, Number.MAX_SAFE_INTEGER)).toEqual({ levels: 0, cost: 0 });
+    const cap = CRIT_MAX_LEVEL;
+    const crit = (l: number) => characterCost('crit', l);
+    expect(bulkQuote(crit, cap - 3, 10, 0)).toEqual({ levels: 3, cost: sum(cap - 3, 3, crit) });
+    expect(bulkQuote(crit, cap, 1, Number.MAX_SAFE_INTEGER)).toEqual({ levels: 0, cost: 0 });
   });
 
   it('stays in the safe-integer range with huge coins and levels', () => {
@@ -60,14 +58,6 @@ describe('bulkQuote', () => {
 });
 
 describe('buyUpgrades', () => {
-  const crow = (c: Partial<Companion> = {}): Companion => ({
-    id: 'crow',
-    dmgLevel: 1,
-    autoUnlocked: false,
-    speedLevel: 1,
-    ...c,
-  });
-
   it('applies all levels at once and charges the quoted total', () => {
     const coins = sum(1, 10) + 3;
     const s = createState({ ...newProgress(), coins });
@@ -110,28 +100,25 @@ describe('buyUpgrades', () => {
     expect(buyUpgrades(next, { type: 'weapon', tier: 2 }, 1)).toBe(next);
   });
 
-  it('defence and crow damage buy in bulk', () => {
+  it('defence and companion levels buy in bulk', () => {
     const def = sum(0, 10, (l) => characterCost('defence', l));
-    const s = createState({ ...newProgress(), coins: def, companion: crow() });
+    const s = createState({ ...newProgress(), coins: def, companions: { crow: 1, wolf: 1 } });
     expect(upgradeQuote(s, { type: 'defence' }, 10)).toEqual({ levels: 10, cost: def });
     expect(buyUpgrades(s, { type: 'defence' }, 10).character.defenceLevel).toBe(10);
-    const dmg = buyUpgrades(s, { type: 'companion', kind: 'dmg' }, 'max');
-    expect(dmg.companion!.dmgLevel).toBeGreaterThan(1);
+    const dmg = buyUpgrades(s, { type: 'companion', id: 'crow' }, 'max');
+    expect(dmg.companions.crow).toBeGreaterThan(1);
+    expect(dmg.companions.wolf).toBe(1);
     expect(dmg.coins).toBeLessThan(s.coins);
+    const crowCost = (l: number) => companionUpgradeCostAt(COMPANIONS.crow, l);
+    expect(upgradeQuote(s, { type: 'companion', id: 'crow' }, 10)).toEqual({
+      levels: 10,
+      cost: sum(1, 10, crowCost),
+    });
   });
 
-  it('crow speed needs auto and stops at the cap', () => {
-    const cap = companionMaxSpeedLevel(COMPANIONS.crow);
-    const rich = Number.MAX_SAFE_INTEGER;
-    const locked = createState({ ...newProgress(), coins: rich, companion: crow() });
-    expect(buyUpgrades(locked, { type: 'companion', kind: 'speed' }, 'max')).toBe(locked);
-    const s = createState({
-      ...newProgress(),
-      coins: rich,
-      companion: crow({ autoUnlocked: true }),
-    });
-    const next = buyUpgrades(s, { type: 'companion', kind: 'speed' }, 100);
-    expect(next.companion!.speedLevel).toBe(cap);
-    expect(buyUpgrades(next, { type: 'companion', kind: 'speed' }, 'max')).toBe(next);
+  it('a companion that is not bought buys nothing', () => {
+    const s = createState({ ...newProgress(), coins: Number.MAX_SAFE_INTEGER });
+    expect(buyUpgrades(s, { type: 'companion', id: 'wolf' }, 'max')).toBe(s);
+    expect(upgradeQuote(s, { type: 'companion', id: 'wolf' }, 10)).toEqual({ levels: 0, cost: 0 });
   });
 });

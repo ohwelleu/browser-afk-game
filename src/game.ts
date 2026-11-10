@@ -51,6 +51,8 @@ import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
 import { createStatsWindow, STATS_STYLES } from './ui/stats';
 import { createPickPanel, PICK_STYLES } from './ui/pick';
+import { ASCEND_STYLES, createAscendConfirm } from './ui/ascend';
+import { ascend } from './game/ascend';
 import { createToast, GEAR_STYLES } from './ui/gear';
 import { RAINBOW_STYLES } from './ui/rainbow';
 import { createNowPlaying, NOW_PLAYING_STYLES } from './ui/now-playing';
@@ -113,7 +115,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${RAINBOW_STYLES}${GEAR_STYLES}${STATS_STYLES}${PICK_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${RAINBOW_STYLES}${GEAR_STYLES}${STATS_STYLES}${ASCEND_STYLES}${PICK_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -175,6 +177,11 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   const menu = createMenu({
     act,
     iconUrl,
+    // The confirm dialog takes the menu's place (one dialog at a time); No/Yes bring the menu back.
+    // Deferred: this runs inside the menu's click, and the box's click handler (Dialogs) would
+    // otherwise see that click as "outside" the new dialog and close it again.
+    confirmAscend: () =>
+      setTimeout(() => dialogs.open(ascendConfirm.el, menuButton, ascendConfirm.noButton), 0),
     save: {
       read: () => toSaveData(state, audioSettings, __VERSION__),
       apply: importSave,
@@ -202,7 +209,8 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   );
   const stats = createStatsWindow();
   const pick = createPickPanel();
-  autoButton.before(menu.el, sound.el, stats.el, pick.el);
+  const ascendConfirm = createAscendConfirm();
+  autoButton.before(menu.el, sound.el, stats.el, ascendConfirm.el, pick.el);
   const toast = createToast(box, { iconUrl });
   const quest = createQuest(box, menuButton, menu.el);
   const noteEl = document.createElement('div');
@@ -263,6 +271,14 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     handleEvents(state.events);
     refreshUi();
     if (!loop.running) draw();
+  }
+
+  /** Back to Shop → Ascend (after answering the confirm dialog). */
+  function openAscendMenu(): void {
+    menu.select('shop');
+    menu.selectSub('shop', 'ascend');
+    menu.refresh(state);
+    dialogs.open(menu.el, menuButton, menu.focusTarget);
   }
 
   function saveNow(): void {
@@ -387,7 +403,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         `${d.phase} t${d.tick} hero ${d.heroHp} mob ${d.mob.hp}/${d.mob.maxHp} ` +
         `dmg ${heroDamage(state)} vs ${d.mob.damage}
 ` +
-        `dps ${formatNumber(heroDps(state))} max ${formatNumber(state.maxDps)}`,
+        `dps ${formatNumber(heroDps(state))} max ${formatNumber(state.maxDps)} ascends ${state.ascends}`,
     );
   }
 
@@ -485,6 +501,13 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
           stats.refresh(state);
           dialogs.open(stats.el, statsButton);
         }
+        return;
+      case 'ascend-yes':
+        act(ascend);
+        openAscendMenu();
+        return;
+      case 'ascend-no':
+        openAscendMenu();
         return;
       case 'auto':
         act((s) => setAutoAdvance(s, !s.autoAdvance));
@@ -598,6 +621,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         apply: debugApply,
         reset: debugReset,
         offerPick: () => act(forcePickOffer),
+        previewRain(counts) {
+          scene.setRainPreview(counts);
+          if (!loop.running) draw();
+        },
       },
       TRACK_CYCLE,
       { saveKey: opts.saveKey },

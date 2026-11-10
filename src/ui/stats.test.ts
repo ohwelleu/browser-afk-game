@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CRIT, HERO_MAX_HP } from '../game/balance';
+import { ascend } from '../game/ascend';
+import { ASCEND_COST, CRIT, HERO_MAX_HP } from '../game/balance';
 import { newGear, type Item } from '../game/items';
 import { createState, newProgress, type GameState, type Progress } from '../game/state';
 import { characterStats, statsHtml, type StatSection } from './stats';
@@ -82,23 +83,28 @@ describe('characterStats', () => {
     expect(value(s, 'Hero', 'Crit chance')).toContain(`${CRIT.maxChance * 100}%`);
   });
 
-  it('has no crow section until the crow is owned', () => {
-    expect(characterStats(stateOf()).map((x) => x.title)).not.toContain('Crow');
+  it('has no companion section until a companion is owned', () => {
+    const titles = characterStats(stateOf()).map((x) => x.title);
+    expect(titles).not.toContain('Crow');
+    expect(titles).not.toContain('Wolf');
   });
 
-  it('shows the crow damage (with the hero share) and DPS once auto attack is unlocked', () => {
-    const companion = { id: 'crow' as const, dmgLevel: 1, autoUnlocked: false, speedLevel: 1 };
-    const base = { weaponLevels: [100, 0, 0, 0, 0] };
-    const locked = characterStats(stateOf({ ...base, companion }));
-    // 1 flat + 10 % of the 100 hit.
-    expect(value(locked, 'Crow', 'Damage per peck')).toBe('11');
-    expect(value(locked, 'Crow', 'DPS (auto attack)')).toBe('Auto locked');
+  it('shows each owned companion: share of the hero hit, damage per hit and DPS', () => {
+    // The stick at level 1000 hits for 1000.
+    const base = { weaponLevels: [1000, 0, 0, 0, 0] };
+    const s = characterStats(stateOf({ ...base, companions: { crow: 10, wolf: 0 } }));
+    expect(value(s, 'Crow', 'Level')).toBe('10');
+    expect(value(s, 'Crow', 'Hero damage dealt')).toBe('6.5%');
+    expect(value(s, 'Crow', 'Damage per hit')).toBe('65');
+    expect(value(s, 'Crow', 'DPS')).toBe('65');
+    expect(s.map((x) => x.title)).not.toContain('Wolf');
 
-    const auto = characterStats(
-      stateOf({ ...base, companion: { ...companion, autoUnlocked: true } }),
-    );
-    // 11 damage every 3 s.
-    expect(value(auto, 'Crow', 'DPS (auto attack)')).toBe('3.7');
+    const both = characterStats(stateOf({ ...base, companions: { crow: 1, wolf: 50 } }));
+    expect(both.map((x) => x.title).slice(0, 3)).toEqual(['Hero', 'Crow', 'Wolf']);
+    expect(value(both, 'Crow', 'Damage per hit')).toBe('20');
+    expect(value(both, 'Wolf', 'Hero damage dealt')).toBe('66.25%');
+    expect(value(both, 'Wolf', 'Damage per hit')).toBe('662');
+    expect(value(both, 'Wolf', 'DPS')).toBe('662');
   });
 
   it('lists only the item totals that are not zero', () => {
@@ -106,37 +112,104 @@ describe('characterStats', () => {
       ...newGear(1),
       ring: item('ring', { defence: 3, itemFind: 0.12 }),
       pendant: item('pendant', { defence: 2, crit: 0.035 }),
+      earring: item('earring', { crit: 0.02, itemFind: 0.1 }),
+      belt: item('belt', { defence: 4, damage: 6 }),
     };
-    const rows = characterStats(stateOf({ items })).find((x) => x.title === 'Ring & pendant')!.rows;
+    const rows = characterStats(stateOf({ items })).find((x) => x.title === 'Accessories')!.rows;
     expect(rows).toEqual([
-      { label: 'Defence', value: '+5' },
-      { label: 'Item find', value: '+12%' },
-      { label: 'Crit chance', value: '+3.5%' },
+      { label: 'Damage', value: '+6' },
+      { label: 'Defence', value: '+9' },
+      { label: 'Item find', value: '+22%' },
+      { label: 'Crit chance', value: '+5.5%' },
     ]);
   });
 
-  it('says so when no ring or pendant bonus applies', () => {
+  it('says so when no accessory bonus applies', () => {
     const s = characterStats(stateOf());
-    expect(value(s, 'Ring & pendant', 'Bonuses')).toBe('None');
+    expect(value(s, 'Accessories', 'Bonuses')).toBe('None');
   });
 
-  it('shows the best weapon owned (not the equipped one) and the highest stage reached', () => {
+  it('shows the best weapon owned (not the equipped one), kills and deaths', () => {
     const s = characterStats(
       stateOf({
         weaponLevels: [7, 3, 12, 0, 0],
         equipped: 1,
-        world: 2,
-        stage: 2,
-        best: 9,
         kills: 1234,
         deaths: 5,
       }),
     );
     expect(value(s, 'Progress', 'Equipped weapon')).toBe('Wooden sword · Lv 3');
     expect(value(s, 'Progress', 'Best weapon')).toBe('Stone sword · Lv 12');
-    expect(value(s, 'Progress', 'Highest stage')).toBe('2.3');
     expect(value(s, 'Progress', 'Kills')).toBe('1.2K');
     expect(value(s, 'Progress', 'Deaths')).toBe('5');
+  });
+
+  it('shows the ascends', () => {
+    expect(value(characterStats(stateOf()), 'Progress', 'Ascends')).toBe('0');
+    expect(value(characterStats(stateOf({ ascends: 3 })), 'Progress', 'Ascends')).toBe('3');
+  });
+});
+
+describe('characterStats records (this run and best)', () => {
+  const ring: Item = {
+    id: 1,
+    slot: 'ring',
+    tier: 'A',
+    world: 3,
+    stage: 2,
+    stats: { damage: 9, defence: 2, crit: 0.03 },
+  };
+  const old: Item = { ...ring, id: 2, slot: 'pendant', tier: 'SS', world: 5, stage: 6 };
+  const row = (p: Partial<Progress>, label: string) =>
+    value(characterStats(stateOf(p)), 'Records', label);
+
+  it('starts with the same value for this run and best', () => {
+    expect(row({}, 'Highest stage (this run)')).toBe('1.1');
+    expect(row({}, 'Highest stage (best)')).toBe('1.1');
+    expect(row({}, 'Best item (owned now)')).toBe('—');
+    expect(row({}, 'Best item (best)')).toBe('—');
+    expect(row({}, 'Damage per second (now)')).toBe('1');
+    expect(row({}, 'Damage per second (best)')).toBe('1');
+  });
+
+  it('shows the highest stage of this run next to the best ever', () => {
+    const p = { world: 2, stage: 2, best: 9, bestStage: 40 };
+    expect(row(p, 'Highest stage (this run)')).toBe('2.3');
+    expect(row(p, 'Highest stage (best)')).toBe('7.4');
+  });
+
+  it('never shows a best stage below this run', () => {
+    expect(row({ best: 9, bestStage: 2 }, 'Highest stage (best)')).toBe('2.3');
+  });
+
+  it('shows the best item owned now and the best ever (which may be gone)', () => {
+    const items = { ...newGear(1), ring };
+    expect(row({ items, bestItem: old }, 'Best item (owned now)')).toBe('A ring · 3.2');
+    expect(row({ items, bestItem: old }, 'Best item (best)')).toBe('S+ pendant · 5.6');
+  });
+
+  it('shows the DPS now (with the item speed) next to the best ever', () => {
+    const weaponLevels = [10, 0, 0, 0, 0];
+    expect(row({ weaponLevels, maxDps: 500 }, 'Damage per second (now)')).toBe('10');
+    expect(row({ weaponLevels, maxDps: 500 }, 'Damage per second (best)')).toBe('500');
+  });
+
+  it('survives an ascend: this run restarts, the best stays', () => {
+    const before = stateOf({
+      world: 6,
+      stage: 1,
+      best: 31,
+      weaponLevels: [50, 20, 0, 0, 0],
+      equipped: 1,
+      ascends: 0,
+    });
+    const after = ascend({ ...before, coins: ASCEND_COST });
+    const s = characterStats(after);
+    expect(value(s, 'Progress', 'Ascends')).toBe('1');
+    expect(value(s, 'Records', 'Highest stage (this run)')).toBe('1.1');
+    expect(value(s, 'Records', 'Highest stage (best)')).toBe('6.1');
+    expect(value(s, 'Records', 'Damage per second (now)')).toBe('1'); // back to the stick
+    expect(value(s, 'Records', 'Damage per second (best)')).toBe('120'); // wooden sword, level 20
   });
 });
 
@@ -169,6 +242,14 @@ describe('passive skills in the stats', () => {
     expect(chance('B') + chance('C') + chance('A') + chance('S') + chance('S+')).toBeCloseTo(
       100,
       0,
+    );
+  });
+
+  it('keeps the ascend rows next to the passive chances', () => {
+    const s = characterStats({ ...stateOf(), ascends: 3 } as GameState);
+    expect(value(s, 'Progress', 'Ascends')).toBe('3');
+    expect(s.map((x) => x.title)).toEqual(
+      expect.arrayContaining(['Records', 'Passive skills', 'Passive skill chances']),
     );
   });
 

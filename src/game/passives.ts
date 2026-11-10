@@ -129,13 +129,12 @@ export const ASCEND_SHIFT = {
 // ── Ascends ──────────────────────────────────────────────────────────────────
 
 /**
- * The number of ascends of a run. The ascend feature (branch code/ascend) adds
- * a plain `ascends` number to the game state; this is the ONE place that
- * reads it, and it is 0 for a state that has none.
+ * The number of ascends of a run (`state.ascends`, set by game/ascend.ts).
+ * This is the ONE place picks read it; a bad value counts as 0.
  */
-export function ascendsOf(s: object): number {
-  const n = (s as { ascends?: unknown }).ascends;
-  return typeof n === 'number' && Number.isSafeInteger(n) && n > 0 ? n : 0;
+export function ascendsOf(s: { ascends: number }): number {
+  const n = s.ascends;
+  return Number.isSafeInteger(n) && n > 0 ? n : 0;
 }
 
 // ── Tier chances ─────────────────────────────────────────────────────────────

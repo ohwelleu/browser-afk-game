@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
 import {
+  ITEM_SLOTS,
   ITEM_STATS,
   ITEM_TIER_LABEL,
   ITEM_TIERS,
@@ -10,13 +11,20 @@ import {
   itemSellPrice,
   itemStatValue,
   mobCoins,
+  type ItemSlot,
   type ItemTier,
 } from './balance';
 import {
+  bestOwnedItem,
+  betterItem,
+  compareItems,
   equipItem,
+  forceNextDrop,
   gearTotals,
+  itemValue,
   mobHitDamage,
   newGear,
+  onKill,
   rollDrop,
   rollItem,
   sellItem,
@@ -25,7 +33,15 @@ import {
   type Item,
 } from './items';
 import { nextFloat, pickWeighted } from './rng';
-import { createState, heroDamage, newProgress, secToTicks, update, type GameEvent } from './state';
+import {
+  createState,
+  heroDamage,
+  newProgress,
+  secToTicks,
+  update,
+  type GameEvent,
+  type GameState,
+} from './state';
 
 const item = (p: Partial<Item> = {}): Item => ({
   id: 1,
@@ -101,6 +117,57 @@ describe('item balance', () => {
 });
 
 describe('rollItem', () => {
+  it('has exactly the four slots', () => {
+    expect(ITEM_SLOTS).toEqual(['ring', 'pendant', 'earring', 'belt']);
+  });
+
+  it('earrings lean to crit and item find, belts to defence and damage', () => {
+    const rng = { state: 5 };
+    const share = (slot: ItemSlot, tier: ItemTier, stats: string[]) => {
+      let hit = 0;
+      let all = 0;
+      for (let i = 0; i < 4000; i++) {
+        const it = rollItem(rng, i, 1, 1, 0, { slot, tier });
+        for (const k of Object.keys(it.stats)) {
+          all++;
+          if (stats.includes(k)) hit++;
+        }
+      }
+      return hit / all;
+    };
+    // C has 1 stat: weight 3+3 of 9 = 67 % (a uniform slot would give 40 %).
+    expect(share('earring', 'C', ['crit', 'itemFind'])).toBeCloseTo(0.667, 1);
+    expect(share('belt', 'C', ['defence', 'damage'])).toBeCloseTo(0.667, 1);
+    expect(share('ring', 'C', ['crit', 'itemFind'])).toBeCloseTo(0.4, 1);
+    expect(share('pendant', 'C', ['defence', 'damage'])).toBeCloseTo(0.4, 1);
+    // S has 4 of 5 stats: the favoured pair is nearly always both there (60 % if uniform).
+    let both = 0;
+    for (let i = 0; i < 2000; i++) {
+      const st = rollItem(rng, i, 1, 1, 0, { slot: 'earring', tier: 'S' }).stats;
+      if (st.crit !== undefined && st.itemFind !== undefined) both++;
+    }
+    expect(both / 2000).toBeGreaterThan(0.75);
+    for (const slot of ['earring', 'belt'] as const) {
+      for (let i = 0; i < 200; i++) {
+        const it = rollItem(rng, i, 1, 1, 0, { slot, tier: 'SS' });
+        expect(Object.keys(it.stats)).toHaveLength(4);
+      }
+    }
+  });
+
+  it('earring and belt use the same tier multipliers as every other slot', () => {
+    for (const slot of ['earring', 'belt'] as const) {
+      for (const tier of ITEM_TIERS) {
+        const it = rollItem({ state: 3 }, 1, 2, 3, 0, { slot, tier });
+        expect(it.slot).toBe(slot);
+        for (const k of Object.keys(it.stats) as (keyof Item['stats'])[]) {
+          expect(it.stats[k]).toBeGreaterThanOrEqual(itemStatValue(k, 8, tier, 0.8));
+          expect(it.stats[k]).toBeLessThanOrEqual(itemStatValue(k, 8, tier, 1.2));
+        }
+      }
+    }
+  });
+
   it('has 1/2/3/4/4 distinct stats for C/B/A/S/S+, each in the roll range', () => {
     const rng = { state: 1 };
     const seen = new Set<ItemTier>();
@@ -119,21 +186,22 @@ describe('rollItem', () => {
     expect([...seen].sort()).toEqual([...ITEM_TIERS].sort());
   });
 
-  it('rolls rarity 70/22/7/1 and ring/pendant 50/50', () => {
+  it('rolls rarity 70/22/7/1 and the four slots 25 % each', () => {
     const rng = { state: 2 };
-    const n: Record<string, number> = { C: 0, B: 0, A: 0, S: 0, SS: 0, ring: 0 };
+    const n: Record<string, number> = { C: 0, B: 0, A: 0, S: 0, SS: 0 };
+    const slots: Record<ItemSlot, number> = { ring: 0, pendant: 0, earring: 0, belt: 0 };
     const N = 40_000;
     for (let i = 0; i < N; i++) {
       const it = rollItem(rng, i, 1, 1, 0);
       n[it.tier]++;
-      if (it.slot === 'ring') n.ring++;
+      slots[it.slot]++;
     }
     expect(n.C / N).toBeCloseTo(0.7, 1);
     expect(n.B / N).toBeCloseTo(0.22, 1);
     expect(n.A / N).toBeCloseTo(0.07, 1);
     expect(n.S / N).toBeGreaterThan(0.005);
     expect(n.S / N).toBeLessThan(0.015);
-    expect(n.ring / N).toBeCloseTo(0.5, 1);
+    for (const slot of ITEM_SLOTS) expect(slots[slot] / N).toBeCloseTo(0.25, 1);
     expect(n.SS).toBeLessThan(n.S); // S+ is rarer than S (about 1 in 2000)
   });
 });
@@ -196,13 +264,25 @@ describe('rollDrop', () => {
 });
 
 describe('gearTotals', () => {
-  it('sums both slots and caps speed and item find', () => {
+  it('sums all four slots and caps speed and item find', () => {
     const g: Gear = {
       ...newGear(0),
       ring: item({ stats: { damage: 3, speed: 0.2, itemFind: 0.6 } }),
       pendant: item({ slot: 'pendant', stats: { defence: 2, speed: 0.2, itemFind: 0.6 } }),
     };
     expect(gearTotals(g)).toEqual({ crit: 0, damage: 3, defence: 2, speed: 0.25, itemFind: 1 });
+  });
+
+  it('counts the earring and the belt', () => {
+    const g: Gear = {
+      ...newGear(0),
+      ring: item({ stats: { damage: 3 } }),
+      earring: item({ id: 3, slot: 'earring', stats: { crit: 0.03, itemFind: 0.4 } }),
+      belt: item({ id: 4, slot: 'belt', stats: { defence: 5, damage: 4, itemFind: 0.9 } }),
+    };
+    const t = gearTotals(g);
+    expect(t).toMatchObject({ damage: 7, defence: 5, crit: 0.03, speed: 0 });
+    expect(t.itemFind).toBe(1); // 1.3 capped
   });
 
   it('a mob hit never goes below 1', () => {
@@ -225,6 +305,24 @@ describe('item actions', () => {
     expect(s.items.ring).toBe(b);
     expect(s.items.bag).toEqual([a]);
     expect(equipItem(s, 42)).toBe(s);
+  });
+
+  it('earring and belt each have their own slot, one item at a time', () => {
+    const e1 = item({ id: 1, slot: 'earring' });
+    const e2 = item({ id: 2, slot: 'earring' });
+    const b = item({ id: 3, slot: 'belt' });
+    const r = item({ id: 4 });
+    let s = withBag([e1, e2, b, r]);
+    for (const id of [1, 3, 4]) s = equipItem(s, id);
+    expect([s.items.earring, s.items.belt, s.items.ring]).toEqual([e1, b, r]);
+    expect(s.items.pendant).toBeNull();
+    s = equipItem(s, 2); // swaps with e1
+    expect(s.items.earring).toBe(e2);
+    expect(s.items.bag).toEqual([e1]);
+    s = unequipItem(s, 'belt');
+    expect(s.items.belt).toBeNull();
+    expect(s.items.bag).toEqual([e1, b]);
+    expect(unequipItem(s, 'belt')).toBe(s);
   });
 
   it('unequip needs room in the bag', () => {
@@ -301,5 +399,61 @@ describe('items in combat', () => {
     expect(drops.length).toBe(3);
     expect(s.items.bag.length).toBe(3);
     expect(s.items.nextId).toBe(4);
+  });
+});
+
+describe('best item', () => {
+  const mk = (tier: Item['tier'], stats: Item['stats'], id = 1): Item => ({
+    id,
+    slot: 'ring',
+    tier,
+    world: 1,
+    stage: 1,
+    stats,
+  });
+
+  it('ranks by tier first, then by total stat value (% stats in percent points)', () => {
+    expect(compareItems(mk('A', { damage: 1 }), mk('B', { damage: 999 }))).toBeGreaterThan(0);
+    expect(compareItems(mk('SS', { damage: 1 }), mk('S', { damage: 999 }))).toBeGreaterThan(0);
+    expect(compareItems(mk('B', { damage: 5 }), mk('B', { damage: 4 }))).toBeGreaterThan(0);
+    // +5 % crit = 5 points, which beats 4 flat damage.
+    expect(itemValue(mk('B', { crit: 0.05 }))).toBe(5);
+    expect(compareItems(mk('B', { crit: 0.05 }), mk('B', { damage: 4 }))).toBeGreaterThan(0);
+  });
+
+  it('betterItem keeps the first on a tie and ignores a missing one', () => {
+    const a = mk('B', { damage: 5 }, 1);
+    const b = mk('B', { damage: 5 }, 2);
+    expect(betterItem(a, b)).toBe(a);
+    expect(betterItem(null, b)).toBe(b);
+    expect(betterItem(a, null)).toBe(a);
+    expect(betterItem(null, null)).toBeNull();
+    expect(betterItem(a, mk('A', { damage: 1 }, 3))?.id).toBe(3);
+  });
+
+  it('bestOwnedItem looks at worn items and the bag', () => {
+    const g = {
+      ...newGear(1),
+      ring: mk('C', { damage: 1 }, 1),
+      bag: [mk('A', { damage: 1 }, 2), mk('B', { damage: 9 }, 3)],
+    };
+    expect(bestOwnedItem(g)?.id).toBe(2);
+    expect(bestOwnedItem(newGear(1))).toBeNull();
+  });
+
+  it('a drop is remembered as the best item, even when the bag is full and it is sold at once', () => {
+    let s = createState();
+    s = {
+      ...s,
+      items: {
+        ...s.items,
+        bag: Array.from({ length: ITEMS.inventorySize }, (_, i) => mk('C', { damage: 1 }, 100 + i)),
+      },
+    };
+    forceNextDrop();
+    const draft = { ...s, events: [] as GameState['events'] };
+    onKill(draft, 1, 1);
+    expect(draft.bestItem).not.toBeNull();
+    expect(draft.items.bag).toHaveLength(ITEMS.inventorySize);
   });
 });

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
+import { ascendFree } from './ascend';
 import { companionDamage, COMPANIONS, CRIT, CRIT_BUY_MAX_PERCENT, CHARACTER } from './balance';
 import { newGear, type Item } from './items';
-import { EXTRA_HIT_MULT, PICK_OPTIONS, setPicksEnabled, type Passive } from './passives';
+import { ascendsOf, EXTRA_HIT_MULT, PICK_OPTIONS, setPicksEnabled, type Passive } from './passives';
 import {
   choosePick,
   clickBonus,
@@ -153,6 +154,23 @@ describe('choosePick / forcePickOffer', () => {
   });
 });
 
+describe('ascend', () => {
+  it('resets the passives and a pending pick, and the next offers use the new ascends', () => {
+    const open = forcePickOffer(
+      strong({ passives: ps(pas('speed', 'A', 2), pas('crit', 'C')), best: 40, ascends: 1 }),
+    );
+    expect(open.pick).not.toBeNull();
+    const after = ascendFree(open);
+    expect(after.passives).toEqual([]);
+    expect(after.pick).toBeNull();
+    expect(after.ascends).toBe(2);
+    expect(ascendsOf(after)).toBe(2);
+    expect(heroSpeedBonus(after)).toBe(0);
+    // A new offer on the new run is rolled with the new ascends (tier chances shift).
+    expect(forcePickOffer(after).pick).toHaveLength(PICK_OPTIONS);
+  });
+});
+
 describe('passive effects feed the derived stats', () => {
   it('defence adds flat points on top of items and the coin upgrade', () => {
     const s = createState({
@@ -214,19 +232,19 @@ describe('passive effects feed the derived stats', () => {
     expect(amounts.every((a) => a === 10 || a === 5)).toBe(true);
   });
 
-  it('click bonus adds to crow click pecks but not to auto pecks', () => {
-    const crow = { id: 'crow' as const, dmgLevel: 1, autoUnlocked: false, speedLevel: 1 };
+  it('click bonus adds to the crow click attack but not to its auto attacks', () => {
     const hero = 100;
-    const start = (passives: Passive[], autoUnlocked = false) =>
+    const start = (passives: Passive[]) =>
       createState({
         ...newProgress(),
         world: 5,
         best: 25,
         weaponLevels: [hero, 0, 0, 0, 0],
-        companion: { ...crow, autoUnlocked },
+        companions: { crow: 1, wolf: 0 },
         character: { defenceLevel: 0, critLevel: 0, hpLevel: 200 },
         passives,
       });
+    /** Damage of the crow's attacks in the 5 s after the fight starts (and a click, if asked). */
     const pecks = (s: GameState, click: boolean) => {
       s = runUntil(
         s,
@@ -237,13 +255,16 @@ describe('passive effects feed the derived stats', () => {
       run(s, 5, e);
       return e.flatMap((x) => (x.type === 'damage' && x.source === 'companion' ? [x.amount] : []));
     };
-    const base = companionDamage(COMPANIONS.crow, 1, heroDamage(start([])));
+    const base = companionDamage(COMPANIONS.crow, 1, hero);
     const withBonus = start(ps(pas('click', 'S', 5))); // 5 × 2 % = 10 % of 100 = +10
     expect(clickBonus(withBonus)).toBeCloseTo(0.1);
+
+    const clicked = pecks(withBonus, true);
+    expect(clicked[0]).toBe(base + 10); // the click attack
+    expect(clicked.slice(1).length).toBeGreaterThan(0);
+    expect(clicked.slice(1).every((d) => d === base)).toBe(true); // auto attacks
+    expect(pecks(withBonus, false).every((d) => d === base)).toBe(true);
     expect(pecks(start([]), true)[0]).toBe(base);
-    expect(pecks(withBonus, true)[0]).toBe(base + 10);
-    // An auto peck (no click) is not boosted.
-    expect(pecks(start(ps(pas('click', 'S', 5)), true), false)[0]).toBe(base);
   });
 
   it('a pick changes max DPS tracking (the stat only goes up)', () => {

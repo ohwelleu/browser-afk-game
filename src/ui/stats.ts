@@ -1,24 +1,25 @@
 import { weaponAttack } from '../game/attacks';
 import {
-  companionAutoInterval,
   companionDamage,
+  companionPercent,
   CRIT,
   defenceReduction,
   ITEM_TIERS,
+  ITEM_TIER_LABEL,
   WEAPONS,
 } from '../game/balance';
 import { formatNumber } from '../game/format';
-import { gearTotals } from '../game/items';
+import { bestOwnedItem, gearTotals, type Item } from '../game/items';
 import { ascendsOf, EXTRA_HIT_MULT, pickCount, tierChances } from '../game/passives';
 import {
   clickBonus,
-  companionDef,
   critChance,
   extraHitChance,
   heroDamage,
   heroDefence,
   heroMaxHp,
   heroSpeedBonus,
+  ownedCompanions,
   type GameState,
 } from '../game/state';
 import { passiveLine, tierLabel } from './passives';
@@ -33,7 +34,7 @@ export type StatSection = { title: string; rows: StatRow[] };
 /** Percent with at most one decimal: 0.2 → "20%", 0.075 → "7.5%". */
 const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
 
-/** Damage per second: one decimal below 100 (a slow crow still shows), else 1.2K style. */
+/** Damage per second: one decimal below 100 (a small companion still shows), else 1.2K style. */
 const perSecond = (n: number) => (n < 100 ? `${+n.toFixed(1)}` : formatNumber(n));
 
 /** "Stone sword · Lv 3" for a weapon tier, or "—" when it isn't owned. */
@@ -42,6 +43,10 @@ function weaponText(s: Pick<GameState, 'weaponLevels'>, tier: number): string {
   const w = WEAPONS[tier];
   return w && level >= 1 ? `${w.name} · Lv ${formatNumber(level)}` : '—';
 }
+
+/** "S+ ring · 3.2" (tier, slot, where it dropped) or "—" when there is no item. */
+const itemText = (it: Item | null): string =>
+  it ? `${ITEM_TIER_LABEL[it.tier]} ${it.slot} · ${it.world}.${it.stage}` : '—';
 
 /** Highest weapon tier the player owns (the stick is always owned). */
 const bestWeaponTier = (s: Pick<GameState, 'weaponLevels'>): number =>
@@ -106,16 +111,17 @@ export function characterStats(s: GameState): StatSection[] {
   }
   const sections = [hero];
 
-  const crow = companionDef(s);
-  if (crow && s.companion) {
-    const dmg = companionDamage(crow, s.companion.dmgLevel, hit);
-    const auto = s.companion.autoUnlocked;
-    const interval = companionAutoInterval(crow, s.companion.speedLevel);
+  // One section per owned companion: its share of the hero's hit, damage per hit and DPS.
+  for (const def of ownedCompanions(s)) {
+    const level = s.companions[def.id];
+    const dmg = companionDamage(def, level, hit);
     sections.push({
-      title: crow.name,
+      title: def.name,
       rows: [
-        { label: 'Damage per peck', value: formatNumber(dmg) },
-        { label: 'DPS (auto attack)', value: auto ? perSecond(dmg / interval) : 'Auto locked' },
+        { label: 'Level', value: formatNumber(level) },
+        { label: 'Hero damage dealt', value: `${+companionPercent(def, level).toFixed(2)}%` },
+        { label: 'Damage per hit', value: formatNumber(dmg) },
+        { label: 'DPS', value: perSecond(dmg / def.attack.interval) },
       ],
     });
   }
@@ -127,7 +133,7 @@ export function characterStats(s: GameState): StatSection[] {
   if (gear.itemFind) bonuses.push({ label: 'Item find', value: `+${pct(gear.itemFind)}` });
   if (gear.crit) bonuses.push({ label: 'Crit chance', value: `+${pct(gear.crit)}` });
   sections.push({
-    title: 'Ring & pendant',
+    title: 'Accessories',
     rows: bonuses.length ? bonuses : [{ label: 'Bonuses', value: 'None' }],
   });
 
@@ -136,11 +142,25 @@ export function characterStats(s: GameState): StatSection[] {
   sections.push({
     title: 'Progress',
     rows: [
+      { label: 'Ascends', value: formatNumber(s.ascends) },
       { label: 'Equipped weapon', value: weaponText(s, s.equipped) },
       { label: 'Best weapon', value: weaponText(s, bestWeaponTier(s)) },
-      { label: 'Highest stage', value: stageName(s.best) },
       { label: 'Kills', value: formatNumber(s.kills) },
       { label: 'Deaths', value: formatNumber(s.deaths) },
+    ],
+  });
+
+  // This run (resets on ascend) next to the best ever (kept). Items stay on
+  // ascend, so "this run" for the item is the best one owned right now.
+  sections.push({
+    title: 'Records',
+    rows: [
+      { label: 'Highest stage (this run)', value: stageName(s.best) },
+      { label: 'Highest stage (best)', value: stageName(Math.max(s.bestStage, s.best)) },
+      { label: 'Best item (owned now)', value: itemText(bestOwnedItem(s.items)) },
+      { label: 'Best item (best)', value: itemText(s.bestItem) },
+      { label: 'Damage per second (now)', value: perSecond(dps) },
+      { label: 'Damage per second (best)', value: perSecond(Math.max(s.maxDps, dps)) },
     ],
   });
   return sections;
