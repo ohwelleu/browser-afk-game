@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { windup } from '../game/attacks';
 import { COMPANION_IDS, COMPANIONS, type CompanionId } from '../game/balance';
+import type { Item } from '../game/items';
 import { createState, newProgress, secToTicks, type GameState } from '../game/state';
 import { companionSprites } from '../sprites';
-import { clickBurst, companionPose, layout, RAIN_ZONE_W, rainArea, sceneContent } from './scene';
+import { DEFAULT_PALETTES } from '../theme';
+import type { SpriteCache } from './sprites';
+import {
+  clickBurst,
+  companionPose,
+  layout,
+  RAIN_ZONE_W,
+  rainArea,
+  SceneRenderer,
+  sceneContent,
+} from './scene';
 import { computeView } from './view';
 
 const { crow, wolf } = companionSprites;
@@ -142,5 +153,60 @@ describe.each(VIEWS)('item rain zone (%s)', (_, view) => {
     const narrow = rainArea({ ...l, heroX: 2 }, 30);
     expect(narrow.left).toBe(0);
     expect(narrow.right).toBe(30);
+  });
+});
+
+describe('item rain in the scene (the real draw path)', () => {
+  const view = computeView(1280, 720, 1, sceneContent());
+  const palette = DEFAULT_PALETTES.light;
+  // Draw calls other than the rain's fillRects don't matter here: swallow them.
+  const noop: unknown = new Proxy(() => noop, { get: () => noop, apply: () => noop });
+  const sprites = noop as SpriteCache;
+  const withS = (ticks: number): GameState => {
+    const s = createState({ ...newProgress() });
+    const ring: Item = { id: 1, slot: 'ring', tier: 'SS', world: 1, stage: 1, stats: {} };
+    return { ...s, ticks, items: { ...s.items, ring } };
+  };
+  /** Colours drawn at 1 px width (the rain) at tick `ticks`, per x, top to bottom. */
+  function rainRects(r: SceneRenderer, ticks: number) {
+    const rects: { fill: string; x: number; y: number }[] = [];
+    const ctx = new Proxy({ fillStyle: '' } as Record<string, unknown>, {
+      get(t, k) {
+        if (k === 'fillRect')
+          return (x: number, y: number, w: number) => {
+            if (w === 1) rects.push({ fill: String(t.fillStyle), x, y });
+          };
+        return k in t ? t[k as string] : noop;
+      },
+      set(t, k, v) {
+        t[k as string] = v;
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    r.draw(ctx, withS(ticks), view, palette, sprites);
+    return JSON.stringify(rects);
+  }
+
+  it('moves and changes colour from frame to frame while the game runs', () => {
+    const r = new SceneRenderer(() => false);
+    const frames = new Set<string>();
+    for (let t = 0; t < 120; t += 6) frames.add(rainRects(r, t));
+    expect(frames.size).toBe(20); // every sampled frame is different
+  });
+
+  it('reads the Animations setting live: still while Reduced, moving again after On', () => {
+    let reduced = false;
+    const r = new SceneRenderer(() => reduced);
+    rainRects(r, 0);
+    const moving = rainRects(r, 30) !== rainRects(r, 60);
+    reduced = true;
+    const a = rainRects(r, 90);
+    const b = rainRects(r, 150);
+    reduced = false;
+    const c = rainRects(r, 180);
+    const d = rainRects(r, 240);
+    expect(moving).toBe(true);
+    expect(a).toBe(b);
+    expect(c).not.toBe(d);
   });
 });

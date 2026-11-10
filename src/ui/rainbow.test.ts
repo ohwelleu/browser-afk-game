@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   goldGradient,
+  goldLight,
   RAINBOW_HUES,
   RAINBOW_LIGHTNESS,
   RAINBOW_PERIOD_MS,
@@ -161,12 +162,28 @@ describe('RAINBOW_STYLES', () => {
   });
 });
 
+describe('goldLight', () => {
+  it('is the half-way colour between the palette orange and yellow (lighter than the orange)', () => {
+    expect(goldLight({ orange: '#ff6b00', yellow: '#eab308' })).toBe('#f58f04');
+    expect(goldLight({ orange: '#ff7a1a', yellow: '#facc15' })).toBe('#fda318');
+    expect(goldLight({ orange: '#f60', yellow: '#fc0' })).toBe('#ff9900');
+  });
+
+  it('falls back to a CSS mix for colours it cannot read', () => {
+    expect(goldLight({ orange: 'rebeccapurple', yellow: '#eab308' })).toBe(
+      'color-mix(in srgb, rebeccapurple 50%, #eab308)',
+    );
+  });
+});
+
 describe('gold flow (S tier)', () => {
-  it('is the same flow with the palette orange ↔ yellow as the gradient', () => {
+  it('is the same flow with a light orange ↔ the palette yellow as the gradient', () => {
     const g = goldGradient();
     expect(g).toMatch(
-      /^radial-gradient\(circle, var\(--_orange\), var\(--_yellow\), var\(--_orange\)/,
+      /^radial-gradient\(circle, color-mix\(in srgb, var\(--_orange\) 50%, var\(--_yellow\)\), var\(--_yellow\), color-mix\(/,
     );
+    // The darkest orange (the palette's own) is not a stop.
+    expect(g).not.toMatch(/var\(--_orange\)[,)]/);
     const rule =
       /\.gold\.rainbow, \.gold\.rainbow-fill, \.gold\.rainbow-frame::before \{([^}]*)\}/.exec(
         RAINBOW_STYLES,
