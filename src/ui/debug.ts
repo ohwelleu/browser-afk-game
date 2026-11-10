@@ -1,8 +1,7 @@
 import {
+  COMPANION_IDS,
   COMPANIONS,
-  companionAutoInterval,
   companionDamage,
-  companionMaxSpeedLevel,
   dropChance,
   ITEM_SLOTS,
   ITEM_TIER_LABEL,
@@ -73,7 +72,7 @@ type Field =
   | { key: string; label: string; kind: 'bool' }
   | { key: string; label: string; kind: 'track' };
 
-const FIELDS: Field[] = [
+export const FIELDS: Field[] = [
   { key: 'world', label: 'World', kind: 'int' },
   { key: 'stage', label: 'Stage (1–6)', kind: 'int' },
   { key: 'best', label: 'Highest stage reached (level)', kind: 'int' },
@@ -96,14 +95,11 @@ const FIELDS: Field[] = [
   { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
   { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
   { key: 'character.hpLevel', label: 'Max HP upgrade level', kind: 'int' },
-  { key: 'companion.owned', label: 'Crow owned', kind: 'bool' },
-  { key: 'companion.dmgLevel', label: 'Crow damage level', kind: 'int' },
-  { key: 'companion.autoUnlocked', label: 'Crow auto attack', kind: 'bool' },
-  {
-    key: 'companion.speedLevel',
-    label: `Crow speed level (1–${companionMaxSpeedLevel(COMPANIONS.crow)})`,
-    kind: 'int',
-  },
+  ...COMPANION_IDS.map((id) => ({
+    key: `companions.${id}`,
+    label: `${COMPANIONS[id].name} level (0 = not bought)`,
+    kind: 'int' as const,
+  })),
   { key: 'audio.muted', label: 'Muted', kind: 'bool' },
   { key: 'audio.track', label: 'Music track', kind: 'track' },
   { key: 'audio.musicVolume', label: 'Music volume (0–1)', kind: 'volume' },
@@ -305,9 +301,8 @@ export function createDebugPanel(
 
   function load(): void {
     const data = api.read();
-    const view = toFormView(data);
     for (const f of FIELDS) {
-      const value = get(view, f.key);
+      const value = get(data, f.key);
       const c = control(f.key);
       if (f.kind === 'bool') (c as HTMLInputElement).checked = value === true;
       else c.value = String(value);
@@ -327,7 +322,7 @@ export function createDebugPanel(
       weaponLevels: [],
       revealedWeapons: [],
       audio: {},
-      companion: {},
+      companions: {},
       character: {},
     };
     for (const f of FIELDS) {
@@ -343,7 +338,7 @@ export function createDebugPanel(
               : Number(raw);
       set(data, f.key, value);
     }
-    return fromFormView(data);
+    return data;
   }
 
   function apply(data: unknown, success = 'Applied.'): void {
@@ -585,26 +580,6 @@ export const fontLabel = (f: FontCandidate): string =>
 
 const percent = (f: number): string => `${Math.round(f * 1000) / 10}%`;
 
-/** Save → form values: the crow always has fields; `owned` says whether it exists. */
-export function toFormView(data: SaveData): Record<string, unknown> {
-  const c = data.companion;
-  return {
-    ...data,
-    companion: {
-      owned: c !== null,
-      dmgLevel: c?.dmgLevel ?? 1,
-      autoUnlocked: c?.autoUnlocked ?? false,
-      speedLevel: c?.speedLevel ?? 1,
-    },
-  };
-}
-
-/** Form values → save object (the inverse of `toFormView`). */
-export function fromFormView(view: Record<string, unknown>): Record<string, unknown> {
-  const { owned, ...crow } = view.companion as Record<string, unknown>;
-  return { ...view, companion: owned ? { id: 'crow', ...crow } : null };
-}
-
 /** Adds an item of `slot` and `tier`, rolled for the current stage, to the bag. */
 export function giveItem(data: SaveData, slot: ItemSlot, tier: ItemTier): SaveData | string {
   const g = data.items;
@@ -622,23 +597,21 @@ export const clearBag = (data: SaveData): SaveData => ({
   items: { ...data.items, bag: [] },
 });
 
-/** Live stat lines for the crow, the items and drops. */
+/** Live stat lines for the companions, the items and drops. */
 export function extraStats(data: SaveData, dropForced = false): string {
-  const c = data.companion;
-  let crow = 'crow none';
-  if (c) {
-    const def = COMPANIONS[c.id];
-    const dmg = companionDamage(def, c.dmgLevel, heroDamage(data));
-    const every = companionAutoInterval(def, c.speedLevel);
-    crow = c.autoUnlocked
-      ? `crow dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`
-      : `crow dmg ${formatNumber(dmg)} dps 0 (no auto attack)`;
-  }
+  const hit = heroDamage(data);
+  const owned = COMPANION_IDS.filter((id) => data.companions[id] >= 1).map((id) => {
+    const def = COMPANIONS[id];
+    const dmg = companionDamage(def, data.companions[id], hit);
+    const every = def.attack.interval;
+    return `${id} dmg ${formatNumber(dmg)} every ${every.toFixed(1)}s dps ${formatNumber(dmg / every)}`;
+  });
+  const companions = owned.length ? owned.join('\n') : 'companions none';
   const t = gearTotals(data.items);
   const chance = dropChance(data.world, data.stage);
   const drop = dropForced ? '100% (forced)' : percent(chance);
   return (
-    `${crow}\n` +
+    `${companions}\n` +
     `items dmg +${formatNumber(t.damage)} def +${formatNumber(t.defence)} (total ${formatNumber(heroDefence(data))}) ` +
     `spd +${percent(t.speed)} find +${percent(t.itemFind)} crit ${percent(critChance(data))}\n` +
     `drop ${drop} bag ${data.items.bag.length}/${ITEMS.inventorySize}`

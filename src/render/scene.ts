@@ -1,8 +1,8 @@
 import { weaponAttack, windup } from '../game/attacks';
-import { DUEL, isBoss, MOB_KINDS, type MobKind } from '../game/balance';
+import { DUEL, isBoss, MOB_KINDS, type CompanionDef, type MobKind } from '../game/balance';
 import { formatNumber } from '../game/format';
 import { rainLines, type RainCounts } from '../game/rain';
-import { companionDef, secToTicks, type GameEvent, type GameState } from '../game/state';
+import { ownedCompanions, secToTicks, type GameEvent, type GameState } from '../game/state';
 import { TICK_RATE } from '../loop';
 import {
   bossMushroomWalk,
@@ -16,7 +16,9 @@ import {
   weapons,
   type CompanionAnimation,
   type CompanionSprites,
+  type FlyerSprites,
   type HeroAnimation,
+  type LungerSprites,
   type SpriteDef,
 } from '../sprites';
 import type { Palette } from '../theme';
@@ -51,11 +53,25 @@ const FLIGHT_ARC = 6;
  * hero's top-left: on the left of the hat brim (hero.ts, row 13).
  */
 const PERCH = { x: 10, y: 14 };
+/**
+ * How many art pixels of a 'behind' companion (the wolf) tuck under the hero's
+ * left side. The rest sticks out to the left, so the hero needs that much room
+ * on the left (`BEHIND_ROOM`) whether or not the wolf is bought.
+ */
+const BEHIND_OVERLAP = 8;
 /** Click feedback: a pixel burst at the pointer. */
 const CLICK_LIFE = 0.25;
 const CLICK_RADIUS = { from: 2, to: 7 };
 /** Companion sprite sets by `CompanionDef.sprites`. */
 const COMPANION_SPRITES: Record<string, CompanionSprites> = companionSprites;
+
+/** Art pixels the widest 'behind' companion sticks out to the left of the hero. */
+const BEHIND_ROOM = Math.max(
+  0,
+  ...Object.values(COMPANION_SPRITES)
+    .filter((set) => set.kind === 'lunger')
+    .map((set) => set.animations.idle.width - BEHIND_OVERLAP),
+);
 
 const MOB_SPRITES: Record<MobKind, SpriteDef> = { ...mobs, boss: bossMushroomWalk };
 const heroSprites = Object.values(heroAnimations);
@@ -78,7 +94,9 @@ export function sceneContent(compact = false): { width: number; height: number }
     ...Object.values(MOB_SPRITES).map((d) => d.height),
   );
   const margin = compact ? COMPACT_MARGIN : MARGIN;
-  return { width: heroW + mobWidth() + margin * 3, height: tallest + GROUND + TOP_GAP };
+  // The left margin also holds the wolf behind the hero.
+  const behind = Math.max(0, BEHIND_ROOM - margin);
+  return { width: heroW + mobWidth() + margin * 3 + behind, height: tallest + GROUND + TOP_GAP };
 }
 
 type FloatText = {
@@ -174,9 +192,14 @@ export class SceneRenderer {
     this.rain.advance(s.ticks, this.rainPreview ?? rainLines(s), view.width, view.height, reduced);
     this.rain.draw(ctx, s.ticks, palette, view.height, reduced);
 
+    // Companions behind the hero go first, so the hero covers a little of them.
+    const owned = ownedCompanions(s);
+    for (const def of owned)
+      if (def.position === 'behind') drawCompanion(ctx, s, l, palette, sprites, def);
     drawHero(ctx, s, l, palette, sprites);
     drawMob(ctx, s, l, palette, sprites);
-    drawCompanion(ctx, s, l, palette, sprites);
+    for (const def of owned)
+      if (def.position === 'hat') drawCompanion(ctx, s, l, palette, sprites, def);
     this.drawClicks(ctx, s, palette);
     // After the burst and the crow, so neither covers it.
     drawMobBar(ctx, s, l, palette);
@@ -244,7 +267,7 @@ export function layout(s: GameState, view: View): Layout {
   return {
     groundY,
     hero,
-    heroX: edge,
+    heroX: Math.max(edge, BEHIND_ROOM),
     heroY: groundY - hero.height,
     mob,
     mobX: view.width - edge - mob.width,
@@ -388,14 +411,18 @@ export type CompanionPose = {
   effect: { x: number; y: number; frame: number } | null;
 };
 
+/** Pose of one owned companion, or null when it isn't owned. Pure, for tests. */
+export function companionPose(s: GameState, l: Layout, def: CompanionDef): CompanionPose | null {
+  const set = COMPANION_SPRITES[def.sprites];
+  if (!set || !(s.companions[def.id] >= 1)) return null;
+  return set.kind === 'flyer' ? flyerPose(s, l, def, set) : lungerPose(s, l, def, set);
+}
+
 /**
- * Companion pose: perched on the hero's hat, or the attack flight (fly out,
- * peck so the hit frame lands with the damage, fly back). Pure, for tests.
+ * Perched on the hero's hat, or the attack flight (fly out, peck so the hit
+ * frame lands with the damage, fly back).
  */
-export function companionPose(s: GameState, l: Layout): CompanionPose | null {
-  const def = companionDef(s);
-  const set = def && COMPANION_SPRITES[def.sprites];
-  if (!def || !set) return null;
+function flyerPose(s: GameState, l: Layout, def: CompanionDef, set: FlyerSprites): CompanionPose {
   const { idle, flyOut, peck, flyBack } = set.animations;
   const perchX = l.heroX + PERCH.x - Math.floor(idle.width / 2);
   const perchY = l.heroY + PERCH.y - idle.height;
@@ -407,9 +434,10 @@ export function companionPose(s: GameState, l: Layout): CompanionPose | null {
     effect: null,
   };
   const d = s.duel;
-  if (d.companionAttackTick === null) return perched;
+  const started = d.companionAttackTick[def.id];
+  if (started === null) return perched;
 
-  const age = seconds(d.tick - d.companionAttackTick);
+  const age = seconds(d.tick - started);
   const peckFps = peck.fps ?? 1;
   const out = windup(def.attack); // damage lands here
   const peckStart = out - set.hitFrame / peckFps;
@@ -443,29 +471,69 @@ export function companionPose(s: GameState, l: Layout): CompanionPose | null {
   return { anim: 'flyBack', frame: frameAt(flyBack, age - backStart), x, y, effect };
 }
 
+/**
+ * Standing behind the hero: its right end tucks `BEHIND_OVERLAP` px under the
+ * hero. On an attack it slides towards the mob until the hit frame (where the
+ * damage lands) and back.
+ */
+function lungerPose(s: GameState, l: Layout, def: CompanionDef, set: LungerSprites): CompanionPose {
+  const { idle, attack } = set.animations;
+  const baseX = l.heroX - (idle.width - BEHIND_OVERLAP);
+  const baseY = l.groundY - idle.height;
+  const standing: CompanionPose = {
+    anim: 'idle',
+    frame: frameAt(idle, seconds(s.ticks)),
+    x: baseX,
+    y: baseY,
+    effect: null,
+  };
+  const d = s.duel;
+  const started = d.companionAttackTick[def.id];
+  if (started === null) return standing;
+
+  const age = seconds(d.tick - started);
+  const fps = attack.fps ?? 1;
+  const total = attack.frames.length / fps;
+  const out = windup(def.attack); // damage lands here
+  if (age >= total) return standing;
+
+  const t = age < out ? age / out : Math.max(0, 1 - (age - out) / (total - out));
+  return {
+    anim: 'attack',
+    frame: Math.min(attack.frames.length - 1, Math.floor(age * fps)),
+    x: baseX + Math.round(set.lunge * t),
+    y: baseY,
+    effect: null,
+  };
+}
+
 function drawCompanion(
   ctx: CanvasRenderingContext2D,
   s: GameState,
   l: Layout,
   p: Palette,
   sprites: SpriteCache,
+  cdef: CompanionDef,
 ): void {
-  const pose = companionPose(s, l);
-  const set = pose && COMPANION_SPRITES[companionDef(s)!.sprites];
+  const pose = companionPose(s, l, cdef);
+  const set = COMPANION_SPRITES[cdef.sprites];
   if (!pose || !set) return;
-  const def = set.animations[pose.anim];
-  // A 1px bg outline so the ink crow reads against the ink hat (like the hero's arm).
-  const outline = sprites.tint(def, pose.frame, p.bg);
-  for (const [dx, dy] of [
-    [-1, 0],
-    [1, 0],
-    [0, -1],
-    [0, 1],
-  ]) {
-    ctx.drawImage(outline, pose.x + dx, pose.y + dy);
+  const def = (set.animations as Partial<Record<CompanionAnimation, SpriteDef>>)[pose.anim];
+  if (!def) return;
+  if (set.kind === 'flyer') {
+    // A 1px bg outline so the ink crow reads against the ink hat (like the hero's arm).
+    const outline = sprites.tint(def, pose.frame, p.bg);
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]) {
+      ctx.drawImage(outline, pose.x + dx, pose.y + dy);
+    }
   }
   ctx.drawImage(sprites.frame(def, pose.frame), pose.x, pose.y);
-  if (pose.effect) {
+  if (pose.effect && set.kind === 'flyer') {
     ctx.drawImage(sprites.frame(set.hitEffect, pose.effect.frame), pose.effect.x, pose.effect.y);
   }
 }

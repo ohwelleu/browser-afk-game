@@ -20,17 +20,20 @@ describe('questStep', () => {
   });
 
   it('moves to the upgrade step after buying, and ends after one upgrade', () => {
-    const bought = buyCompanion(rich());
-    expect(bought.companion).not.toBeNull();
+    const bought = buyCompanion(rich(), 'crow');
+    expect(bought.companions.crow).toBe(1);
     expect(questStep(bought)).toBe('upgrade');
-    expect(questStep(upgradeCompanion(bought, 'dmg'))).toBeNull();
-    expect(questStep(upgradeCompanion(bought, 'auto'))).toBeNull();
+    expect(questStep(upgradeCompanion(bought, 'crow'))).toBeNull();
   });
 
-  it('counts speed upgrades too', () => {
-    const c = { id: 'crow', dmgLevel: 1, autoUnlocked: true, speedLevel: 2 } as const;
-    expect(crowUpgraded(c)).toBe(true);
-    expect(crowUpgraded({ ...c, autoUnlocked: false, speedLevel: 1 })).toBe(false);
+  it('is about the crow: owning only the wolf does not skip the quest', () => {
+    const wolfOnly = rich({ companions: { crow: 0, wolf: 5 } });
+    expect(questStep(wolfOnly)).toBe('buy');
+  });
+
+  it('counts the crow as upgraded above level 1', () => {
+    expect(crowUpgraded({ companions: { crow: 2, wolf: 0 } })).toBe(true);
+    expect(crowUpgraded({ companions: { crow: 1, wolf: 9 } })).toBe(false);
   });
 });
 

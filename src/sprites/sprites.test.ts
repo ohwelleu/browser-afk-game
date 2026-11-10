@@ -77,15 +77,42 @@ describe('sprites', () => {
     }
   });
 
-  it('companions: same canvas on every animation, hit frame and beak tip are drawn', () => {
+  it('crow: same canvas on every animation, hit frame and beak tip are drawn', () => {
+    const c = S.companionSprites.crow;
+    for (const a of Object.values(c.animations)) expect([a.width, a.height]).toEqual([16, 16]);
+    expect(c.hitFrame).toBeGreaterThanOrEqual(0);
+    expect(c.hitFrame).toBeLessThan(c.animations.peck.frames.length);
+    const row = c.animations.peck.frames[c.hitFrame][c.hitPoint.y];
+    expect(row?.[c.hitPoint.x] ?? '.').not.toBe('.');
+  });
+
+  it('wolf: 24×16 on every animation, 2–4 frames each, hit frame on the bite', () => {
+    const w = S.companionSprites.wolf;
+    for (const a of Object.values(w.animations)) {
+      expect([a.width, a.height]).toEqual([24, 16]);
+      expect(a.frames.length).toBeGreaterThanOrEqual(2);
+      expect(a.frames.length).toBeLessThanOrEqual(4);
+    }
+    expect(w.hitFrame).toBeGreaterThanOrEqual(0);
+    expect(w.hitFrame).toBeLessThan(w.animations.attack.frames.length);
+    expect(w.lunge).toBeGreaterThan(0);
+  });
+
+  it('wolf: feet on the bottom row while standing, and no empty frames', () => {
+    const idle = S.companionSprites.wolf.animations.idle;
+    for (const frame of idle.frames) expect(frame[frame.length - 1]).toMatch(/#/);
+    for (const a of Object.values(S.companionSprites.wolf.animations)) {
+      for (const frame of a.frames) expect(frame.join('')).toMatch(/Y|#/);
+    }
+  });
+
+  it('companions: every set has a shop icon the size of the other icons', () => {
     for (const [id, c] of Object.entries(S.companionSprites)) {
-      const anims = Object.values(c.animations);
-      for (const a of anims) expect([id, a.width, a.height]).toEqual([id, 16, 16]);
-      expect(c.hitFrame).toBeGreaterThanOrEqual(0);
-      expect(c.hitFrame).toBeLessThan(c.animations.peck.frames.length);
-      const row = c.animations.peck.frames[c.hitFrame][c.hitPoint.y];
-      expect(row?.[c.hitPoint.x] ?? '.').not.toBe('.');
-      expect([c.icon.width, c.icon.height]).toEqual([S.iconDamage.width, S.iconDamage.height]);
+      expect([id, c.icon.width, c.icon.height]).toEqual([
+        id,
+        S.iconDamage.width,
+        S.iconDamage.height,
+      ]);
     }
   });
 
