@@ -13,6 +13,7 @@ import { itemIcons } from '../sprites/gear';
 import type { SpriteDef } from '../sprites';
 import { reducedCss } from '../motion';
 import { createShow, setFlag } from './dom';
+import { RAINBOW_PERIOD_MS } from './rainbow';
 
 /**
  * Accessories UI (ring, pendant, earring, belt): the slots and the bag (menu → Inventory → Accessories) and
@@ -31,7 +32,7 @@ export const GEAR_STYLES = `
 .tier .sparkle { position: absolute; top: -13px; right: -10px; font-size: 18px; line-height: 1; animation: afk-sparkle 0.9s steps(2) infinite; pointer-events: none; }
 .tier .sparkle + .sparkle { top: auto; right: auto; bottom: -11px; left: -9px; font-size: 14px; animation-delay: -0.45s; }
 /* S+ sparkles blink and flow: the blink alone would replace the rainbow's flow animation. */
-.tier .sparkle.rainbow { animation: afk-sparkle 0.9s steps(2) infinite, afk-rainbow-flow var(--afk-rainbow-period, 20s) ease-in-out infinite; }
+.tier .sparkle.rainbow { animation: afk-sparkle 0.9s steps(2) infinite, afk-rainbow-flow var(--afk-rainbow-period, ${RAINBOW_PERIOD_MS / 1000}s) ease-in-out infinite; }
 .tier .sparkle.rainbow + .sparkle.rainbow { animation-delay: -0.45s, 0s; }
 .tier-name.rainbow { color: transparent; }
 @keyframes afk-sparkle { 50% { opacity: 0.2; transform: scale(0.6); } }
