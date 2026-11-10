@@ -94,6 +94,15 @@ Each line below is its own thread, in this order.
 - [x] Rings and pendants with small bonuses (PR #15, #17).
 - [ ] **More items**: more slots and types (e.g. potions, belts, cloaks),
       more stats per item.
+- [ ] **Stage-gated equipping** (owner, 2026-11-10, rethink the logic
+      later): you can only equip an item if you have finished the stage it
+      belongs to. Example: after an ascend you start over, and you can only
+      wear items whose stage you have cleared again (items from higher
+      stages stay in the bag until you get there). Open: which stage an item
+      "belongs to" (where it dropped, or its level), whether the gate is
+      per run or permanent, how it shows in the UI (locked frame and
+      "Clear stage N"), and how it fits with ascend. Design first, then
+      check with the simulator.
 - [x] **Rarity tiers** C / B / A / **S** with own frame colours; S glows and
       sparkles (PR #15, #17).
 - [ ] Item defence is weak under the % formula (1–4 % per item): raise
