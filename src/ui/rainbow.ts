@@ -26,7 +26,7 @@ export const RAINBOW_HUES = [0, 30, 45, 60, 70, 90, 120, 180, 200, 240, 270, 300
 export const RAINBOW_LIGHTNESS = 75;
 
 /** One full flow around the box, in milliseconds. */
-export const RAINBOW_PERIOD_MS = 20000;
+export const RAINBOW_PERIOD_MS = 4000;
 
 /** Frame thickness, in px. */
 export const RAINBOW_BORDER_PX = 3;
@@ -79,7 +79,7 @@ export function rainbowStep(
 
 /**
  * The flowing gradient as CSS. Add it to a stylesheet. Settings (inherited, so
- * set them on the box or a parent): `--afk-rainbow-period` (default 20s) and
+ * set them on the box or a parent): `--afk-rainbow-period` (default 4s) and
  * `--afk-rainbow-l` (stop lightness, default 75%), `--afk-rainbow-ink` (outline
  * colour of `rainbow` text, default `#1f1f1f`). `rainbow-outline` gives the same
  * outline to other rainbow-coloured text, such as JS-drawn `rainbowColor(t)`.

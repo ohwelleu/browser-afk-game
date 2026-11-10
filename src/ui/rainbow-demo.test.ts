@@ -84,7 +84,7 @@ describe('demo markup and styles', () => {
     ]) {
       expect(rule![0]).toContain(`.dbg-rainbow.dbg-rainbow-motion ${sel}`);
     }
-    expect(rule![0]).toMatch(/animation: afk-rainbow-flow var\(--afk-rainbow-period, 20s\)/);
+    expect(rule![0]).toMatch(/animation: afk-rainbow-flow var\(--afk-rainbow-period, 4s\)/);
     expect(rule![0]).toContain('background-position');
   });
 

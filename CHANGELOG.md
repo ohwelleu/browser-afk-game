@@ -7,6 +7,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+
+- The **rainbow** flows faster: one cycle takes 4 s instead of 20 s.
+
 ## [0.5.0] - 2026-11-09
 
 ### Added

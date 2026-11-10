@@ -24,7 +24,7 @@ export const RAINBOW_DEMO_STYLES = `${RAINBOW_STYLES}
 .dbg-rainbow.dbg-rainbow-motion .rainbow-fill,
 .dbg-rainbow.dbg-rainbow-motion .rainbow-frame::before,
 .dbg-rainbow.dbg-rainbow-motion .rainbow-glow::after {
-  animation: afk-rainbow-flow var(--afk-rainbow-period, 20s) ease-in-out infinite;
+  animation: afk-rainbow-flow var(--afk-rainbow-period, 4s) ease-in-out infinite;
   background-position: 0% 0%;
 }
 `;
@@ -34,7 +34,7 @@ export const RAINBOW_DEMO_HTML = `
   <summary>Rainbow (S-tier flowing gradient)</summary>
   <div class="dbg-rainbow-list">
     <label><input type="checkbox" name="rainbow-respect" /> Respect reduced motion</label>
-    <label>Cycle <input type="range" name="rainbow-speed" min="4" max="40" step="1" value="20" aria-label="Rainbow cycle length in seconds" /><span class="dbg-rainbow-secs">20s</span></label>
+    <label>Cycle <input type="range" name="rainbow-speed" min="1" max="40" step="1" value="4" aria-label="Rainbow cycle length in seconds" /><span class="dbg-rainbow-secs">4s</span></label>
     <div class="dbg-rainbow-row">
       <span class="dbg-rainbow-slot rainbow-frame rainbow-glow"><span class="dbg-rainbow-item"></span></span>
       <span>S-tier item frame</span>

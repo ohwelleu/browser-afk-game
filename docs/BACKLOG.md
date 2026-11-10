@@ -116,10 +116,9 @@ Each line below is its own thread, in this order.
       `rainbowStep`/`rainbowColor` from `src/ui/rainbow.ts`, and shows still
       or off under `prefers-reduced-motion`. Open: does a worn S tier item
       also get a (smaller) effect, and is there a debug toggle to preview it.
-- [ ] **Rainbow cycle 5 s** (owner, 2026-11-09): the default cycle is 20 s
-      (`RAINBOW_PERIOD_MS` in `src/ui/rainbow.ts`, also the CSS fallback and
-      the slider default in `src/ui/rainbow-demo.ts`). Make it 5 s
-      everywhere so the rainbow flows visibly.
+- [x] **Rainbow cycle 4 s** (owner, 2026-11-09, changed to 4 s on
+      2026-11-10): `RAINBOW_PERIOD_MS`, the CSS fallback and the debug slider
+      default are 4 s (was 20 s).
 - [ ] **Check that item frames match the debugger**: S+ items in the
       Inventory list and the drop toast should look exactly like the
       S-tier item frame in the debug panel's Rainbow section (same
@@ -199,6 +198,10 @@ Each line below is its own thread, in this order.
       top in Inventory.
 - [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
       on top while scrolling, like the main tabs.
+- [ ] **"No animations" setting** (owner, 2026-11-10, low priority): a
+      third Animations value next to On / Reduced that turns off idle
+      motion. Kinda useless, because the game is mostly about watching the
+      idle animations, so only do it if someone asks.
 - [x] **Fix: sound settings**: the [X] close button overlaps the on/off
       button in the sound settings popover. Move it so both are usable.
 - [x] **Stats panel**: tap the HP bar area to see stats (max DPS, damage,
