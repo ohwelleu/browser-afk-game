@@ -36,7 +36,7 @@ linked page again before acting on a number.
    want our own server checks. Start with PGS.
 9. **Anti-cheat:** the game runs on the player's phone, so any score can be faked. PGS tamper
    protection and Firebase rules only catch obvious nonsense [G8] [F5].
-10. **Time:** about **12–16 small PRs** of work, plus at least **3 weeks of calendar time** for
+10. **Time:** **18 steps, about 20 PRs** once the large ones are split,, plus at least **3 weeks of calendar time** for
     the closed test and the production review.
 
 ---
@@ -484,7 +484,7 @@ or every feature is built twice.
 | 17  | **Closed test**: 12+ testers × 14 days, fix bugs, apply for production                                                                                                     | S work | **≥ 3 weeks of calendar time** (14 days + review of up to ~7 days).                                |
 | 18  | **Production release** + update checklist (versionCode, changelog, yearly target API bump)                                                                                 | S      |                                                                                                   |
 
-Rough total: about 4 large, 8 medium and 7 small PRs. Steps 12 (account) and 16 (privacy page) can
+Rough total: 18 steps (3 large, 7 medium, 8 small), about 20 PRs once the large ones are split. Steps 12 (account) and 16 (privacy page) can
 start early, in parallel with the porting.
 
 ### Main risks
