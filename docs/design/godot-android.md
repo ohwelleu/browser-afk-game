@@ -36,7 +36,7 @@ linked page again before acting on a number.
    want our own server checks. Start with PGS.
 9. **Anti-cheat:** the game runs on the player's phone, so any score can be faked. PGS tamper
    protection and Firebase rules only catch obvious nonsense [G8] [F5].
-10. **Time:** **18 steps, about 20 PRs** once the large ones are split,, plus at least **3 weeks of calendar time** for
+10. **Time:** **18 steps, about 20 PRs** once the large ones are split, plus at least **3 weeks of calendar time** for
     the closed test and the production review.
 
 ---
