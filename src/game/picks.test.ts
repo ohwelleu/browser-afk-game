@@ -67,12 +67,15 @@ function run(s: GameState, seconds: number, events: GameEvent[] = []) {
   return s;
 }
 
-describe('stage clear opens the offer', () => {
+/** Stage 1.6 (the boss) is the frontier: killing the boss is the first clear of it. */
+const atBoss = (p: Partial<Progress> = {}) => strong({ stage: 6, best: 6, ...p });
+
+describe('a boss kill opens the offer', () => {
   it('pauses the fight with two options and moves on after the pick', () => {
-    let s = runUntil(strong(), (st) => st.pick !== null);
+    let s = runUntil(atBoss(), (st) => st.pick !== null);
     expect(s.pick).toHaveLength(PICK_OPTIONS);
     expect(new Set(s.pick!.map((o) => o.id)).size).toBe(PICK_OPTIONS);
-    expect([s.world, s.stage]).toEqual([1, 2]); // the stage the clear leads to
+    expect([s.world, s.stage]).toEqual([2, 1]); // the stage the kill leads to
     expect(s.duel.phase).toBe('transition');
 
     // The fight just waits: no timer, nothing picks for the player, nothing advances.
@@ -87,14 +90,14 @@ describe('stage clear opens the offer', () => {
     expect(picked.passives).toEqual([{ ...s.pick![1], level: 1 }]);
     expect(picked.events.some((e) => e.type === 'save')).toBe(true);
 
-    // And the game goes on: the next duel starts on 1.2.
+    // And the game goes on: the next duel starts on 2.1.
     s = runUntil(picked, (st) => st.duel.phase === 'intro');
-    expect([s.world, s.stage]).toEqual([1, 2]);
+    expect([s.world, s.stage]).toEqual([2, 1]);
     expect(s.duel.mob.hp).toBe(s.duel.mob.maxHp);
   });
 
   it('stacks the same passive at the same tier when it is picked again', () => {
-    let s = runUntil(strong(), (st) => st.pick !== null);
+    let s = runUntil(atBoss(), (st) => st.pick !== null);
     const option = s.pick![0];
     s = choosePick(s, 0);
     // Offer the same thing again by hand.
@@ -104,27 +107,67 @@ describe('stage clear opens the offer', () => {
   });
 
   it('gives no offer with AUTO off, and none when picks are switched off', () => {
-    const off = runUntil(strong({ autoAdvance: false }), (st) => st.duel.phase === 'transition');
+    const off = runUntil(atBoss({ autoAdvance: false }), (st) => st.duel.phase === 'transition');
     expect(off.pick).toBeNull();
     expect(run(off, 5).pick).toBeNull();
 
     setPicksEnabled(false);
-    const s = runUntil(strong(), (st) => st.duel.phase === 'transition');
+    const s = runUntil(atBoss(), (st) => st.duel.phase === 'transition');
     expect(s.pick).toBeNull();
-    expect([s.world, s.stage]).toEqual([1, 2]);
+    expect([s.world, s.stage]).toEqual([2, 1]);
   });
 
-  it('only the first clear of a stage offers a pick, so replays cannot farm them', () => {
-    // Stage 1.2 with 1.5 reached: clearing 1.2 again is a replay.
-    const s = runUntil(strong({ stage: 2, best: 5 }), (st) => st.duel.phase === 'transition');
-    expect(s.pick).toBeNull();
-    // The frontier stage does offer one.
-    const f = runUntil(strong({ stage: 5, best: 5 }), (st) => st.pick !== null);
-    expect([f.world, f.stage]).toEqual([1, 6]);
+  it('a normal stage clear gives no offer, even at the frontier', () => {
+    for (const stage of [1, 3, 5]) {
+      const s = runUntil(strong({ stage, best: stage }), (st) => st.duel.phase === 'transition');
+      expect([s.world, s.stage]).toEqual([1, stage + 1]);
+      expect(s.pick).toBeNull();
+    }
+  });
+
+  it('only the first kill of a boss offers a pick, so replays cannot farm them', () => {
+    // The 1.6 boss with 2.4 reached: killing it again is a replay.
+    const replay = runUntil(
+      strong({ stage: 6, best: 10 }),
+      (st) => st.duel.phase === 'transition' && st.stage !== 6,
+    );
+    expect(replay.pick).toBeNull();
+    // The frontier boss does offer one.
+    const f = runUntil(atBoss(), (st) => st.pick !== null);
+    expect([f.world, f.stage]).toEqual([2, 1]);
+  });
+
+  it('after an ascend the first boss kill of the new run offers a pick again', () => {
+    const old = strong({ stage: 6, best: 40, ascends: 0 });
+    expect(runUntil(old, (st) => st.duel.phase === 'transition').pick).toBeNull();
+    const fresh = ascendFree(old);
+    expect(fresh.best).toBeLessThan(old.best);
+    const again = runUntil(
+      { ...fresh, stage: 6, world: 1, best: 6, weaponLevels: [1000, 0, 0, 0, 0] },
+      (st) => st.pick !== null,
+    );
+    expect(again.pick).toHaveLength(PICK_OPTIONS);
+  });
+
+  it('a pending offer from an old save (a normal stage) can still be answered', () => {
+    const saved = strong({
+      stage: 3,
+      best: 3,
+      pick: [
+        { id: 'speed', tier: 'B' },
+        { id: 'crit', tier: 'C' },
+      ],
+    });
+    expect(saved.pick).toHaveLength(2);
+    expect(run(saved, 5).duel.tick).toBe(saved.duel.tick); // still frozen
+    const picked = choosePick(saved, 0);
+    expect(picked.pick).toBeNull();
+    expect(picked.passives).toEqual([{ id: 'speed', tier: 'B', level: 1 }]);
+    expect(run(picked, 3).duel.tick).toBeGreaterThan(saved.duel.tick);
   });
 
   it('blocks stage switching while the offer is open', () => {
-    const s = runUntil(strong(), (st) => st.pick !== null);
+    const s = runUntil(atBoss(), (st) => st.pick !== null);
     expect(stageSwitchTarget(s, 'prev')).toBeNull();
     expect(stageSwitchTarget(s, 'next')).toBeNull();
     expect(switchStage(s, 'prev')).toBe(s);
@@ -186,13 +229,13 @@ describe('passive effects feed the derived stats', () => {
       character: { defenceLevel: 2, critLevel: 0, hpLevel: 0 },
       passives: ps(pas('defence', 'B', 3)),
     });
-    expect(heroDefence(s)).toBe(2 * CHARACTER.defence.perLevel + 3 * 3);
+    expect(heroDefence(s)).toBe(2 * CHARACTER.defence.perLevel + 3 * 6);
   });
 
   it('crit chance adds up with the upgrade, and the total cap still holds', () => {
     const base = { ...newProgress(), character: { defenceLevel: 0, critLevel: 10, hpLevel: 0 } };
     expect(critChance(createState({ ...base, passives: ps(pas('crit', 'S', 5)) }))).toBeCloseTo(
-      0.1 + 5 * 0.02,
+      0.1 + 5 * 0.03,
     );
     const ring: Item = { id: 1, slot: 'ring', tier: 'S', world: 1, stage: 1, stats: { crit: 0.3 } };
     const maxed = createState({
@@ -206,10 +249,10 @@ describe('passive effects feed the derived stats', () => {
 
   it('attack speed raises the DPS and shortens the swing', () => {
     const plain = strong();
-    const fast = strong({ passives: ps(pas('speed', 'A', 4)) }); // 4 × 2.5 % = 10 %
-    expect(heroSpeed(fast)).toBeCloseTo(0.1);
+    const fast = strong({ passives: ps(pas('speed', 'A', 4)) }); // 4 × 4 % = 16 %
+    expect(heroSpeed(fast)).toBeCloseTo(0.16);
     expect(heroDps(fast)).toBeGreaterThan(heroDps(plain));
-    expect(heroDps(fast)).toBe(Math.floor(heroDamage(plain) * 1.1));
+    expect(heroDps(fast)).toBe(Math.floor(heroDamage(plain) * 1.16));
 
     // Against a tanky mob the faster hero lands more hits in the same time.
     const hits = (passives: Passive[]) => {
@@ -217,8 +260,8 @@ describe('passive effects feed the derived stats', () => {
       run(tanky(passives), 10, e);
       return e.filter((x) => x.type === 'damage' && x.target === 'mob').length;
     };
-    const quick = ps(pas('speed', 'SS', 5)); // 5 × 8 % = 40 %
-    expect(heroSpeed({ passives: quick })).toBeCloseTo(0.4);
+    const quick = ps(pas('speed', 'SS', 3)); // 3 × 12 % = 36 %
+    expect(heroSpeed({ passives: quick })).toBeCloseTo(0.36);
     expect(hits(quick)).toBeGreaterThan(hits([]) + 1);
   });
 
@@ -232,8 +275,8 @@ describe('passive effects feed the derived stats', () => {
     const without = mobHits(tankyTen([]));
     expect(new Set(without)).toEqual(new Set([10]));
 
-    const withExtra = tankyTen(ps(pas('extra', 'S', 10))); // 40 % chance
-    expect(extraHitChance(withExtra)).toBeCloseTo(0.4);
+    const withExtra = tankyTen(ps(pas('extra', 'S', 5))); // 30 % chance
+    expect(extraHitChance(withExtra)).toBeCloseTo(0.3);
     const amounts = mobHits(withExtra);
     const extras = amounts.filter((a) => a === 10 * EXTRA_HIT_MULT);
     expect(extras.length).toBeGreaterThan(0);
@@ -264,11 +307,11 @@ describe('passive effects feed the derived stats', () => {
       return e.flatMap((x) => (x.type === 'damage' && x.source === 'companion' ? [x.amount] : []));
     };
     const base = companionDamage(COMPANIONS.crow, 1, hero);
-    const withBonus = start(ps(pas('click', 'S', 5))); // 5 × 2 % = 10 % of 100 = +10
-    expect(clickBonus(withBonus)).toBeCloseTo(0.1);
+    const withBonus = start(ps(pas('click', 'S', 5))); // 5 × 3 % = 15 % of 100 = +15
+    expect(clickBonus(withBonus)).toBeCloseTo(0.15);
 
     const clicked = pecks(withBonus, true);
-    expect(clicked[0]).toBe(base + 10); // the click attack
+    expect(clicked[0]).toBe(base + 15); // the click attack
     expect(clicked.slice(1).length).toBeGreaterThan(0);
     expect(clicked.slice(1).every((d) => d === base)).toBe(true); // auto attacks
     expect(pecks(withBonus, false).every((d) => d === base)).toBe(true);

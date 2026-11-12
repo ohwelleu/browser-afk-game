@@ -4,7 +4,7 @@ import { dialogHtml } from './modal';
 import { optionLine, tierBadge } from './passives';
 
 /**
- * The "Choose a skill" panel shown after a stage clear. It is a locked modal
+ * The "Choose a skill" panel shown after a boss kill. It is a locked modal
  * (`data-locked`): Esc and a click outside don't close it, only picking does.
  * The fight waits (game/state.ts freezes the duel while an offer is open).
  */

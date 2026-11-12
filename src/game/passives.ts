@@ -1,5 +1,5 @@
 /**
- * Passive skills picked after clearing a stage (roguelike stage picks).
+ * Passive skills picked after killing a boss (roguelike stage picks).
  * Pure, like the rest of `game/`: all randomness comes from a seeded `Rng`.
  *
  * - `PASSIVES` is the options table: one row = one new option.
@@ -34,7 +34,7 @@ export type PassiveDef = {
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 
-/** How many options a stage clear offers. */
+/** How many options a boss kill offers. */
 export const PICK_OPTIONS = 2;
 
 /** S+ is S × this, like item tiers. */
@@ -49,12 +49,28 @@ export const PASSIVE_TIER_MULT: Record<PassiveTier, number> = {
   SS: 4 * S_PLUS_MULT,
 };
 
+/**
+ * Picks come once per world (a boss kill), so every value is scaled up. One
+ * knob per tier for tuning: the final value of a tier is
+ * `base × PASSIVE_TIER_MULT × PICK_VALUE_SCALE`. S+ stays S × `S_PLUS_MULT`.
+ * (Chosen so the values are round: A 1.6 gives 4 % speed, 2 % crit, 8 defence.)
+ */
+export const PICK_VALUE_SCALE: Record<PassiveTier, number> = {
+  C: 2,
+  B: 2,
+  A: 1.6,
+  S: 1.5,
+  SS: 1.5,
+};
+
 const round4 = (n: number) => Math.round(n * 10_000) / 10_000;
 
 /** Per-tier values of a passive whose C value is `base` (rounded to 0.01 % / whole points). */
 function byTier(base: number, flat = false): Record<PassiveTier, number> {
   const v = (t: PassiveTier) =>
-    flat ? Math.max(1, safeInt(base * PASSIVE_TIER_MULT[t])) : round4(base * PASSIVE_TIER_MULT[t]);
+    flat
+      ? Math.max(1, safeInt(base * PASSIVE_TIER_MULT[t] * PICK_VALUE_SCALE[t]))
+      : round4(base * PASSIVE_TIER_MULT[t] * PICK_VALUE_SCALE[t]);
   return { C: v('C'), B: v('B'), A: v('A'), S: v('S'), SS: v('SS') };
 }
 
@@ -231,7 +247,7 @@ export const pickCount = (owned: readonly Passive[]): number =>
 
 let picksOn = true;
 
-/** Debugger hook: turns the stage-clear pick off (and on again). On by default. */
+/** Debugger hook: turns the boss-kill pick off (and on again). On by default. */
 export function setPicksEnabled(on: boolean): void {
   picksOn = on;
 }

@@ -52,7 +52,7 @@ export type DebugApi = {
   apply(data: unknown): string[] | null;
   /** Clears the save and restarts from 1.1. */
   reset(): void;
-  /** Opens a stage-pick offer right now. */
+  /** Opens a boss-pick offer right now. */
   offerPick(): void;
   /** Shows this item rain instead of the equipped items' (`null` = back to the items). */
   previewRain?(counts: RainCounts | null): void;
@@ -249,7 +249,7 @@ export function createDebugPanel(
       </div>
       <div class="dbg-row">
         <button type="button" data-dbg="pick-offer">Offer a skill pick now</button>
-        <label><input type="checkbox" data-dbg="picks-toggle" ${picksEnabled() ? 'checked' : ''} /> Stage picks on</label>
+        <label><input type="checkbox" data-dbg="picks-toggle" ${picksEnabled() ? 'checked' : ''} /> Boss picks on</label>
       </div>
       <label>Raw save JSON<textarea class="dbg-json" spellcheck="false" aria-label="Raw save JSON"></textarea></label>
       <div class="dbg-row"><button type="button" data-dbg="apply-json">Apply JSON</button></div>
@@ -526,7 +526,7 @@ export function createDebugPanel(
         return;
       case 'picks-toggle':
         setPicksEnabled((e.target as HTMLInputElement).checked);
-        message(null, picksEnabled() ? 'Stage picks are on.' : 'Stage picks are off.');
+        message(null, picksEnabled() ? 'Boss picks are on.' : 'Boss picks are off.');
         return;
       case 'clear-bag':
         apply(clearBag(api.read()), 'Bag cleared.');
