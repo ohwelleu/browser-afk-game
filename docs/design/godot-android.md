@@ -1,10 +1,11 @@
-# Design: Godot rewrite and Google Play (Android)
+# Design: Godot rewrite, Google Play (Android) and the App Store (iOS)
 
 Status: **research and plan, nothing decided yet**. Owner goal (2026-11-10): rewrite the game in the
 Godot engine, publish it on Google Play, and let players sign in with their Google account (a player
-id) for saves and later a leaderboard.
+id) for saves and later a leaderboard. Follow-up (2026-11-12): what about iOS too? See
+[§9 iOS](#9-ios-iphone-and-ipad-as-well).
 
-All facts were checked on **2026-11-10 and 2026-11-11** on the linked pages. Links look like
+All facts were checked on **2026-11-10 to 2026-11-12** on the linked pages. Links look like
 `[S3]`. The full list with dates is in [Sources](#sources). Anything I could not confirm is in
 [Not verified](#not-verified). Fees, policies, target API levels and versions change, so check the
 linked page again before acting on a number.
@@ -30,14 +31,17 @@ linked page again before acting on a number.
    password and no button needed [G2]. It gives a per-game player id, **Saved Games** (cloud save,
    up to 3 MB) and **leaderboards** for free, with no own server [G4] [G7] [G8].
 7. **Plugin:** `godot-sdk-integrations/godot-play-game-services` is the maintained one (v3.4.0,
-   20 Jul 2026). A project collaborator couldn't reproduce a reported 4.6 problem on Godot 4.6.3. **Godot 4.7 is not confirmed**, so
-   the first PGS task is a small test on a phone [S15] [S16].
+   20 Jul 2026). A project collaborator couldn't reproduce a reported 4.6 problem on Godot 4.6.3.
+   **Godot 4.7 is not confirmed**, so the first PGS task is a small test on a phone [S15] [S16].
 8. **Firebase:** only needed if one leaderboard must cover web **and** Android players, or if we
    want our own server checks. Start with PGS.
 9. **Anti-cheat:** the game runs on the player's phone, so any score can be faked. PGS tamper
    protection and Firebase rules only catch obvious nonsense [G8] [F5].
-10. **Time:** **18 steps, about 20 PRs** once the large ones are split, plus at least **3 weeks of calendar time** for
-    the closed test and the production review.
+10. **Time:** **18 steps, about 20 PRs** once the large ones are split, plus at least **3 weeks of
+    calendar time** for the closed test and the production review.
+11. **iOS:** the same Godot project also exports to iPhone. It needs a **Mac with Xcode** [S25],
+    **$99 a year** [A1], and **Game Center** instead of PGS (PGS has no iOS version [G13]). Do it
+    **after the Android launch**, about 4–5 more PRs ([§9](#9-ios-iphone-and-ipad-as-well)).
 
 ---
 
@@ -565,6 +569,130 @@ start early, in parallel with the porting.
 9. **Who are the 12+ testers?** Start the list now. It decides the earliest launch date.
 10. **Start before or after the simulator?** *Recommendation: after the simulator and pacing work
     (backlog), and pause other web features.*
+11. **iOS too, and when?** *Recommendation: yes, but after the Android launch.* Decide first how
+    you get a Mac (see [§9](#9-ios-iphone-and-ipad-as-well)). Build the online code behind one
+    interface from the start, so iOS only adds a second backend.
+12. **Shared progress between Android and iPhone?** *Recommendation: not at first.* Each store's own
+    cloud save and leaderboard, plus the `AFK1` save string to move by hand. Firebase only if you
+    want one ranking for everyone.
+
+---
+
+## 9. iOS (iPhone and iPad) as well
+
+Short answer: **yes, the same Godot project can ship on both stores.** The game code, scenes, art
+and sound stay the same. What differs is the build machine, the store, and the online service
+(Game Center instead of Play Games Services).
+
+### What is different on iOS
+
+| Topic             | Android (Google Play)                                  | iOS (App Store)                                                                                                                                         |
+| ----------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build machine     | Linux, Windows or Mac                                   | **macOS with Xcode only**. Godot exports an Xcode project, and Xcode builds and uploads it [S25]                                                         |
+| Account           | $25 once [P1]                                           | **99 USD per year** ("prices may vary by region"). Individuals: your legal name is shown as the seller. Organisations need a D-U-N-S number [A1]       |
+| Tools version     | target API 36 [P4]                                      | built with **Xcode 26 / iOS 26 SDK** since 28 Apr 2026 [A2], and the app must support iOS 13+ [A3]. From **April 2027**: iOS 27 SDK and iOS 15+ [A4] |
+| Before first release | closed test, **12 testers × 14 days** [P3]            | **no such rule** on the TestFlight page [A7]                                                                                                             |
+| Testing           | internal / closed / open tracks [P8]                    | **TestFlight**: up to **100** internal testers (team members) and **10,000** external testers. External builds need a beta review first [A7]           |
+| Review            | usually ≤ 7 days for the first production access [P3]   | "at least 50% of submissions in less than 24 hours and 90% in less than 48 hours" [A5]                                                                   |
+| Sign-in, saves, ranking | Play Games Services [G1]                           | **Game Center**: player identity, leaderboards, achievements, **saved games** across the player's Apple devices [A13]                                    |
+| Privacy form      | Data safety [P15]                                       | **App Privacy details** ("nutrition label"). Required for every app, and SDKs count. Saved games count as "Gameplay Content" [A8]. Privacy policy URL required [A5] |
+| Age rating        | IARC questionnaire [P14]                                | Apple's questionnaire. Ratings 4+, 9+, 13+, 16+, 18+. Unrated apps can't be published [A10]                                                              |
+| EU trader status  | not confirmed on an official page                       | **must be declared**, even if you don't sell in the EU. If you are a trader, your address, phone and email are shown in the EU [A12]                    |
+
+### Godot on iOS
+
+- **Export:** "You must export for iOS from a computer running macOS with Xcode installed." You need
+  the App Store **Team ID** and a **bundle identifier** (for example `io.github.ohwelleu.afkgame`, the
+  same as the Android package name) [S25].
+- **Minimum iOS:** Godot 4.7.2 defaults to **iOS 15.0** [S27]. That already meets Apple's April
+  2027 rule [A4].
+- **Renderer:** the iOS simulator only supports the Compatibility renderer [S25], which is the one we
+  use anyway.
+- **C# on iOS** is experimental too [S6]. That's one more reason for GDScript.
+- **Plugins for Game Center:**
+
+| Plugin                                                              | Status (checked 2026-11-12)                                                                                                                                                                                       |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **xibbon/GodotApplePlugins** (recommended)                          | MIT, very active (builds 30 Sep–21 Oct 2026), ready-made binaries. A GDExtension with `compatibility_minimum = 4.2`. It has Game Center (sign-in, leaderboards, **saved games with conflict handling**, identity verification signature), StoreKit 2, Sign in with Apple and iCloud key-value storage. **Requires iOS 17**, so raise the minimum iOS version to 17. It has stubs so the project still opens on Linux and Windows [S29]. |
+| godot-sdk-integrations/godot-ios-plugins (the official one in the docs) | Has `gamecenter`, `icloud` and `inappstore`. **No release since 3.5 (2022)**. Last code fix: "Fix build with Godot 4.5/4.6" (Jan 2026). You build it yourself from source on a Mac [S26] [S28].                   |
+
+### Getting a Mac
+
+The owner works on Linux and Windows. Choices, cheapest first:
+
+1. **Borrow or buy a Mac** (a used Apple Silicon Mac mini is enough for a 2D game). It must run
+   the Xcode version Apple requires (Xcode 26 today, 27 from April 2027 [A2] [A4]).
+2. **A cloud Mac** rented by the hour or month.
+3. **A macOS CI runner** (for example GitHub Actions) that exports, builds and uploads to
+   TestFlight. It needs signing certificates as secrets. It has no screen, so testing happens on an
+   iPhone through TestFlight.
+
+You also need at least **one iPhone** to test on, through TestFlight or a cable to the Mac.
+
+### Sign-in, cloud save and ranking on two platforms
+
+- **Game Center works like PGS.** The player is signed in with their Game Center profile, and the
+  game gets an id and saves and leaderboards.
+  - Apple's ids: `gamePlayerID` is unique per game, and `teamPlayerID` is the same in all games from
+    one developer account [A16].
+  - The old `playerID` is deprecated [A15].
+- **A server must not trust the id the phone sends**, the same as on Android. Game Center gives an
+  identity verification signature that a server can check [S29] [A16].
+- **PGS has no iOS version.** Google's PGS overview lists Android, ChromeOS and Windows PC only
+  [G13]. An Android player and an iPhone player are two separate accounts in two separate systems.
+- **So by default, progress doesn't move between Android and iPhone**, and there are two
+  leaderboards (one per store). For most small games that's fine.
+- **If one shared save and ranking is wanted**, Firebase can sit on top of both:
+  - Android: PGS → Firebase [F2];
+  - iOS: Game Center → Firebase. Firebase supports Game Center sign-in [A15], and there is a REST
+    endpoint `accounts:signInWithGameCenter` for Godot, which has no Firebase SDK [A16] [F6];
+  - saves and scores go to Firestore.
+  - Both Firebase users would still be different users unless we add account linking. That is a
+    bigger feature and only worth it if players ask.
+
+**Recommendation:**
+
+- **Platform-native first:** PGS on Android, Game Center on iOS.
+- The `AFK1` save string is the manual bridge: copy it on one device, paste it on the other.
+- In the Godot code, put all online calls behind **one small interface** (`sign_in`, `load_cloud`,
+  `save_cloud`, `submit_score`). Android, iOS and the desktop or web (a do-nothing version) each get
+  their own backend. Do this already in the Android PGS step (step 13), so iOS is a second backend
+  and not a rewrite.
+
+### App Store rules that matter for us
+
+- **Privacy policy** link in App Store Connect and inside the app [A5] [A6].
+- **Guideline 4.8:** if an app uses a third-party or social login (Google Sign-In, Facebook, …) for
+  the main account, it must also offer an equivalent option [A6].
+  - We only use Game Center on iOS, so this doesn't apply.
+  - It would apply if we added "Sign in with Google" on iOS.
+- **Guideline 5.1.1(v):** if the app lets players **create an account**, it must let them **delete
+  it** inside the app [A6]. Game Center isn't our account, so it doesn't apply unless we build our
+  own accounts.
+- **Guideline 4.2 (minimum functionality):** the app must be more than a repackaged website and
+  give "lasting entertainment value" [A6]. A native Godot game is fine. A plain web wrapper (option
+  (b) in §3) would be more at risk here.
+- **Game Center entitlement:** apps with the Game Center capability must include the Game Center
+  entitlement. Xcode adds it when Game Center is enabled [A14].
+- **Privacy manifests:** since 1 May 2024, uploads must give approved reasons for some APIs, and
+  that includes APIs used by SDKs [A9]. Godot and the plugin should ship theirs. Check this at the
+  first upload.
+- **Screenshots:** at least 1 and up to 10 per device size, PNG or JPEG with no alpha. iPad
+  screenshots are needed only if the app runs on iPad [A11]. The exact iPhone sizes are in
+  [Not verified](#not-verified).
+
+### Extra steps (after the Android launch)
+
+| #   | Step                                                                                                                         | Size | Notes                                                       |
+| --- | ---------------------------------------------------------------------------------------------------------------------------- | ---- | ----------------------------------------------------------- |
+| i1  | **Apple Developer Program** enrolment + a Mac (owner)                                                                       | S    | 99 USD a year. Pick personal vs organisation like on Play.  |
+| i2  | **iOS export on a Mac**: bundle id, signing, TestFlight internal build on an iPhone, safe area, audio, pause in background | M    | First Xcode build. Minimum iOS 17 if we use GodotApplePlugins. |
+| i3  | **Game Center backend** behind the online interface: sign-in, saved games + conflicts, leaderboards                        | M    | Set up the leaderboards in App Store Connect first.         |
+| i4  | **App Store Connect**: listing, screenshots, App Privacy, age rating, EU trader status, privacy policy covers Game Center | S    | Privacy page in the blog repo gets an iOS paragraph.        |
+| i5  | **TestFlight external test** (optional) → **App Review** → release                                                          | S    | No minimum tester rule. Review usually 1–2 days.            |
+
+**Extra costs for iOS:** 99 USD a year [A1], plus a Mac (own, borrowed, cloud or CI) and an iPhone
+to test on.
 
 ---
 
@@ -597,12 +725,27 @@ start early, in parallel with the porting.
 - **Android Auto Backup of `user://` saves:** not covered by the Godot pages I read [S13].
 - **Whether the target-API extension forms** (to 1 Nov 2026) were ever used. It no longer matters
   for a new app.
+- **iOS: exact iPhone screenshot sizes** (the page lists 1320 × 2868 for the largest iPhones, but
+  which size is required wasn't readable) and the **1024 × 1024 app icon** [A11].
+- **iOS: Game Center saved games details**: whether they need iCloud to be on, the size limits, and
+  the conflict API. Apple's GameKit reference pages didn't load. The plugin's guide shows conflict
+  handling [S29].
+- **iOS: Apple's own pages for `gamePlayerID` / `teamPlayerID`** didn't load. The meanings come from
+  Google's Identity Platform reference [A16].
+- **iOS: Game Center price:** no Apple page says it's free or paid.
+- **iOS: when PGS dropped iOS:** I didn't find Google's notice. The current overview just doesn't
+  list iOS [G13].
+- **iOS: the TestFlight build expiry** (often said to be 90 days) isn't on the TestFlight page [A7].
+- **iOS: Mac, cloud Mac and CI runner prices and the minimum macOS for Xcode 26** weren't checked.
+- **iOS: the privacy manifest API list:** the page didn't load. Only the rule itself is confirmed
+  [A9].
 
 ---
 
 ## Sources
 
-Checked 2026-11-10 (Godot release, Play account and testing pages) and 2026-11-11 (the rest).
+Checked 2026-11-10 (Godot release, Play account and testing pages), 2026-11-11 (the rest of
+Android) and 2026-11-12 (iOS).
 
 **Godot**
 
@@ -635,6 +778,15 @@ Checked 2026-11-10 (Godot release, Play account and testing pages) and 2026-11-1
 - S22: https://github.com/GodotNuts/GodotFirebase/releases (2026-11-11)
 - S23: https://docs.godotengine.org/en/stable/classes/class_displayserver.html (2026-11-11)
 - S24: https://godotengine.org/license/ (2026-11-11)
+- S25: https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_ios.html (2026-11-12)
+- S26: https://docs.godotengine.org/en/stable/tutorials/platform/ios/ios_plugin.html (2026-11-12)
+- S27: https://github.com/godotengine/godot/blob/4.7.2-stable/platform/ios/export/export_plugin.h
+  (`get_minimum_deployment_target` returns "15.0") (2026-11-12)
+- S28: https://github.com/godot-sdk-integrations/godot-ios-plugins (README, releases, commits)
+  (2026-11-12)
+- S29: https://github.com/xibbon/GodotApplePlugins (README, releases,
+  `addons/GodotApplePlugins/godot_apple_plugins.gdextension`,
+  `Sources/GodotGameCenter/GameCenterGuide.md`) (2026-11-12)
 
 **Google Play**
 
@@ -681,6 +833,8 @@ Checked 2026-11-10 (Godot release, Play account and testing pages) and 2026-11-1
 - G11: https://developer.android.com/games/guidelines (Level Up program, voluntary; asks for PGS
   sign-in, cloud save with a conflict policy, 10+ achievements) (2026-11-11)
 - G12: https://developer.android.com/games/pgs/data-collection (2026-11-11)
+- G13: https://developer.android.com/games/pgs/overview (Android, ChromeOS, Windows PC; no iOS)
+  (2026-11-12)
 
 **Firebase**
 
@@ -692,6 +846,30 @@ Checked 2026-11-10 (Godot release, Play account and testing pages) and 2026-11-1
 - F6: https://firebase.google.com/docs/libraries (2026-11-11)
 - F7: https://firebase.google.com/docs/reference/rest/auth (2026-11-11)
 - F8: https://firebase.google.com/docs/firestore/use-rest-api (2026-11-11)
+
+**Apple (iOS)**
+
+- A1: https://developer.apple.com/programs/enroll/ and https://developer.apple.com/programs/
+  (2026-11-12)
+- A2: https://developer.apple.com/news/upcoming-requirements/?id=04282026a (2026-11-12)
+- A3: https://developer.apple.com/news/upcoming-requirements/?id=0992026a (2026-11-12)
+- A4: https://developer.apple.com/ios/submit/ (2026-11-12)
+- A5: https://developer.apple.com/distribute/app-review/ (2026-11-12)
+- A6: https://developer.apple.com/app-store/review/guidelines/ (4.2, 4.8, 5.1.1) (2026-11-12)
+- A7: https://developer.apple.com/testflight/ (2026-11-12)
+- A8: https://developer.apple.com/app-store/app-privacy-details/ (2026-11-12)
+- A9: https://developer.apple.com/news/upcoming-requirements/?id=05012024a (2026-11-12)
+- A10: https://developer.apple.com/help/app-store-connect/reference/age-ratings-values-and-definitions
+  (2026-11-12)
+- A11: https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications
+  (2026-11-12)
+- A12: https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements
+  and https://developer.apple.com/news/upcoming-requirements/?id=02172025a (2026-11-12)
+- A13: https://developer.apple.com/game-center/ (2026-11-12)
+- A14: https://developer.apple.com/help/account/reference/capability-entitlement-updates (2026-11-12)
+- A15: https://firebase.google.com/docs/auth/ios/game-center (2026-11-12)
+- A16: https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signInWithGameCenter
+  (2026-11-12)
 
 [S1]: https://godotengine.org/download/archive/
 [S2]: https://godotengine.org/article/maintenance-release-godot-4-7-2/
@@ -759,3 +937,25 @@ Checked 2026-11-10 (Godot release, Play account and testing pages) and 2026-11-1
 [F6]: https://firebase.google.com/docs/libraries
 [F7]: https://firebase.google.com/docs/reference/rest/auth
 [F8]: https://firebase.google.com/docs/firestore/use-rest-api
+[S25]: https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_ios.html
+[S26]: https://docs.godotengine.org/en/stable/tutorials/platform/ios/ios_plugin.html
+[S27]: https://github.com/godotengine/godot/blob/4.7.2-stable/platform/ios/export/export_plugin.h
+[S28]: https://github.com/godot-sdk-integrations/godot-ios-plugins
+[S29]: https://github.com/xibbon/GodotApplePlugins
+[G13]: https://developer.android.com/games/pgs/overview
+[A1]: https://developer.apple.com/programs/enroll/
+[A2]: https://developer.apple.com/news/upcoming-requirements/?id=04282026a
+[A3]: https://developer.apple.com/news/upcoming-requirements/?id=0992026a
+[A4]: https://developer.apple.com/ios/submit/
+[A5]: https://developer.apple.com/distribute/app-review/
+[A6]: https://developer.apple.com/app-store/review/guidelines/
+[A7]: https://developer.apple.com/testflight/
+[A8]: https://developer.apple.com/app-store/app-privacy-details/
+[A9]: https://developer.apple.com/news/upcoming-requirements/?id=05012024a
+[A10]: https://developer.apple.com/help/app-store-connect/reference/age-ratings-values-and-definitions
+[A11]: https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications
+[A12]: https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements
+[A13]: https://developer.apple.com/game-center/
+[A14]: https://developer.apple.com/help/account/reference/capability-entitlement-updates
+[A15]: https://firebase.google.com/docs/auth/ios/game-center
+[A16]: https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signInWithGameCenter
