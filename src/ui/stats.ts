@@ -64,7 +64,7 @@ function passiveSection(s: GameState): StatSection {
   return { title: 'Passive skills', rows };
 }
 
-/** Chance that a passive in a stage-clear offer has each tier, for the current ascends. */
+/** Chance that a passive in a boss-kill offer has each tier, for the current ascends. */
 function chanceSection(s: GameState): StatSection {
   const chances = tierChances(ascendsOf(s));
   return {

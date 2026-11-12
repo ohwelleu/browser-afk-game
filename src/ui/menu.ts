@@ -490,7 +490,7 @@ const HELP = `
       <p>Your hunter fights one monster per stage on his own. Wins pay coins. Every 6th stage is a boss.</p>
       <p>Buy new weapons in the <b>Shop</b>. A new weapon is equipped if it hits harder. In <b>Inventory</b> you switch weapons and upgrade the equipped one for more damage.</p>
       <p>Monsters sometimes drop a <b>ring</b>, <b>pendant</b>, <b>earring</b> or <b>belt</b> (C, B, A, S or the very rare S+). Equip them in <b>Inventory → Accessories</b> for extra damage, defence, speed, item find or crit chance.</p>
-      <p>Every time you clear a new stage with AUTO on, the game waits while you choose <b>one of two passive skills</b> (C, B, A, S or S+). They stack for the run: see <b>Inventory → Passives</b> and the chances in the hero stats.</p>
+      <p>Every time you beat a boss for the first time in a run with AUTO on, the game waits while you choose <b>one of two passive skills</b> (C, B, A, S or S+). They stack for the run: see <b>Inventory → Passives</b> and the chances in the hero stats.</p>
       <p>Clear stage ${stageName(COMPANIONS.crow.unlockLevel - 1)} to unlock the <b>crow</b> in <b>Shop → Companions</b>. It pecks the monster by itself, and extra when you click or tap anywhere on the game. The <b>wolf</b> unlocks later and bites on its own. Each companion adds a share of your hit and has one upgrade.</p>
       <p>If the hunter falls, he steps back one stage and auto-advance turns off. Upgrade, then turn <b>AUTO</b> back on.</p>
       <h3>Settings</h3>

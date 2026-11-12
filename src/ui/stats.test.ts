@@ -273,9 +273,9 @@ describe('passive skills in the stats', () => {
       }),
     );
     expect(value(s, 'Passive skills', 'Picks')).toBe('4');
-    expect(value(s, 'Passive skills', 'Swift strikes · C')).toBe('Lv 3 · +3%');
-    expect(value(s, 'Passive skills', 'Keen eye · S+')).toBe('Lv 1 · +4%');
-    expect(value(s, 'Hero', 'Crit chance')).toBe(`4% (×${CRIT.damageMult} damage)`);
+    expect(value(s, 'Passive skills', 'Swift strikes · C')).toBe('Lv 3 · +6%');
+    expect(value(s, 'Passive skills', 'Keen eye · S+')).toBe('Lv 1 · +6%');
+    expect(value(s, 'Hero', 'Crit chance')).toBe(`6% (×${CRIT.damageMult} damage)`);
   });
 
   it('has an empty list for a new game and uses attack speed in the DPS', () => {

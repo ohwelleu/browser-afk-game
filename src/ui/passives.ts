@@ -103,7 +103,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export const PASSIVES_HTML = `
   <h3 class="gear-head">Passive skills <span class="note pas-count"></span></h3>
-  <p class="note pas-hint">None yet. Clear a stage and pick one of two skills.</p>
+  <p class="note pas-hint">None yet. Beat a boss and pick one of two skills.</p>
   <ul class="list gear-list pas-list"></ul>
   <p class="pas-total"></p>
   <p class="note">Passives belong to the run. The same passive at the same tier stacks as one more level.</p>`;
