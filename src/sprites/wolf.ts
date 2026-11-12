@@ -1,57 +1,74 @@
 import type { SpriteDef } from './types';
 
 // Wolf companion (second companion after the crow). 24×16 on every frame,
-// faces right (towards the mob) like the hero. Ink body (`#`) with a yellow
-// eye (`Y`) and a light (`o`) muzzle and chest, so it reads in both themes
-// and differs from the crow's red eye.
+// faces right (towards the mob) like the hero. Same style as the crow: a
+// solid ink silhouette with a yellow eye (`Y`; the crow's is red), plus the
+// wolf's own marks: tall pointed ears, a long narrow snout, a lean body on
+// long legs, a bushy tail hanging low, a light (`o`) ruff on the chest and
+// neck and a lighter belly. The palette has no grey, so the lighter belly
+// is a checkerboard of `#` and `o`.
 //
 // Placement and timing are game logic (src/render/scene.ts): the wolf stands
 // BEHIND the hero (to its left), drawn before the hero so the hero covers
 // the end of its snout. Its feet are on the bottom row.
-// - idle: stands, tail up / straight, blinks. 4 frames.
+// - idle: stands, tail swings, blinks. 4 frames.
 // - attack: crouch, leap, bite (hit frame), recover. The scene also slides
 //   the sprite towards the mob and hops it, so the frames only show the pose.
 
 const E = '........................';
 
-/** Head and body, rows 0–11, tail up. Legs (rows 12–15) are added per frame. */
-const BODY_TAIL_UP = [
-  E,
-  E,
+/** Standing, tail hanging low. The tail is part of rows 6–13. */
+const STAND = [
+  '................#..#....',
   '................##.##...',
-  '#...............#######.',
-  '##..............###Y###.',
-  '.##...##################',
-  '..######################',
-  '...##################oo.',
-  '...###############oo#...',
-  '...##############oooo...',
-  '....#############ooo....',
-  '....##############......',
+  '...............#######..',
+  '...............###Y####.',
+  '.........###############',
+  '...####################.',
+  '.#############oooo#.....',
+  '############ooooooo#....',
+  '############oooooooo#...',
+  '#o#####o#o#o#ooooooo#...',
+  '#o#####.....#######.....',
+  '#######.##...##..##.....',
+  '##..###.##...##..##.....',
+  '#..###..##...##..##.....',
+  '...##...##...##..##.....',
+  '...###..###..###.###....',
 ];
 
-/** Same body with the tail straight out behind: row 6 reaches the left edge. */
-const BODY_TAIL_STRAIGHT = BODY_TAIL_UP.map((row, y) => {
-  if (y === 3 || y === 4 || y === 5) return '......' + row.slice(6);
-  if (y === 6) return '######' + row.slice(6);
+/** The tail tip swings in towards the legs. */
+const STAND_SWING = STAND.map((row, y) => {
+  if (y === 12) return '.##.###.##...##..##.....';
+  if (y === 13) return '.#.###..##...##..##.....';
   return row;
 });
 
-const LEGS_STAND = [
-  '....##.##......##.##....',
-  '....##.##......##.##....',
-  '....##.##......##.##....',
-  '...###.###....###.###...',
+/** Head, body and tail pushed straight back (rows 0–10), for the lunge. */
+const BODY_OUT = [
+  ...STAND.slice(0, 6),
+  '##############oooo#.....',
+  '############ooooooo#....',
+  '############oooooooo#...',
+  '...####o#o#o#ooooooo#...',
+  '...#####.....#######....',
 ];
 
 /** Leap: hind legs pushed back, front legs reaching forward. Feet off the ground. */
-const LEGS_LEAP = ['...##..##........##.##..', '..##....##.......##..##.', E, E];
+const LEGS_LEAP = [
+  '..####..##...##..###....',
+  '.###....##..##....###...',
+  '.##...............###...',
+  E,
+  E,
+];
 
 /** Crouch: one row shorter legs, paws wide. */
 const LEGS_CROUCH = [
-  '....##.##......##.##....',
-  '...###.###....###.###...',
-  '...###.###....###.###...',
+  '...####.##...##..##.....',
+  '..####..###..###.###....',
+  '..###...###..###.###....',
+  '..###..###..###..###....',
 ];
 
 /** Body on top of legs, bottom aligned: shorter legs (a crouch) lower the whole wolf. */
@@ -62,18 +79,18 @@ const frame = (body: string[], legs: string[]): string[] => {
 
 const closeEye = (rows: string[]) => rows.map((r) => r.replace('Y', '#'));
 
-/** Open jaws: the mouth gapes and a lower jaw drops below the snout. */
+/** Open jaws: the upper jaw stays, a lower jaw drops and the mouth shows light. */
 const openJaws = (rows: string[]) =>
   rows.map((r, y) => {
-    if (y === 7) return '...#################oooo';
-    if (y === 8) return '...##############oo####.';
+    if (y === 5) return '...#################ooo.';
+    if (y === 6) return '##############oooo#####.';
     return r;
   });
 
-const A = frame(BODY_TAIL_UP, LEGS_STAND);
-const B = frame(BODY_TAIL_STRAIGHT, LEGS_STAND);
+const A = STAND;
+const B = STAND_SWING;
 
-/** Standing: tail up, tail out, tail up, blink. 4 frames, 1.3 s loop. */
+/** Standing: tail hangs, tail swings in, tail hangs, blink. 4 frames, 1.3 s loop. */
 export const wolfIdle: SpriteDef = {
   name: 'wolf-idle',
   width: 24,
@@ -82,10 +99,10 @@ export const wolfIdle: SpriteDef = {
   frames: [A, B, A, closeEye(A)],
 };
 
-const CROUCH = frame(BODY_TAIL_STRAIGHT, LEGS_CROUCH);
-const LEAP = frame(BODY_TAIL_STRAIGHT, LEGS_LEAP);
+const CROUCH = frame(BODY_OUT, LEGS_CROUCH);
+const LEAP = frame(BODY_OUT, LEGS_LEAP);
 const BITE = openJaws(LEAP);
-const RECOVER = frame(BODY_TAIL_UP, LEGS_STAND);
+const RECOVER = A;
 
 /**
  * Lunge and bite: crouch, leap, bite on the hit frame (index 2, jaws open),
@@ -106,17 +123,17 @@ export const wolfIcon: SpriteDef = {
   height: 12,
   frames: [
     [
-      '............',
+      '.#........#.',
       '.##......##.',
       '.###....###.',
-      '.####..####.',
       '.##########.',
       '.##Y####Y##.',
-      '.##########.',
+      '.####oo####.',
       '..###oo###..',
       '..##oooo##..',
-      '...######...',
-      '....####....',
+      '.###oooo###.',
+      '.##.####.##.',
+      '..#..##..#..',
       '............',
     ],
   ],

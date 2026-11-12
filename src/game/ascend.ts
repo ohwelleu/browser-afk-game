@@ -1,8 +1,8 @@
 /**
  * Ascend (prestige), first version: start over, keep the items. The gate and
- * the price are in `balance.ts` (`ASCEND_GATE`, `ASCEND_COST`). There is no
- * bonus yet beyond the `ascends` count that later features (roguelike picks)
- * will read. Pure, like the rest of `game/`: same state object back when not
+ * the price are in `balance.ts` (`ASCEND_GATE`, `ASCEND_COST`). Each ascend
+ * gives `ASCEND_SPEED_PER` attack speed (`heroSpeed` in `state.ts`); the
+ * `ascends` count is also there for later features (roguelike picks). Pure, like the rest of `game/`: same state object back when not
  * allowed.
  */
 import { ASCEND_COST, ASCEND_GATE_LEVEL } from './balance';

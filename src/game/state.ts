@@ -8,6 +8,7 @@ import type { SfxName } from '../audio/types';
 import { TICK_RATE } from '../loop';
 import { weaponAttack, windup } from './attacks';
 import {
+  ASCEND_SPEED_PER,
   bulkQuote,
   capCritChance,
   companionDamage,
@@ -52,6 +53,7 @@ import {
   type Gear,
   type Item,
 } from './items';
+import { mobAppearSpeed, scaleAppear } from './debug-speed';
 import { revealedWeapons, revealWeapons } from './reveal';
 import { nextFloat } from './rng';
 
@@ -188,6 +190,9 @@ export type Progress = Pick<
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
 
+/** Ticks of an intro/gap before a mob appears: `secToTicks`, scaled by the debug-only appear speed. */
+const appearTicks = (s: number): number => secToTicks(scaleAppear(s, mobAppearSpeed()));
+
 export function newProgress(): Progress {
   return {
     world: 1,
@@ -256,7 +261,7 @@ export function newDuel(
   maxHp: number = HERO_MAX_HP,
 ): Duel {
   const hp = mobHp(world, stage);
-  const introTicks = secToTicks(fullIntro ? DUEL.intro : DUEL.shortIntro);
+  const introTicks = appearTicks(fullIntro ? DUEL.intro : DUEL.shortIntro);
   return {
     phase: 'intro',
     tick: 0,
@@ -294,16 +299,22 @@ export function heroDamage(
 }
 
 /**
+ * Hero attack speed bonus: gear speed (capped at `ITEMS.caps.speed`) plus
+ * `ASCEND_SPEED_PER` per ascend (outside the cap). 0.35 = +35 %.
+ */
+export function heroSpeed(s: Partial<Pick<GameState, 'items' | 'ascends'>>): number {
+  return gearTotals(s.items).speed + (s.ascends ?? 0) * ASCEND_SPEED_PER;
+}
+
+/**
  * Hero damage per second with the equipped weapon: damage per hit ÷ seconds
  * between attacks. Computed from weapon + level (not measured), so game
  * speed, pauses and intros can't inflate or deflate it. Whole number.
  */
 export function heroDps(
-  s: Pick<GameState, 'equipped' | 'weaponLevels'> & Partial<Pick<GameState, 'items'>>,
+  s: Pick<GameState, 'equipped' | 'weaponLevels'> & Partial<Pick<GameState, 'items' | 'ascends'>>,
 ): number {
-  return safeInt(
-    (heroDamage(s) * (1 + gearTotals(s.items).speed)) / weaponAttack(s.equipped).interval,
-  );
+  return safeInt((heroDamage(s) * (1 + heroSpeed(s))) / weaponAttack(s.equipped).interval);
 }
 
 /** Max mana: the base plus the coin upgrade. */
@@ -402,7 +413,7 @@ function step(s: GameState): void {
       }
       return;
     case 'transition':
-      if (inPhase >= secToTicks(DUEL.transition)) {
+      if (inPhase >= appearTicks(DUEL.transition)) {
         const level = stageLevel(s.world, s.stage);
         const isNew = level > s.best;
         s.best = Math.max(s.best, level);
@@ -428,7 +439,7 @@ function combat(s: GameState): void {
   const t = d.tick;
   const attack = weaponAttack(s.equipped);
   const mobKindDef = MOB_KINDS[d.mob.kind];
-  const gear = gearTotals(s.items);
+  const speed = heroSpeed(s);
 
   if (!d.heroSwung && t >= d.heroNextHit - secToTicks(windup(attack))) {
     d.heroSwung = true;
@@ -443,7 +454,7 @@ function combat(s: GameState): void {
     const dmg = crit ? critDamage(heroDamage(s)) : heroDamage(s);
     d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
     d.mobHurtTick = t;
-    d.heroNextHit += Math.max(1, secToTicks(attack.interval / (1 + gear.speed)));
+    d.heroNextHit += Math.max(1, secToTicks(attack.interval / (1 + speed)));
     d.heroSwung = false;
     s.events.push(
       crit

@@ -1,4 +1,4 @@
-import { ASCEND_COST, ASCEND_GATE, ASCEND_GATE_LEVEL } from '../game/balance';
+import { ASCEND_COST, ASCEND_SPEED_PER, ASCEND_GATE, ASCEND_GATE_LEVEL } from '../game/balance';
 import { ascendUnlocked } from '../game/ascend';
 import { formatNumber } from '../game/format';
 import { html } from './dom';
@@ -35,6 +35,12 @@ export function ascendBlockedReason(s: { best: number; coins: number }): string 
   return '';
 }
 
+/** 0.1 → "10%". */
+const pct = (v: number) => `${+(v * 100).toFixed(1)}%`;
+
+/** The attack speed bonus the ascends give, e.g. "+30%". */
+export const ascendBonusText = (ascends: number): string => `+${pct(ascends * ASCEND_SPEED_PER)}`;
+
 const list = (items: readonly string[]) => `<ul>${items.map((t) => `<li>${t}</li>`).join('')}</ul>`;
 
 export const ASCEND_PANEL = `
@@ -47,7 +53,7 @@ export const ASCEND_PANEL = `
       <h3>Stays</h3>
       ${list(ASCEND_KEEPS)}
       <div class="buy-row"><button type="button" data-act="ascend" class="asc-btn">Ascend</button></div>
-      <p class="note">No bonus yet: for now an ascend only restarts the run and counts. Bonuses come later.</p>
+      <p class="note">Each ascend gives <b>+${pct(ASCEND_SPEED_PER)} attack speed</b>, on top of your items. Your bonus now: <b class="asc-bonus"></b>.</p>
     </div>`;
 
 export const ASCEND_STYLES = `
