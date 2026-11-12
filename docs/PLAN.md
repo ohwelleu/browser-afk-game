@@ -171,6 +171,15 @@ Tune with the in-game simulator.
 All numbers live in one `src/game/balance.ts` so they can be tuned
 without touching logic.
 
+## Balance notes
+
+Placeholders to re-tune with the simulator (BACKLOG → Progression & balance):
+
+- **Ascend speed**: each ascend gives +10 % attack speed (2026-11-10).
+- **Mana and skills**: 100 base mana, +1 mana per crow click, skills cost 40
+  mana, last 30 s, cool down 30 s, and give +10 % damage / speed / defence
+  (2026-11-10).
+
 ## Safeguards
 
 ### Combat & animation
