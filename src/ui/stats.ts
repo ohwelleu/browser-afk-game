@@ -1,5 +1,6 @@
 import { weaponAttack } from '../game/attacks';
 import {
+  ASCEND_SPEED_PER,
   companionDamage,
   companionPercent,
   CRIT,
@@ -18,7 +19,7 @@ import {
   heroDamage,
   heroDefence,
   heroMaxHp,
-  heroSpeedBonus,
+  heroSpeed,
   ownedCompanions,
   type GameState,
 } from '../game/state';
@@ -82,9 +83,9 @@ export function characterStats(s: GameState): StatSection[] {
   const defence = heroDefence(s);
   const chance = critChance(s);
 
-  // Item and passive speed shorten the swing interval (see `combat` in game/state.ts).
+  // Item, ascend and passive speed shorten the swing interval (see `combat` in game/state.ts).
   const hit = heroDamage(s);
-  const dps = (hit * (1 + heroSpeedBonus(s))) / weaponAttack(s.equipped).interval;
+  const dps = (hit * (1 + heroSpeed(s))) / weaponAttack(s.equipped).interval;
   const extra = extraHitChance(s);
   // Average damage per swing: the crit bonus, plus the "Second strike" hits (never crits).
   const critDps = dps * (1 + chance * (CRIT.damageMult - 1) + extra * EXTRA_HIT_MULT);
@@ -143,6 +144,10 @@ export function characterStats(s: GameState): StatSection[] {
     title: 'Progress',
     rows: [
       { label: 'Ascends', value: formatNumber(s.ascends) },
+      // Not an item: outside the item speed cap, so not in Accessories.
+      ...(s.ascends > 0
+        ? [{ label: 'Ascend speed', value: `+${pct(s.ascends * ASCEND_SPEED_PER)}` }]
+        : []),
       { label: 'Equipped weapon', value: weaponText(s, s.equipped) },
       { label: 'Best weapon', value: weaponText(s, bestWeaponTier(s)) },
       { label: 'Kills', value: formatNumber(s.kills) },

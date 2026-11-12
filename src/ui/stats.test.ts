@@ -59,6 +59,16 @@ describe('characterStats', () => {
     expect(value(s, 'Hero', 'DPS')).toBe('125');
   });
 
+  it('shows the ascend speed only after an ascend, and counts it in the DPS', () => {
+    const base = { weaponLevels: [100, 0, 0, 0, 0] };
+    expect(value(characterStats(stateOf(base)), 'Progress', 'Ascend speed')).toBeUndefined();
+    const s = characterStats(stateOf({ ...base, ascends: 3 }));
+    expect(value(s, 'Progress', 'Ascend speed')).toBe('+30%');
+    expect(value(s, 'Hero', 'DPS')).toBe('130');
+    // Not an item: the Accessories section stays empty.
+    expect(value(s, 'Accessories', 'Bonuses')).toBe('None');
+  });
+
   it('adds the crit chance (upgrade and items) and the crit-adjusted DPS', () => {
     const items = { ...newGear(1), ring: item('ring', { crit: 0.1 }) };
     const s = characterStats(
@@ -208,7 +218,7 @@ describe('characterStats records (this run and best)', () => {
     expect(value(s, 'Progress', 'Ascends')).toBe('1');
     expect(value(s, 'Records', 'Highest stage (this run)')).toBe('1.1');
     expect(value(s, 'Records', 'Highest stage (best)')).toBe('6.1');
-    expect(value(s, 'Records', 'Damage per second (now)')).toBe('1'); // back to the stick
+    expect(value(s, 'Records', 'Damage per second (now)')).toBe('1.1'); // back to the stick
     expect(value(s, 'Records', 'Damage per second (best)')).toBe('120'); // wooden sword, level 20
   });
 });

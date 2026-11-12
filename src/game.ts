@@ -8,6 +8,7 @@ import {
 } from './audio';
 import type { SfxName } from './audio/types';
 import { isBoss } from './game/balance';
+import { setMobAppearSpeed, validSpeed } from './game/debug-speed';
 import { formatNumber } from './game/format';
 import {
   choosePick,
@@ -242,10 +243,16 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     menu.el.querySelector('.save-msg')?.scrollIntoView({ block: 'center' });
   }
 
-  const loop = new Loop((dt) => {
-    state = update(state, dt);
-    handleEvents(state.events);
-  }, draw);
+  // Debug only (the debugger's Speed section): game clock multiplier, ×1 unless set.
+  let debugGameSpeed = 1;
+  const loop = new Loop(
+    (dt) => {
+      state = update(state, dt);
+      handleEvents(state.events);
+    },
+    draw,
+    () => debugGameSpeed,
+  );
 
   function handleEvents(events: readonly GameEvent[]): void {
     let save = false;
@@ -640,6 +647,10 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         apply: debugApply,
         reset: debugReset,
         offerPick: () => act(forcePickOffer),
+        setGameSpeed(m) {
+          debugGameSpeed = validSpeed(m);
+        },
+        setMobAppearSpeed,
         previewRain(counts) {
           scene.setRainPreview(counts);
           if (!loop.running) draw();

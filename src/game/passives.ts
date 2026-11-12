@@ -7,7 +7,7 @@
  * - `tierWeights(ascends)` is the drop chance of each tier; every ascend moves
  *   weight from C towards the better tiers.
  * - `passiveTotals` sums what the player owns. `game/state.ts` reads it in
- *   ONE place per stat (`heroDefence`, `critChance`, `heroSpeedBonus`,
+ *   ONE place per stat (`heroDefence`, `critChance`, `heroSpeed`,
  *   `extraHitChance`, `clickBonus`), so the stats window, the sim and the
  *   fight agree.
  */

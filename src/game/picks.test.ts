@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
 import { ascendFree } from './ascend';
-import { companionDamage, COMPANIONS, CRIT, CRIT_BUY_MAX_PERCENT, CHARACTER } from './balance';
+import {
+  companionDamage,
+  COMPANIONS,
+  CRIT,
+  CRIT_BUY_MAX_PERCENT,
+  CHARACTER,
+  ASCEND_SPEED_PER,
+} from './balance';
 import { newGear, type Item } from './items';
 import { ascendsOf, EXTRA_HIT_MULT, PICK_OPTIONS, setPicksEnabled, type Passive } from './passives';
 import {
@@ -15,7 +22,7 @@ import {
   heroDamage,
   heroDefence,
   heroDps,
-  heroSpeedBonus,
+  heroSpeed,
   newProgress,
   secToTicks,
   stageSwitchTarget,
@@ -165,7 +172,8 @@ describe('ascend', () => {
     expect(after.pick).toBeNull();
     expect(after.ascends).toBe(2);
     expect(ascendsOf(after)).toBe(2);
-    expect(heroSpeedBonus(after)).toBe(0);
+    // Only the ascend speed is left: the passive speed is gone with the passives.
+    expect(heroSpeed(after)).toBeCloseTo(2 * ASCEND_SPEED_PER);
     // A new offer on the new run is rolled with the new ascends (tier chances shift).
     expect(forcePickOffer(after).pick).toHaveLength(PICK_OPTIONS);
   });
@@ -199,7 +207,7 @@ describe('passive effects feed the derived stats', () => {
   it('attack speed raises the DPS and shortens the swing', () => {
     const plain = strong();
     const fast = strong({ passives: ps(pas('speed', 'A', 4)) }); // 4 × 2.5 % = 10 %
-    expect(heroSpeedBonus(fast)).toBeCloseTo(0.1);
+    expect(heroSpeed(fast)).toBeCloseTo(0.1);
     expect(heroDps(fast)).toBeGreaterThan(heroDps(plain));
     expect(heroDps(fast)).toBe(Math.floor(heroDamage(plain) * 1.1));
 
@@ -210,7 +218,7 @@ describe('passive effects feed the derived stats', () => {
       return e.filter((x) => x.type === 'damage' && x.target === 'mob').length;
     };
     const quick = ps(pas('speed', 'SS', 5)); // 5 × 8 % = 40 %
-    expect(heroSpeedBonus({ passives: quick })).toBeCloseTo(0.4);
+    expect(heroSpeed({ passives: quick })).toBeCloseTo(0.4);
     expect(hits(quick)).toBeGreaterThan(hits([]) + 1);
   });
 

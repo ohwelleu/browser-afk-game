@@ -23,3 +23,29 @@ describe('accumulate', () => {
     expect(accumulate(0, -1)).toEqual({ ticks: 0, acc: 0 });
   });
 });
+
+describe('accumulate speed', () => {
+  const ticksAt = (speed: number) => accumulate(0, TICK, speed).ticks;
+
+  it('runs ×N ticks per frame at ×N', () => {
+    expect(ticksAt(1)).toBe(1);
+    expect(ticksAt(2)).toBe(2);
+    expect(ticksAt(5)).toBe(5);
+    expect(ticksAt(10)).toBe(10);
+    expect(ticksAt(20)).toBe(20);
+  });
+
+  it('carries the half tick at ×0.5, so one tick every other frame', () => {
+    const a = accumulate(0, TICK, 0.5);
+    expect(a.ticks).toBe(0);
+    expect(accumulate(a.acc, TICK, 0.5).ticks).toBe(1);
+  });
+
+  it('is plain real time by default', () => {
+    expect(accumulate(0.003, TICK * 2.5)).toEqual(accumulate(0.003, TICK * 2.5, 1));
+  });
+
+  it('still caps a long frame (before the multiplier)', () => {
+    expect(accumulate(0, 10, 20).ticks).toBe(Math.floor((MAX_FRAME * 20) / TICK));
+  });
+});

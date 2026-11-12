@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
-import { DUEL, HERO_MAX_HP, mobCoins, mobHp, WEAPONS } from './balance';
+import { ASCEND_SPEED_PER, DUEL, HERO_MAX_HP, mobCoins, mobHp, WEAPONS } from './balance';
+import { newGear, type Item } from './items';
 import {
   buyUpgrade,
   buyWeapon,
@@ -8,6 +9,7 @@ import {
   equip,
   heroDamage,
   heroDps,
+  heroSpeed,
   newProgress,
   secToTicks,
   setAutoAdvance,
@@ -68,6 +70,46 @@ describe('duel timing', () => {
     expect(s.duel.phase).toBe('intro');
     expect(s.duel.mob.hp).toBe(s.duel.mob.maxHp);
     expect(s.duel.heroHp).toBe(HERO_MAX_HP);
+  });
+});
+
+describe('ascend speed', () => {
+  const ring = (speed: number): Item => ({
+    id: 1,
+    slot: 'ring',
+    tier: 'S',
+    world: 1,
+    stage: 1,
+    stats: { speed },
+  });
+  const interval = (p: Partial<Progress>) => {
+    const events: { tick: number; e: GameEvent }[] = [];
+    run(weak({ world: 3, stage: 6, ...p }), 4.5, events);
+    const t = events
+      .filter((x) => x.e.type === 'damage' && x.e.target === 'mob')
+      .map((x) => x.tick);
+    return t[2] - t[1];
+  };
+
+  it('each ascend shortens the hero attack interval by +10 % speed', () => {
+    expect(interval({ ascends: 0 })).toBe(secToTicks(1));
+    expect(interval({ ascends: 1 })).toBe(secToTicks(1 / 1.1));
+    expect(interval({ ascends: 5 })).toBe(secToTicks(1 / 1.5));
+  });
+
+  it('adds to the gear speed, and the item cap (0.25) stays on items only', () => {
+    // Two rings' worth of speed (0.4) is capped to 0.25; 2 ascends add 0.2 on top.
+    const items = { ...newGear(1), ring: ring(0.4) };
+    expect(heroSpeed({ items, ascends: 0 })).toBeCloseTo(0.25);
+    expect(heroSpeed({ items, ascends: 2 })).toBeCloseTo(0.25 + 2 * ASCEND_SPEED_PER);
+    expect(interval({ items, ascends: 2 })).toBe(secToTicks(1 / 1.45));
+  });
+
+  it('counts in the DPS', () => {
+    const base = { weaponLevels: [100, 0, 0, 0, 0] };
+    expect(heroDps(createState({ ...newProgress(), ...base }))).toBe(100);
+    expect(heroDps(createState({ ...newProgress(), ...base, ascends: 3 }))).toBe(130);
+    expect(createState({ ...newProgress(), ...base, ascends: 3 }).maxDps).toBe(130);
   });
 });
 
