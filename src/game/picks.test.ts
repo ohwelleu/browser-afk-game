@@ -44,7 +44,7 @@ const tanky = (passives: Passive[], p: Partial<Progress> = {}) =>
     ...newProgress(),
     world: 3,
     best: 13,
-    character: { defenceLevel: 0, critLevel: 0, hpLevel: 100 },
+    character: { defenceLevel: 0, critLevel: 0, hpLevel: 100, manaLevel: 0 },
     passives,
     ...p,
   });
@@ -183,21 +183,29 @@ describe('passive effects feed the derived stats', () => {
   it('defence adds flat points on top of items and the coin upgrade', () => {
     const s = createState({
       ...newProgress(),
-      character: { defenceLevel: 2, critLevel: 0, hpLevel: 0 },
+      character: { defenceLevel: 2, critLevel: 0, hpLevel: 0, manaLevel: 0 },
       passives: ps(pas('defence', 'B', 3)),
     });
     expect(heroDefence(s)).toBe(2 * CHARACTER.defence.perLevel + 3 * 3);
   });
 
   it('crit chance adds up with the upgrade, and the total cap still holds', () => {
-    const base = { ...newProgress(), character: { defenceLevel: 0, critLevel: 10, hpLevel: 0 } };
+    const base = {
+      ...newProgress(),
+      character: { defenceLevel: 0, critLevel: 10, hpLevel: 0, manaLevel: 0 },
+    };
     expect(critChance(createState({ ...base, passives: ps(pas('crit', 'S', 5)) }))).toBeCloseTo(
       0.1 + 5 * 0.02,
     );
     const ring: Item = { id: 1, slot: 'ring', tier: 'S', world: 1, stage: 1, stats: { crit: 0.3 } };
     const maxed = createState({
       ...base,
-      character: { defenceLevel: 0, critLevel: Math.round(CRIT_BUY_MAX_PERCENT), hpLevel: 0 },
+      character: {
+        defenceLevel: 0,
+        critLevel: Math.round(CRIT_BUY_MAX_PERCENT),
+        hpLevel: 0,
+        manaLevel: 0,
+      },
       items: { ...newGear(1), ring },
       passives: ps(pas('crit', 'SS', 50)),
     });
@@ -249,7 +257,7 @@ describe('passive effects feed the derived stats', () => {
         best: 25,
         weaponLevels: [hero, 0, 0, 0, 0],
         companions: { crow: 1, wolf: 0 },
-        character: { defenceLevel: 0, critLevel: 0, hpLevel: 200 },
+        character: { defenceLevel: 0, critLevel: 0, hpLevel: 200, manaLevel: 0 },
         passives,
       });
     /** Damage of the crow's attacks in the 5 s after the fight starts (and a click, if asked). */

@@ -76,6 +76,7 @@ describe('passives in the save', () => {
       coins: 7,
       passives: [],
       pick: null,
+      mana: 100, // v10 → v11 (mana) runs after it
     });
     // A v10 save keeps what it has.
     const v10 = {
@@ -84,7 +85,7 @@ describe('passives in the save', () => {
       pick: null,
     };
     expect(migrateSave(v10)).toEqual(v10);
-    expect(SAVE_VERSION).toBe(10);
+    expect(SAVE_VERSION).toBe(11);
   });
 
   it('a plain-JSON v1 save without the fields is repaired to none', () => {

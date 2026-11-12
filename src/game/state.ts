@@ -22,6 +22,9 @@ import {
   DUEL,
   HERO_MAX_HP,
   hpFromLevel,
+  HERO_MAX_MANA,
+  manaFromLevel,
+  MANA_PER_CLICK,
   isBoss,
   MOB_KINDS,
   mobCoins,
@@ -109,7 +112,12 @@ export const perCompanion = <T>(make: (id: CompanionId) => T): PerCompanion<T> =
 export type CompanionLevels = PerCompanion<number>;
 
 /** Character upgrade levels (0 = not bought). Saved as is. */
-export type Character = { defenceLevel: number; critLevel: number; hpLevel: number };
+export type Character = {
+  defenceLevel: number;
+  critLevel: number;
+  hpLevel: number;
+  manaLevel: number;
+};
 
 export type GameEvent =
   | { type: 'sfx'; name: SfxName }
@@ -155,6 +163,8 @@ export type GameState = {
   companions: CompanionLevels;
   /** Coin upgrades bought in Shop → Character. */
   character: Character;
+  /** Mana now, 0 to `heroMaxMana`. The crow gives it back on clicks; saved, not reset per duel. */
+  mana: number;
   /** Passive skills picked after stage clears (game/passives.ts). */
   passives: Passive[];
   /**
@@ -196,6 +206,7 @@ export type Progress = Pick<
   | 'items'
   | 'companions'
   | 'character'
+  | 'mana'
   | 'passives'
   | 'pick'
 >;
@@ -223,7 +234,8 @@ export function newProgress(): Progress {
     bestItem: null,
     items: newGear(),
     companions: newCompanions(),
-    character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+    character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 0 },
+    mana: HERO_MAX_MANA,
     passives: [],
     pick: null,
   };
@@ -254,6 +266,7 @@ export function createState(progress: Progress = newProgress()): GameState {
     bestItem: betterItem(progress.bestItem, bestOwnedItem(progress.items)),
     companions: { ...newCompanions(), ...progress.companions },
     character: { ...progress.character },
+    mana: Math.min(safeInt(progress.mana), heroMaxMana(progress)),
     passives: progress.passives.map((p) => ({ ...p })),
     pick: progress.pick ? progress.pick.map((o) => ({ ...o })) : null,
     pickRng: pickSeed(progress.items),
@@ -339,6 +352,11 @@ export function heroDps(
     Partial<Pick<GameState, 'items' | 'ascends' | 'passives'>>,
 ): number {
   return safeInt((heroDamage(s) * (1 + heroSpeed(s))) / weaponAttack(s.equipped).interval);
+}
+
+/** Max mana: the base plus the coin upgrade. */
+export function heroMaxMana(s: Partial<Pick<GameState, 'character'>>): number {
+  return safeInt(HERO_MAX_MANA + manaFromLevel(s.character?.manaLevel ?? 0));
 }
 
 /** Chance (0–1) that a hero hit is followed by an extra strike for `EXTRA_HIT_MULT` of the hit. */
@@ -665,6 +683,7 @@ export type UpgradeTarget =
   | { type: 'defence' }
   | { type: 'crit' }
   | { type: 'hp' }
+  | { type: 'mana' }
   | { type: 'companion'; id: CompanionId };
 
 type Track = {
@@ -715,6 +734,17 @@ function track(
           const before = heroMaxHp(n);
           n.character = { ...n.character, hpLevel: l };
           if (n.duel.heroHp > 0) n.duel.heroHp += heroMaxHp(n) - before;
+        },
+      };
+    case 'mana':
+      return {
+        level: s.character.manaLevel,
+        costAt: (l) => characterCost('mana', l),
+        set: (n, l) => {
+          // The new max mana is given in at once, like max HP.
+          const before = heroMaxMana(n);
+          n.character = { ...n.character, manaLevel: l };
+          n.mana = Math.min(heroMaxMana(n), n.mana + heroMaxMana(n) - before);
         },
       };
     case 'companion': {
@@ -913,6 +943,8 @@ export function companionClick(s: GameState): GameState {
   const next = draft(s);
   next.companionClickTick = s.ticks;
   launchAttack(next, def, true);
+  // The crow gives mana back for every click it pecks on, so the click limit above caps it too.
+  next.mana = Math.min(heroMaxMana(next), next.mana + MANA_PER_CLICK);
   return next;
 }
 

@@ -36,9 +36,17 @@ describe('characterStats', () => {
     expect(value(characterStats(state), 'Hero', 'HP')).toBe(`37 / ${HERO_MAX_HP}`);
   });
 
+  it('shows mana now and the max', () => {
+    const state = stateOf({
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 2 },
+    });
+    state.mana = 37;
+    expect(value(characterStats(state), 'Hero', 'Mana')).toBe('37 / 120');
+  });
+
   it('adds the defence upgrade and shows the damage reduction', () => {
     const s = characterStats(
-      stateOf({ character: { defenceLevel: 20, critLevel: 0, hpLevel: 0 } }),
+      stateOf({ character: { defenceLevel: 20, critLevel: 0, hpLevel: 0, manaLevel: 0 } }),
     );
     // 20 levels × 5 = 100 defence → half of each hit.
     expect(value(s, 'Hero', 'Defence')).toBe('100 (−50% damage taken)');
@@ -75,7 +83,7 @@ describe('characterStats', () => {
       stateOf({
         weaponLevels: [100, 0, 0, 0, 0],
         items,
-        character: { defenceLevel: 0, critLevel: 10, hpLevel: 0 },
+        character: { defenceLevel: 0, critLevel: 10, hpLevel: 0, manaLevel: 0 },
       }),
     );
     // 10 levels × 1 % + 10 % ring = 20 % at ×2: DPS 100 → 120.
@@ -87,7 +95,7 @@ describe('characterStats', () => {
     const s = characterStats(
       stateOf({
         items: { ...newGear(1), ring: item('ring', { crit: 0.9 }) },
-        character: { defenceLevel: 0, critLevel: 500, hpLevel: 0 },
+        character: { defenceLevel: 0, critLevel: 500, hpLevel: 0, manaLevel: 0 },
       }),
     );
     expect(value(s, 'Hero', 'Crit chance')).toContain(`${CRIT.maxChance * 100}%`);
