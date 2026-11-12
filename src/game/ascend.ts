@@ -34,6 +34,7 @@ export function ascendProgress(p: Progress): Progress {
     ascends: p.ascends + 1,
     bestStage: Math.max(p.bestStage, p.best),
     bestItem: betterItem(p.bestItem, bestOwnedItem(p.items)),
+    // worldReward is not kept: every run gets the world reward again.
   };
 }
 

@@ -54,6 +54,8 @@ export type DebugApi = {
   reset(): void;
   /** Opens a stage-pick offer right now. */
   offerPick(): void;
+  /** Gives the world 3 boss reward again (a tier S item, with its toast). */
+  giveWorldReward(): void;
   /** Shows this item rain instead of the equipped items' (`null` = back to the items). */
   previewRain?(counts: RainCounts | null): void;
   /** Game clock multiplier (debug only, not saved; `1` = real time). */
@@ -240,6 +242,7 @@ export function createDebugPanel(
         <button type="button" data-dbg="force-ascend">Force ascend now</button>
       </div>
       <div class="dbg-row">
+        <button type="button" data-dbg="world-reward">Give world 3 reward (S item)</button>
         <button type="button" data-dbg="best-item">Set best item (tier above)</button>
         <button type="button" data-dbg="clear-best-item">Clear best item</button>
       </div>
@@ -519,6 +522,10 @@ export function createDebugPanel(
         forceNextDrop();
         forcedAt = api.read().items.nextId;
         message(null, 'The next kill drops an item.');
+        return;
+      case 'world-reward':
+        api.giveWorldReward();
+        message(null, 'Gave the world 3 reward: a tier S item.');
         return;
       case 'pick-offer':
         api.offerPick();

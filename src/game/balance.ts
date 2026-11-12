@@ -115,6 +115,22 @@ export const mobDamage = (world: number, stage: number) =>
   scaled(MOB_DMG, world, stage, WORLD_1_DMG_MULT);
 export const mobCoins = (world: number, stage: number) => scaled(MOB_COINS, world, stage, 1);
 
+// ── World reward ───────────────────────────────────────────────────────────
+
+/**
+ * Killing the boss of `world` (stage 6) for the first time in a run gives one
+ * random item of `tier`. `GameState.worldReward` remembers the highest world
+ * rewarded, so each run gets it once. Reset by an ascend.
+ */
+export const WORLD_REWARD = { world: 3, tier: 'S' as ItemTier };
+/**
+ * `worldReward` for a save from before the reward existed: already past the
+ * rewarded world (best stage level in the next world) means it was "given",
+ * so nobody gets a surprise item on load.
+ */
+export const worldRewardFor = (best: number): number =>
+  best >= stageLevel(WORLD_REWARD.world + 1, 1) ? WORLD_REWARD.world : 0;
+
 // ── Ascend (prestige) ──────────────────────────────────────────────────────
 
 /** Ascend unlocks once the highest stage reached is this one (6.1 = `world.stage`) or higher. */

@@ -58,6 +58,7 @@ export const GEAR_STYLES = `
 }
 .toast[hidden] { display: flex; opacity: 0; }
 .toast .toast-text { display: grid; }
+.toast .toast-reward { color: var(--_yellow); font-weight: bold; }
 ${reducedCss('.tier.tc-S::after, .tier .sparkle, .tier .sparkle.rainbow')} { animation: none; }
 ${reducedCss('.toast')} { transition: none; }
 `;
@@ -198,11 +199,12 @@ export function createToast(box: HTMLElement, deps: GearDeps, ms = 3000) {
   box.append(el);
   let timer = 0;
   return {
-    show(it: Item, soldFor: number) {
+    show(it: Item, soldFor: number, reward?: number) {
       const line = soldFor
         ? `Bag full: sold for ${formatNumber(soldFor)} coins`
         : esc(itemStatsText(it));
-      el.innerHTML = `${frame(deps, it.slot, it)}<span class="toast-text"><span class="tc-${it.tier}"><b class="${nameClass(it)}">${esc(itemName(it))}</b></span><span>${line}</span></span>`;
+      const head = reward ? `<span class="toast-reward">World ${reward} reward!</span>` : '';
+      el.innerHTML = `${frame(deps, it.slot, it)}<span class="toast-text">${head}<span class="tc-${it.tier}"><b class="${nameClass(it)}">${esc(itemName(it))}</b></span><span>${line}</span></span>`;
       el.hidden = false;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => (el.hidden = true), ms);

@@ -122,8 +122,11 @@ export type GameEvent =
       crit?: true;
     }
   | { type: 'coins'; amount: number }
-  /** An item dropped; `soldFor` > 0 when the bag was full and it was sold at once. */
-  | { type: 'item'; item: Item; soldFor: number }
+  /**
+   * An item dropped; `soldFor` > 0 when the bag was full and it was sold at
+   * once. `reward` is the world of a boss reward ("World 3 reward!").
+   */
+  | { type: 'item'; item: Item; soldFor: number; reward?: number }
   /** Stage changed or a purchase happened: worth saving now. */
   | { type: 'save' };
 
@@ -150,6 +153,8 @@ export type GameState = {
   bestStage: number;
   /** The best item ever owned (tier, then total stat value), even if it was sold. Survives an ascend. */
   bestItem: Item | null;
+  /** Highest world whose boss reward was given in this run (0 = none). Reset by an ascend. */
+  worldReward: number;
   /** The four equipped slots, the bag and the drop RNG (game/items.ts). */
   items: Gear;
   companions: CompanionLevels;
@@ -193,6 +198,7 @@ export type Progress = Pick<
   | 'ascends'
   | 'bestStage'
   | 'bestItem'
+  | 'worldReward'
   | 'items'
   | 'companions'
   | 'character'
@@ -221,6 +227,7 @@ export function newProgress(): Progress {
     ascends: 0,
     bestStage: 1,
     bestItem: null,
+    worldReward: 0,
     items: newGear(),
     companions: newCompanions(),
     character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },

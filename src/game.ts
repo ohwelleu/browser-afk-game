@@ -10,6 +10,7 @@ import type { SfxName } from './audio/types';
 import { isBoss } from './game/balance';
 import { setMobAppearSpeed, validSpeed } from './game/debug-speed';
 import { formatNumber } from './game/format';
+import { grantWorldReward } from './game/items';
 import {
   choosePick,
   companionClick,
@@ -259,7 +260,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     for (const e of events) {
       if (e.type === 'sfx') pendingSfx.push(e.name);
       else if (e.type === 'save') save = true;
-      else if (e.type === 'item') toast.show(e.item, e.soldFor);
+      else if (e.type === 'item') toast.show(e.item, e.soldFor, e.reward);
     }
     scene.onEvents(state, events, view);
     syncPick();
@@ -647,6 +648,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         apply: debugApply,
         reset: debugReset,
         offerPick: () => act(forcePickOffer),
+        giveWorldReward: () => act(grantWorldReward),
         setGameSpeed(m) {
           debugGameSpeed = validSpeed(m);
         },
