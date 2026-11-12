@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
 import { ASCEND_SPEED_PER, DUEL, HERO_MAX_HP, mobCoins, mobHp, WEAPONS } from './balance';
 import { newGear, type Item } from './items';
@@ -20,6 +20,10 @@ import {
   type GameState,
   type Progress,
 } from './state';
+import { setPicksEnabled } from './passives';
+
+// These tests are about fighting and stage flow: the stage-clear pick has its own tests.
+beforeAll(() => setPicksEnabled(false));
 
 /** Runs `seconds` of game time one tick at a time, collecting events with their tick. */
 function run(s: GameState, seconds: number, events: { tick: number; e: GameEvent }[] = []) {

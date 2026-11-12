@@ -58,8 +58,8 @@ describe('menu tabs', () => {
 });
 
 describe('inventory sub tabs', () => {
-  it('are Weapons · Accessories · Companions, Weapons first (the default)', () => {
-    expect(MENU_SUBS.inventory).toEqual(['weapons', 'accessories', 'companions']);
+  it('are Weapons · Accessories · Companions · Passives, Weapons first (the default)', () => {
+    expect(MENU_SUBS.inventory).toEqual(['weapons', 'accessories', 'companions', 'passives']);
     expect(Object.keys(INVENTORY).sort()).toEqual([...MENU_SUBS.inventory!].sort());
   });
 });

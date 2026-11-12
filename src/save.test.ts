@@ -145,6 +145,8 @@ describe('writeSave / loadSave', () => {
       items: st.items,
       companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      passives: [],
+      pick: null,
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -444,6 +446,8 @@ describe('save migration v7 → v8 (companion slot becomes companion levels)', (
       ascends: 0,
       bestStage: 1,
       bestItem: null,
+      passives: [],
+      pick: null,
     });
   });
 
@@ -474,6 +478,8 @@ describe('save migration', () => {
       companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       revealedWeapons: [true, false, false, false, false],
+      passives: [],
+      pick: null,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
@@ -584,6 +590,8 @@ describe('revealed weapons in the save (v5)', () => {
       character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
       version: SAVE_VERSION,
       revealedWeapons: [true, true, false, false, false],
+      passives: [],
+      pick: null,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
@@ -647,6 +655,8 @@ describe('max HP upgrade in the save (v7)', () => {
       version: SAVE_VERSION,
       companions: { crow: 0, wolf: 0 },
       character: { defenceLevel: 3, critLevel: 2, hpLevel: 0 },
+      passives: [],
+      pick: null,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
@@ -672,6 +682,8 @@ describe('ascend records in the save (v9)', () => {
       ascends: 0,
       bestStage: 15,
       bestItem: null,
+      passives: [],
+      pick: null,
     });
   });
 

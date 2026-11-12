@@ -11,8 +11,10 @@ import { isBoss } from './game/balance';
 import { setMobAppearSpeed, validSpeed } from './game/debug-speed';
 import { formatNumber } from './game/format';
 import {
+  choosePick,
   companionClick,
   createState,
+  forcePickOffer,
   heroDamage,
   heroDps,
   heroMaxHp,
@@ -49,6 +51,7 @@ import { Dialogs, MODAL_STYLES } from './ui/modal';
 import { createSoundPanel, SOUND_STYLES } from './ui/sound';
 import { createDebugPanel, type DebugPanel } from './ui/debug';
 import { createStatsWindow, STATS_STYLES } from './ui/stats';
+import { createPickPanel, PICK_STYLES } from './ui/pick';
 import { ASCEND_STYLES, createAscendConfirm } from './ui/ascend';
 import { ascend } from './game/ascend';
 import { createToast, GEAR_STYLES } from './ui/gear';
@@ -114,7 +117,7 @@ const HTML = `
  * HUD, menu, audio, save, loop and pause rules. Game rules live in `game/`.
  */
 export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOptions): GameHandle {
-  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${RAINBOW_STYLES}${GEAR_STYLES}${STATS_STYLES}${ASCEND_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
+  root.innerHTML = `<style>${STYLES}${MODAL_STYLES}${MENU_STYLES}${SOUND_STYLES}${RAINBOW_STYLES}${GEAR_STYLES}${STATS_STYLES}${ASCEND_STYLES}${PICK_STYLES}${NOW_PLAYING_STYLES}${QUEST_STYLES}${TAB_LOCK_STYLES}</style>${HTML}`;
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
   const box = $('.box');
   const canvas = $<HTMLCanvasElement>('canvas');
@@ -218,8 +221,9 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     audioSettings,
   );
   const stats = createStatsWindow();
+  const pick = createPickPanel();
   const ascendConfirm = createAscendConfirm();
-  autoButton.before(menu.el, sound.el, stats.el, ascendConfirm.el);
+  autoButton.before(menu.el, sound.el, stats.el, ascendConfirm.el, pick.el);
   const toast = createToast(box, { iconUrl });
   const quest = createQuest(box, menuButton, menu.el);
   const noteEl = document.createElement('div');
@@ -258,7 +262,24 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       else if (e.type === 'item') toast.show(e.item, e.soldFor);
     }
     scene.onEvents(state, events, view);
+    syncPick();
     if (save) saveNow();
+  }
+
+  /**
+   * Shows the "Choose a skill" panel while an offer is open and hides it
+   * after the pick. It is a locked dialog, so it also takes the place of any
+   * dialog that was open (the menu can be reopened after choosing).
+   */
+  function syncPick(): void {
+    if (state.pick) {
+      if (!started || !tabGuard.owner) return;
+      pick.refresh(state);
+      if (!dialogs.isOpen(pick.el)) dialogs.open(pick.el, autoButton, pick.focusTarget());
+    } else if (dialogs.isOpen(pick.el)) {
+      dialogs.close();
+      pick.refresh(state);
+    }
   }
 
   /** Applies a pure action; ignored when the action didn't change anything. */
@@ -367,6 +388,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
   }
 
   function refreshUi(): void {
+    syncPick();
     refreshHud();
     if (dialogs.isOpen(menu.el)) menu.refresh(state);
     if (dialogs.isOpen(stats.el)) stats.refresh(state);
@@ -516,6 +538,12 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
       case 'auto':
         act((s) => setAutoAdvance(s, !s.autoAdvance));
         return;
+      case 'pick': {
+        if (!pick.ready()) return;
+        const index = Number(target?.dataset.index);
+        act((s) => choosePick(s, index));
+        return;
+      }
       case 'stage-prev':
         act((s) => switchStage(s, 'prev'));
         return;
@@ -553,6 +581,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
     if (started) return;
     started = true;
     overlay.hidden = true;
+    syncPick();
     void audio.start();
     announceTrack();
     saveNow();
@@ -617,6 +646,7 @@ export function createGame(root: ShadowRoot, host: HTMLElement, opts: GameOption
         read: saveData,
         apply: debugApply,
         reset: debugReset,
+        offerPick: () => act(forcePickOffer),
         setGameSpeed(m) {
           debugGameSpeed = validSpeed(m);
         },

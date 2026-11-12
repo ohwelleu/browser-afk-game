@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
 import { windup } from './attacks';
 import {
@@ -36,6 +36,10 @@ import {
   type GameState,
   type Progress,
 } from './state';
+import { setPicksEnabled } from './passives';
+
+// These tests are about fighting and stage flow: the stage-clear pick has its own tests.
+beforeAll(() => setPicksEnabled(false));
 
 const { crow, wolf } = COMPANIONS;
 const levels = (l: Partial<CompanionLevels> = {}): CompanionLevels => ({ crow: 0, wolf: 0, ...l });

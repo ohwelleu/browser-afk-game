@@ -50,6 +50,16 @@ import {
   type Gear,
   type Item,
 } from './items';
+import {
+  addPassive,
+  ascendsOf,
+  EXTRA_HIT_MULT,
+  passiveTotals,
+  picksEnabled,
+  rollPickOptions,
+  type Passive,
+  type PickOption,
+} from './passives';
 import { mobAppearSpeed, scaleAppear } from './debug-speed';
 import { revealedWeapons, revealWeapons } from './reveal';
 import { nextFloat } from './rng';
@@ -81,6 +91,8 @@ export type Duel = {
   companionPecks: PerCompanion<number[]>;
   /** Per companion: duel tick its last attack started (fly-out / lunge animation). */
   companionAttackTick: PerCompanion<number | null>;
+  /** Per companion: the part of `companionPecks` that came from a click (they get the click bonus). */
+  companionClickPecks: PerCompanion<number[]>;
 };
 
 /** One value per companion id. */
@@ -143,6 +155,15 @@ export type GameState = {
   companions: CompanionLevels;
   /** Coin upgrades bought in Shop → Character. */
   character: Character;
+  /** Passive skills picked after stage clears (game/passives.ts). */
+  passives: Passive[];
+  /**
+   * The offer waiting for the player after a stage clear, or null. While it is
+   * set the duel is frozen: the fight waits for the pick (no timer picks for you).
+   */
+  pick: PickOption[] | null;
+  /** Roll RNG for pick offers (uint32). Not saved: derived from the drop seed on load. */
+  pickRng: number;
   /**
    * Crit RNG state (uint32, mulberry32 like the drop RNG). Not saved: it is
    * derived from the drop seed on load. Tests can set it to fix the rolls.
@@ -175,6 +196,8 @@ export type Progress = Pick<
   | 'items'
   | 'companions'
   | 'character'
+  | 'passives'
+  | 'pick'
 >;
 
 export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
@@ -201,6 +224,8 @@ export function newProgress(): Progress {
     items: newGear(),
     companions: newCompanions(),
     character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+    passives: [],
+    pick: null,
   };
 }
 
@@ -229,6 +254,9 @@ export function createState(progress: Progress = newProgress()): GameState {
     bestItem: betterItem(progress.bestItem, bestOwnedItem(progress.items)),
     companions: { ...newCompanions(), ...progress.companions },
     character: { ...progress.character },
+    passives: progress.passives.map((p) => ({ ...p })),
+    pick: progress.pick ? progress.pick.map((o) => ({ ...o })) : null,
+    pickRng: pickSeed(progress.items),
     critRng: critSeed(progress.items),
     companionClickTick: null,
     companionAutoCharge: perCompanion(() => 0),
@@ -240,6 +268,8 @@ export function createState(progress: Progress = newProgress()): GameState {
 
 /** Crit RNG seed for a loaded game: the drop seed, scrambled so the two streams differ. */
 const critSeed = (g: Pick<Gear, 'rng'>): number => (g.rng ^ 0x9e3779b9) >>> 0;
+/** Same for the pick offers: a third stream. */
+const pickSeed = (g: Pick<Gear, 'rng'>): number => (g.rng ^ 0x85ebca6b) >>> 0;
 
 export function newDuel(
   world: number,
@@ -273,6 +303,7 @@ export function newDuel(
     mobHurtTick: null,
     companionPecks: perCompanion(() => []),
     companionAttackTick: perCompanion(() => null),
+    companionClickPecks: perCompanion(() => []),
   };
 }
 
@@ -287,10 +318,15 @@ export function heroDamage(
 
 /**
  * Hero attack speed bonus: gear speed (capped at `ITEMS.caps.speed`) plus
- * `ASCEND_SPEED_PER` per ascend (outside the cap). 0.35 = +35 %.
+ * `ASCEND_SPEED_PER` per ascend (outside the cap) plus passive speed (its own
+ * cap). 0.35 = +35 %.
  */
-export function heroSpeed(s: Partial<Pick<GameState, 'items' | 'ascends'>>): number {
-  return gearTotals(s.items).speed + (s.ascends ?? 0) * ASCEND_SPEED_PER;
+export function heroSpeed(s: Partial<Pick<GameState, 'items' | 'ascends' | 'passives'>>): number {
+  return (
+    gearTotals(s.items).speed +
+    (s.ascends ?? 0) * ASCEND_SPEED_PER +
+    passiveTotals(s.passives).speed
+  );
 }
 
 /**
@@ -299,9 +335,20 @@ export function heroSpeed(s: Partial<Pick<GameState, 'items' | 'ascends'>>): num
  * speed, pauses and intros can't inflate or deflate it. Whole number.
  */
 export function heroDps(
-  s: Pick<GameState, 'equipped' | 'weaponLevels'> & Partial<Pick<GameState, 'items' | 'ascends'>>,
+  s: Pick<GameState, 'equipped' | 'weaponLevels'> &
+    Partial<Pick<GameState, 'items' | 'ascends' | 'passives'>>,
 ): number {
   return safeInt((heroDamage(s) * (1 + heroSpeed(s))) / weaponAttack(s.equipped).interval);
+}
+
+/** Chance (0–1) that a hero hit is followed by an extra strike for `EXTRA_HIT_MULT` of the hit. */
+export function extraHitChance(s: Partial<Pick<GameState, 'passives'>>): number {
+  return passiveTotals(s.passives).extra;
+}
+
+/** Share of the hero's hit added to the crow's click pecks (0.1 = +10 %). */
+export function clickBonus(s: Partial<Pick<GameState, 'passives'>>): number {
+  return passiveTotals(s.passives).click;
 }
 
 /** Max HP: the base plus the coin upgrade. */
@@ -309,17 +356,29 @@ export function heroMaxHp(s: Partial<Pick<GameState, 'character'>>): number {
   return safeInt(HERO_MAX_HP + hpFromLevel(s.character?.hpLevel ?? 0));
 }
 
-/** Total defence: equipped items plus the coin upgrade. */
-export function heroDefence(s: Partial<Pick<GameState, 'items' | 'character'>>): number {
-  return safeInt(gearTotals(s.items).defence + defenceFromLevel(s.character?.defenceLevel ?? 0));
+/** Total defence: equipped items, the coin upgrade and passives. */
+export function heroDefence(
+  s: Partial<Pick<GameState, 'items' | 'character' | 'passives'>>,
+): number {
+  return safeInt(
+    gearTotals(s.items).defence +
+      defenceFromLevel(s.character?.defenceLevel ?? 0) +
+      passiveTotals(s.passives).defence,
+  );
 }
 
 /**
  * Chance (0–`CRIT.maxChance`) that a hero hit is a critical hit: the coin
- * upgrade plus equipped items, capped.
+ * upgrade plus equipped items plus passives, capped.
  */
-export function critChance(s: Partial<Pick<GameState, 'items' | 'character'>>): number {
-  return capCritChance(critFromLevel(s.character?.critLevel ?? 0) + gearTotals(s.items).crit);
+export function critChance(
+  s: Partial<Pick<GameState, 'items' | 'character' | 'passives'>>,
+): number {
+  return capCritChance(
+    critFromLevel(s.character?.critLevel ?? 0) +
+      gearTotals(s.items).crit +
+      passiveTotals(s.passives).crit,
+  );
 }
 
 /** Raises `maxDps` to the current DPS if it's higher (mutates a draft). */
@@ -356,6 +415,7 @@ function draft(state: GameState): GameState {
       mob: { ...state.duel.mob },
       companionPecks: perCompanion((id) => [...state.duel.companionPecks[id]]),
       companionAttackTick: { ...state.duel.companionAttackTick },
+      companionClickPecks: perCompanion((id) => [...state.duel.companionClickPecks[id]]),
     },
     events: [],
   };
@@ -363,6 +423,8 @@ function draft(state: GameState): GameState {
 
 function step(s: GameState): void {
   s.ticks++;
+  // A pending pick freezes the duel: the fight waits for the player.
+  if (s.pick) return;
   const d = s.duel;
   d.tick++;
   const t = d.tick;
@@ -380,8 +442,11 @@ function step(s: GameState): void {
       if (inPhase >= secToTicks(DUEL.mobDying)) {
         setPhase(d, 'transition');
         if (s.autoAdvance) {
+          const cleared = stageLevel(s.world, s.stage);
           advanceStage(s);
           s.events.push({ type: 'sfx', name: 'stageClear' });
+          // Only the first clear of a stage offers a pick, so replaying can't farm them.
+          if (cleared >= s.best) offerPick(s);
         }
         s.events.push({ type: 'save' });
       }
@@ -444,6 +509,7 @@ function combat(s: GameState): void {
         : { type: 'damage', target: 'mob', amount: dmg },
       { type: 'sfx', name: crit ? 'crit' : 'hit' },
     );
+    extraStrike(s);
   }
   companionCombat(s);
   if (d.mob.hp <= 0) {
@@ -480,6 +546,24 @@ function combat(s: GameState): void {
   }
 }
 
+/**
+ * "Second strike" passive: after a hero hit, a chance for one more strike
+ * worth `EXTRA_HIT_MULT` of a normal hit (never a crit). The roll is only
+ * made when the player has the passive, so the crit stream is unchanged
+ * without it.
+ */
+function extraStrike(s: GameState): void {
+  const chance = extraHitChance(s);
+  if (!(chance > 0) || s.duel.mob.hp <= 0) return;
+  const rng = { state: s.critRng };
+  const hit = nextFloat(rng) < chance;
+  s.critRng = rng.state;
+  if (!hit) return;
+  const dmg = Math.max(1, safeInt(heroDamage(s) * EXTRA_HIT_MULT));
+  s.duel.mob.hp = Math.max(0, safeInt(s.duel.mob.hp - dmg));
+  s.events.push({ type: 'damage', target: 'mob', amount: dmg }, { type: 'sfx', name: 'hit' });
+}
+
 /** Companions owned (level 1 or more), in shop order. */
 export const ownedCompanions = (s: Pick<GameState, 'companions'>): CompanionDef[] =>
   COMPANION_IDS.filter((id) => s.companions[id] >= 1).map((id) => COMPANIONS[id]);
@@ -504,8 +588,13 @@ function companionCombat(s: GameState): void {
     const due = d.companionPecks[def.id].filter((at) => at <= t);
     if (!due.length) continue;
     d.companionPecks[def.id] = d.companionPecks[def.id].filter((at) => at > t);
-    const dmg = companionDamage(def, s.companions[def.id], heroDamage(s));
+    const base = companionDamage(def, s.companions[def.id], heroDamage(s));
+    const clickExtra = safeInt(heroDamage(s) * clickBonus(s));
     for (let i = 0; i < due.length && d.mob.hp > 0; i++) {
+      // An attack that came from a click also gets the "Heavy touch" bonus (the crow's clicks).
+      const click = d.companionClickPecks[def.id].indexOf(due[i]);
+      if (click >= 0) d.companionClickPecks[def.id].splice(click, 1);
+      const dmg = click >= 0 ? base + clickExtra : base;
       d.mob.hp = Math.max(0, safeInt(d.mob.hp - dmg));
       d.mobHurtTick = t;
       s.events.push(
@@ -517,10 +606,12 @@ function companionCombat(s: GameState): void {
 }
 
 /** Starts an attack: it lands after the attack's wind-up (the crow's fly-out, the wolf's lunge). */
-function launchAttack(s: GameState, def: CompanionDef): void {
+function launchAttack(s: GameState, def: CompanionDef, click = false): void {
   const d = s.duel;
   d.companionAttackTick[def.id] = d.tick;
-  d.companionPecks[def.id].push(d.tick + Math.max(1, secToTicks(windup(def.attack))));
+  const lands = d.tick + Math.max(1, secToTicks(windup(def.attack)));
+  d.companionPecks[def.id].push(lands);
+  if (click) d.companionClickPecks[def.id].push(lands);
 }
 
 /** The companion that attacks on a click: the first owned one with a click cooldown (the crow). */
@@ -732,10 +823,11 @@ function unlockedLevel(
  * auto-advance off, so it can't be dodged by switching.
  */
 export function stageSwitchTarget(
-  s: Pick<GameState, 'world' | 'stage' | 'best' | 'autoAdvance' | 'duel'>,
+  s: Pick<GameState, 'world' | 'stage' | 'best' | 'autoAdvance' | 'duel'> &
+    Partial<Pick<GameState, 'pick'>>,
   dir: 'prev' | 'next',
 ): { world: number; stage: number } | null {
-  if (s.duel.phase === 'heroDying') return null;
+  if (s.duel.phase === 'heroDying' || s.pick) return null;
   const to = { world: s.world, stage: s.stage };
   if (dir === 'prev') rollbackStage(to);
   else advanceStage(to);
@@ -774,6 +866,40 @@ export function setAutoAdvance(s: GameState, on: boolean): GameState {
   return next;
 }
 
+// ── Stage picks ────────────────────────────────────────────────────────────
+
+/** Rolls an offer into `s.pick` (mutates a draft). Does nothing if picks are off or one is pending. */
+function offerPick(s: GameState): void {
+  if (!picksEnabled() || s.pick) return;
+  const rng = { state: s.pickRng };
+  s.pick = rollPickOptions(rng, ascendsOf(s));
+  s.pickRng = rng.state;
+  s.events.push({ type: 'save' });
+}
+
+/** Debugger: offers a pick right now, mid-fight or not. Same state back if one is already open. */
+export function forcePickOffer(s: GameState): GameState {
+  if (s.pick) return s;
+  const next = draft(s);
+  const rng = { state: s.pickRng };
+  next.pick = rollPickOptions(rng, ascendsOf(s));
+  next.pickRng = rng.state;
+  next.events.push({ type: 'save' });
+  return next;
+}
+
+/** Takes option `index` of the open offer into the passives and lets the fight go on. */
+export function choosePick(s: GameState, index: number): GameState {
+  const option = s.pick?.[index];
+  if (!s.pick || !option) return s;
+  const next = draft(s);
+  next.passives = addPassive(s.passives, option);
+  next.pick = null;
+  trackMaxDps(next);
+  next.events.push({ type: 'sfx', name: 'purchase' }, { type: 'save' });
+  return next;
+}
+
 // ── Companion actions ──────────────────────────────────────────────────────
 
 /** A click or tap on the game screen: the clicker (crow) attacks, unless it's on cooldown. */
@@ -782,7 +908,7 @@ export function companionClick(s: GameState): GameState {
   if (!def || s.duel.phase !== 'fighting' || companionCooldown(s) > 0) return s;
   const next = draft(s);
   next.companionClickTick = s.ticks;
-  launchAttack(next, def);
+  launchAttack(next, def, true);
   return next;
 }
 
