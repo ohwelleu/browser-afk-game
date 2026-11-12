@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASCEND_SPEED_PER,
   mobCoins,
   mobDamage,
   mobHp,
@@ -60,5 +61,11 @@ describe('balance', () => {
     expect(safeInt(Infinity)).toBe(Number.MAX_SAFE_INTEGER);
     expect(safeInt(-Infinity)).toBe(-Number.MAX_SAFE_INTEGER);
     expect(safeInt(2.9)).toBe(2);
+  });
+});
+
+describe('ascend speed', () => {
+  it('is +10 % per ascend (placeholder)', () => {
+    expect(ASCEND_SPEED_PER).toBe(0.1);
   });
 });

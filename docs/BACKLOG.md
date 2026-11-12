@@ -44,6 +44,10 @@ Each line below is its own thread, in this order.
 
 ## Character
 
+- [ ] **Bug: buying doesn't equip** (owner, 2026-11-10): what you buy should
+      be equipped, but the equip logic still doesn't work (check weapons,
+      and companions' upgrades). Thread `fix/buy-equips`.
+
 - [x] **Equip a bought weapon**: auto-equip when it hits at least as hard,
       plus Equip in the shop (PR #9).
 - [x] **Defence upgrade** in Shop → Character:
@@ -64,8 +68,11 @@ Each line below is its own thread, in this order.
       are shared or per character, where you pick (start screen or a Shop /
       menu tab), and how the saves work (one save with several characters
       vs. one per character). Needs the simulator for balance.
-- [ ] **Speed upgrade** (attack speed), after ascend lands, because it
-      multiplies everything.
+- [~] **Speed from ascend** (owner, 2026-11-10): for now every ascend gives
+      +10 % attack speed (thread `code/ascend-speed`). Numbers are
+      placeholders, see [PLAN.md → Balance notes](PLAN.md#balance-notes).
+      Still open: a bought speed upgrade in Shop → Character, after the
+      simulator, because it multiplies everything.
 
 ## Crow (companion)
 
@@ -81,6 +88,8 @@ Each line below is its own thread, in this order.
 - [x] **Companion upgrades in Shop and Inventory**: crow upgrades can be
       bought from Shop → Companions too, not only from Inventory (same as
       weapons).
+- [ ] **Wolf looks like a dog** (owner, 2026-11-10): redraw the wolf sprites
+      so it reads as a wolf (longer snout, pointed ears, bushy tail, grey).
 - [ ] **More companions**: other animals with their own attack and upgrades
       (e.g. bat, cat), each its own sprite set. One active or several?
       (owner to decide).
@@ -111,12 +120,11 @@ Each line below is its own thread, in this order.
       sooner (owner, 2026-11-08). Raise the drop chance or add a guaranteed
       early drop in the first stages, then keep later drops as they are.
       Tune with the simulator.
-- [~] **Rainbow colour** (animated, for S-tier things): demo in the debug
-      panel first (thread `ui/rainbow-colour-demo`), where to use it is
-      decided later.
+- [x] **Rainbow colour** (animated, for S-tier things): shipped (S+ rainbow, S
+      gold flow, 4 s cycle, Animations setting; PR #50, #55, #82, #84, #86).
 - [x] **S+ tier items** (2× S stats, rainbow frame and name, much rarer;
       PR #71).
-- [ ] **Rainbow rain for equipped S+ items** (owner, 2026-11-09): while the
+- [x] **Rainbow rain for equipped S+ items** (owner, 2026-11-09): while the
       hero wears an S+ item, thin rainbow-coloured lines fall like rain in
       the background of the scene and appear in different places. The more
       S+ items equipped, the more lines (e.g. one more line per item, with a
@@ -128,7 +136,7 @@ Each line below is its own thread, in this order.
 - [x] **Rainbow cycle 4 s** (owner, 2026-11-09, changed to 4 s on
       2026-11-10): `RAINBOW_PERIOD_MS`, the CSS fallback and the debug slider
       default are 4 s (was 20 s).
-- [ ] **Check that item frames match the debugger**: S+ items in the
+- [x] **Check that item frames match the debugger**: S+ items in the
       Inventory list and the drop toast should look exactly like the
       S-tier item frame in the debug panel's Rainbow section (same
       `rainbow-frame rainbow-glow` border and glow, same thickness, nothing
@@ -138,12 +146,17 @@ Each line below is its own thread, in this order.
 - [x] **Character stats window**: damage per second, crit chance, best
       weapon (name and tier) and highest stage. Starts after crit chance
       lands. (Same item as the stats panel below.)
-- [ ] **Item names that say what they do**: name parts from the stats,
-      e.g. "Lucky Ring" = more item find, "Ring of Haste" = speed, "Sharp
-      Pendant of Fortune" = damage + item find. Tier in the name or frame
-      colour. Easy to tell what you got from the drop toast.
-- [ ] Mana bar and **auras** (passive bonuses with a visible effect around
-      the hero).
+- [ ] **Mana bar** (owner, 2026-11-10), first slice of the skills. A mana
+      bar sits under the HP bar. Base **100 mana**, upgraded in Shop →
+      Character like HP. Mana comes back by playing: each click on the
+      screen that attacks a mob gives the crow's peck, and the crow returns
+      **1 mana** after the click. Thread `code/mana-bar`.
+- [ ] **Skills** (owner, 2026-11-10), after the mana bar. Buttons at the
+      bottom left of the scene. Three skills for now, each lasts **30 s**,
+      has a **30 s cooldown** and costs **40 mana**: +10 % damage, +10 %
+      attack speed, +10 % defence. Numbers are placeholders (balance notes).
+      Replaces the older "Skills" line under Active play.
+- [ ] **Auras** (passive bonuses with a visible effect around the hero).
 
 ## Progression & balance
 
@@ -151,7 +164,9 @@ Each line below is its own thread, in this order.
       debug panel tab. This comes first.
 - [ ] **Slow progress down**: measure with the sim, agree on target times,
       then tune (see [PLAN.md → Pacing](PLAN.md#pacing-to-do)).
-- [ ] **Ascend logic** (prestige), design first in `docs/design/ascend.md`:
+- [ ] **Ascend logic: improve** (owner, 2026-11-10). First version shipped
+      (#78) and gives +10 % attack speed per ascend for now; the real logic
+      still needs a design. Original plan, design first in `docs/design/ascend.md`:
       when you can ascend (stage gate), what resets (stage, coins, weapons,
       upgrades) and what stays (items, crow?, stats), how many ascend
       points you get (scales with stage), and what they buy in Shop →
@@ -193,8 +208,7 @@ Each line below is its own thread, in this order.
       thorns (reflect damage), dodge, boss damage, crit damage ×, extra
       starting coins after ascend. Each needs tier values (C B A S S+) and a
       line in the stats window.
-- [ ] **Skills**: big effects on long cooldowns (e.g. 60 s), activated by
-      clicking their icon. Unlocked or upgraded in the shop.
+- [ ] **Skills**: moved to Weapons & items, next to the mana bar.
 
 ## Shop & UI
 
@@ -212,6 +226,13 @@ Each line below is its own thread, in this order.
       damage vs. the new weapon's damage (e.g. `12 → 30 (+18)`).
 - [ ] **Equipped first**: equipped weapons (and items) are listed at the
       top in Inventory.
+- [ ] **Debugger: sticky header** (owner, 2026-11-10): the debug panel's
+      header (with its close button) stays on top while you scroll, so you
+      don't have to scroll down to close it.
+- [ ] **New menu button icon** (owner, 2026-11-10): the current one is
+      terrible. Draw a better pixel icon that fits the palette.
+- [ ] **Inventory: swap the Companions and Accessories tabs** (owner,
+      2026-11-10), so the order is Weapons · Accessories · Companions.
 - [ ] **Sticky sub tabs**: the sub tab row (Character · Weapons · …) stays
       on top while scrolling, like the main tabs.
 - [ ] **"No animations" setting** (owner, 2026-11-10, low priority): a
@@ -267,11 +288,6 @@ Each line below is its own thread, in this order.
 - [ ] **Blog post about the simulations**: how fast you can progress, with
       charts from the sim. Probably its own small project (a sim "lab" that
       imports the game's pure balance/combat code), published on the site.
-
-## Blog (other repo: `ohwelleu.github.io`)
-
-- [ ] **Fix the blog's mobile menu.** This is the site's own menu, not
-      the game's, so the work happens in the blog repo, not here.
 
 ## Docs & housekeeping
 

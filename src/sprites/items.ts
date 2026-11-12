@@ -306,9 +306,14 @@ export const iconSfxOff: SpriteDef = {
   ],
 };
 
-/** Menu button: "rank up" symbol, three stacked upward chevrons. */
-export const iconMenu: SpriteDef = {
-  name: 'icon-menu',
+/**
+ * Menu button icons: three alternatives, 12×12 like the other HUD icons, solid fg shapes
+ * with bg cut-outs (they swap in dark mode). Pick one with `MENU_ICON` below.
+ */
+
+/** Backpack: "your stuff". Top handle, pocket with a buckle. */
+export const iconMenuBackpack: SpriteDef = {
+  name: 'icon-menu-backpack',
   width: 12,
   height: 12,
   frames: [
@@ -316,18 +321,73 @@ export const iconMenu: SpriteDef = {
       '............',
       '....####....',
       '...##..##...',
-      '..##....##..',
+      '..########..',
+      '.##########.',
+      '.##########.',
+      '.##oooooo##.',
+      '.##ooYYoo##.',
+      '.##oooooo##.',
+      '.##########.',
+      '..########..',
       '............',
-      '....####....',
-      '...##..##...',
-      '..##....##..',
-      '............',
-      '....####....',
-      '...##..##...',
-      '..##....##..',
     ],
   ],
 };
+
+/** Treasure chest: round lid, gold lock. */
+export const iconMenuChest: SpriteDef = {
+  name: 'icon-menu-chest',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '..########..',
+      '.##########.',
+      '.##########.',
+      '.oooooooooo.',
+      '.####YY####.',
+      '.####YY####.',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '.##########.',
+      '............',
+    ],
+  ],
+};
+
+/** Scroll: rolled ends, two lines of text. */
+export const iconMenuScroll: SpriteDef = {
+  name: 'icon-menu-scroll',
+  width: 12,
+  height: 12,
+  frames: [
+    [
+      '............',
+      '..########..',
+      '.##########.',
+      '..#oooooo#..',
+      '..#o####o#..',
+      '..#oooooo#..',
+      '..#o####o#..',
+      '..#oooooo#..',
+      '..#o####o#..',
+      '.##########.',
+      '..########..',
+      '............',
+    ],
+  ],
+};
+
+const MENU_ICONS = {
+  backpack: iconMenuBackpack,
+  chest: iconMenuChest,
+  scroll: iconMenuScroll,
+};
+
+/** Which icon the menu button shows. To switch, change this one word. */
+export const MENU_ICON: keyof typeof MENU_ICONS = 'chest';
 
 export const icons = {
   damage: iconDamage,
@@ -341,5 +401,5 @@ export const icons = {
   sfxOff: iconSfxOff,
   pause: iconPause,
   play: iconPlay,
-  menu: iconMenu,
+  menu: MENU_ICONS[MENU_ICON],
 } satisfies Record<string, SpriteDef>;
