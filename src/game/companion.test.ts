@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { TICK } from '../loop';
 import { windup } from './attacks';
 import {
@@ -36,6 +36,10 @@ import {
   type GameState,
   type Progress,
 } from './state';
+import { setPicksEnabled } from './passives';
+
+// These tests are about fighting and stage flow: the stage-clear pick has its own tests.
+beforeAll(() => setPicksEnabled(false));
 
 const { crow, wolf } = COMPANIONS;
 const levels = (l: Partial<CompanionLevels> = {}): CompanionLevels => ({ crow: 0, wolf: 0, ...l });
@@ -337,6 +341,29 @@ describe('auto attacks', () => {
       const every = secToTicks(def.attack.interval);
       expect(hits).toEqual([1, 2, 3].map((n) => start + n * every + windupTicks));
     }
+  });
+
+  it.each(['crow', 'wolf'] as const)(
+    'a %s bought mid-fight is active at once: no extra equip step, it attacks within a second or two',
+    (id) => {
+      // Owned by buying (not by the starting save), after the duel is already running.
+      let s = toFighting(tanky({}, { best: 20, coins: COMPANIONS[id].price }));
+      s = buyCompanion(s, id);
+      expect(ownedCompanions(s).map((d) => d.id)).toEqual([id]);
+      const hits: number[] = [];
+      run(s, 2.5, hits);
+      expect(hits.length).toBeGreaterThanOrEqual(1);
+    },
+  );
+
+  it('buying the second companion keeps the first one attacking', () => {
+    let s = toFighting(tanky({ crow: 1 }, { best: 20, coins: WOLF_PRICE }));
+    s = buyCompanion(s, 'wolf');
+    expect(ownedCompanions(s).map((d) => d.id)).toEqual(['crow', 'wolf']);
+    const hits: number[] = [];
+    run(s, 2.5, hits);
+    // Both are active: more than one companion's worth of hits in 2.5 s.
+    expect(hits.length).toBeGreaterThanOrEqual(3);
   });
 
   it('they attack independently, each on its own timer and for its own damage', () => {

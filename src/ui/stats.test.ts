@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ascend } from '../game/ascend';
 import { ASCEND_COST, CRIT, HERO_MAX_HP } from '../game/balance';
 import { newGear, type Item } from '../game/items';
-import { createState, newProgress, type Progress } from '../game/state';
+import { createState, newProgress, type GameState, type Progress } from '../game/state';
 import { characterStats, statsHtml, type StatSection } from './stats';
 
 const stateOf = (p: Partial<Progress> = {}) => createState({ ...newProgress(), ...p });
@@ -235,5 +235,63 @@ describe('statsHtml', () => {
   it('renders each section as a heading and a label/value list, escaped', () => {
     const out = statsHtml([{ title: 'A & B', rows: [{ label: '<x>', value: '1' }] }]);
     expect(out).toBe('<h3>A &#38; B</h3><dl><dt>&#60;x&#62;</dt><dd>1</dd></dl>');
+  });
+});
+
+describe('passive skills in the stats', () => {
+  const rows = (s: StatSection[], title: string) => s.find((x) => x.title === title)?.rows ?? [];
+
+  it('lists the drop chance of every tier at 0 ascends', () => {
+    expect(rows(characterStats(stateOf()), 'Passive skill chances')).toEqual([
+      { label: 'Tier C', value: '60%' },
+      { label: 'Tier B', value: '25%' },
+      { label: 'Tier A', value: '10%' },
+      { label: 'Tier S', value: '4%' },
+      { label: 'Tier S+', value: '1%' },
+    ]);
+  });
+
+  it('follows the ascends: with 3 ascends B is more likely and C less', () => {
+    const state = { ...stateOf(), ascends: 3 } as GameState;
+    const chance = (tier: string) =>
+      parseFloat(value(characterStats(state), 'Passive skill chances', `Tier ${tier}`)!);
+    expect(chance('B')).toBeGreaterThan(25);
+    expect(chance('C')).toBeLessThan(60);
+    expect(chance('B') + chance('C') + chance('A') + chance('S') + chance('S+')).toBeCloseTo(
+      100,
+      0,
+    );
+  });
+
+  it('keeps the ascend rows next to the passive chances', () => {
+    const s = characterStats({ ...stateOf(), ascends: 3 } as GameState);
+    expect(value(s, 'Progress', 'Ascends')).toBe('3');
+    expect(s.map((x) => x.title)).toEqual(
+      expect.arrayContaining(['Records', 'Passive skills', 'Passive skill chances']),
+    );
+  });
+
+  it('shows the owned passives and the count', () => {
+    const s = characterStats(
+      stateOf({
+        passives: [
+          { id: 'speed', tier: 'C', level: 3 },
+          { id: 'crit', tier: 'SS', level: 1 },
+        ],
+      }),
+    );
+    expect(value(s, 'Passive skills', 'Picks')).toBe('4');
+    expect(value(s, 'Passive skills', 'Swift strikes · C')).toBe('Lv 3 · +3%');
+    expect(value(s, 'Passive skills', 'Keen eye · S+')).toBe('Lv 1 · +4%');
+    expect(value(s, 'Hero', 'Crit chance')).toBe(`4% (×${CRIT.damageMult} damage)`);
+  });
+
+  it('has an empty list for a new game and uses attack speed in the DPS', () => {
+    expect(rows(characterStats(stateOf()), 'Passive skills')).toEqual([
+      { label: 'Picks', value: '0' },
+    ]);
+    const s = characterStats(stateOf({ passives: [{ id: 'speed', tier: 'S', level: 25 }] }));
+    // 25 × 4 % = 100 % → capped at 50 %: DPS 1 × 1.5
+    expect(value(s, 'Hero', 'DPS')).toBe('1.5');
   });
 });

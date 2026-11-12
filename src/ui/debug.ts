@@ -16,6 +16,7 @@ import {
 import { ascendProgress } from '../game/ascend';
 import { formatNumber } from '../game/format';
 import { forceNextDrop, gearTotals, rollItem } from '../game/items';
+import { picksEnabled, setPicksEnabled } from '../game/passives';
 import type { RainCounts } from '../game/rain';
 import { critChance, heroDamage, heroDefence } from '../game/state';
 import {
@@ -51,6 +52,8 @@ export type DebugApi = {
   apply(data: unknown): string[] | null;
   /** Clears the save and restarts from 1.1. */
   reset(): void;
+  /** Opens a stage-pick offer right now. */
+  offerPick(): void;
   /** Shows this item rain instead of the equipped items' (`null` = back to the items). */
   previewRain?(counts: RainCounts | null): void;
   /** Game clock multiplier (debug only, not saved; `1` = real time). */
@@ -245,6 +248,10 @@ export function createDebugPanel(
       <div class="dbg-row">
         <button type="button" data-dbg="force">Force drop on next kill</button>
         <button type="button" data-dbg="clear-bag">Clear bag</button>
+      </div>
+      <div class="dbg-row">
+        <button type="button" data-dbg="pick-offer">Offer a skill pick now</button>
+        <label><input type="checkbox" data-dbg="picks-toggle" ${picksEnabled() ? 'checked' : ''} /> Stage picks on</label>
       </div>
       <label>Raw save JSON<textarea class="dbg-json" spellcheck="false" aria-label="Raw save JSON"></textarea></label>
       <div class="dbg-row"><button type="button" data-dbg="apply-json">Apply JSON</button></div>
@@ -514,6 +521,14 @@ export function createDebugPanel(
         forceNextDrop();
         forcedAt = api.read().items.nextId;
         message(null, 'The next kill drops an item.');
+        return;
+      case 'pick-offer':
+        api.offerPick();
+        message(null, 'Offered a skill pick.');
+        return;
+      case 'picks-toggle':
+        setPicksEnabled((e.target as HTMLInputElement).checked);
+        message(null, picksEnabled() ? 'Stage picks are on.' : 'Stage picks are off.');
         return;
       case 'clear-bag':
         apply(clearBag(api.read()), 'Bag cleared.');
