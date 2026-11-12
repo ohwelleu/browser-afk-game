@@ -425,3 +425,52 @@ describe('stage switch', () => {
     expect([s.world, s.stage, s.autoAdvance]).toEqual([3, 3, false]);
   });
 });
+
+describe('buying a weapon equips it when it hits at least as hard', () => {
+  /** A ring that adds `damage` flat hit damage, worn from the start. */
+  const withRing = (damage: number, p: Partial<Progress> = {}) => {
+    const items = newGear(1);
+    items.ring = { id: 1, slot: 'ring', tier: 'C', world: 1, stage: 1, stats: { damage } };
+    return createState({ ...newProgress(), items, ...p });
+  };
+
+  it('equips the new weapon even with flat item damage worn (gear counts on both sides)', () => {
+    // Stick lvl 1 + a +500 ring hits for 501. The new weapon must be compared with the ring
+    // too, not on its own (its base damage alone is far below 501).
+    let s = withRing(500, { coins: WEAPONS[1].price });
+    s = buyWeapon(s);
+    expect(s.weaponLevels[1]).toBe(1);
+    expect(s.equipped).toBe(1);
+    expect(heroDamage(s)).toBe(WEAPONS[1].baseDmg + 500);
+  });
+
+  it('still keeps a stronger, upgraded weapon equipped with flat item damage worn', () => {
+    let s = withRing(500, { coins: WEAPONS[1].price, weaponLevels: [1000, 0, 0, 0, 0] });
+    s = buyWeapon(s);
+    expect(s.weaponLevels[1]).toBe(1);
+    expect(s.equipped).toBe(0);
+  });
+
+  it('equips on equal damage (>=), keeps the old weapon when it hits harder', () => {
+    // Stick damage = level; the wooden sword at level 1 hits for 6.
+    const buyWith = (stickLevel: number) =>
+      buyWeapon(
+        createState({
+          ...newProgress(),
+          coins: WEAPONS[1].price,
+          weaponLevels: [stickLevel, 0, 0, 0, 0],
+        }),
+      );
+    expect(buyWith(5).equipped).toBe(1); // 5 < 6
+    expect(buyWith(6).equipped).toBe(1); // 6 = 6: a tie equips
+    expect(buyWith(7).equipped).toBe(0); // 7 > 6: base damage is higher, but the stick hits harder now
+  });
+
+  it('after an ascend, items stay worn and the first buy still equips', () => {
+    // An ascend resets weapons to the stick; the ring stays. Same comparison as before.
+    const worn = withRing(500, { ascends: 1, coins: WEAPONS[1].price });
+    expect(worn.equipped).toBe(0);
+    const s = buyWeapon(worn);
+    expect(s.equipped).toBe(1);
+  });
+});
