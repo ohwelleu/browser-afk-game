@@ -18,6 +18,25 @@ How work is split between threads (AI sessions) and the owner.
 - Implementation threads don't edit `docs/` or `CHANGELOG.md`. They propose
   lines in the PR body.
 
+## Models
+
+Which Claude model a thread uses (the planning thread sets it when it
+launches the thread; the owner can change it in T3 Code any time). Available
+in T3 Code on 2026-11-10: Opus 5.5, Sonnet 5.5, Fable 5.2, Haiku 5.5.
+
+| Work                                                        | Model             |
+| ----------------------------------------------------------- | ----------------- |
+| Design, balance, simulator, research that must be precise   | Opus 5.5 (high)   |
+| Tricky code: saves, state, merge conflicts, hard-to-find bugs | Opus 5.5        |
+| Normal UI and code tasks, art redraws                       | Sonnet 5.5        |
+| Small docs and backlog edits                                | Haiku 5.5         |
+
+- Fable 5.2 is not used yet. Try it for design or hard bugs when a thread
+  gets stuck.
+- The planning thread inherits the model the owner picked with `/model`;
+  threads it launches inherit that unless a model is set on launch.
+- A model change on a running thread may only apply from its next turn.
+
 ## Branches and releases
 
 Project rule: **features go to `staging`, only releases go to `main`.**
