@@ -205,7 +205,8 @@ export const secToTicks = (s: number): number => Math.round(s * TICK_RATE);
 /** Ticks of an intro/gap before a mob appears: `secToTicks`, scaled by the debug-only appear speed. */
 const appearTicks = (s: number): number => secToTicks(scaleAppear(s, mobAppearSpeed()));
 
-export function newProgress(): Progress {
+/** A new game. `seed` fixes the drop RNG (and so crits and picks); left out, it is random. */
+export function newProgress(seed?: number): Progress {
   return {
     world: 1,
     stage: 1,
@@ -221,7 +222,7 @@ export function newProgress(): Progress {
     ascends: 0,
     bestStage: 1,
     bestItem: null,
-    items: newGear(),
+    items: newGear(seed),
     companions: newCompanions(),
     character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
     passives: [],
