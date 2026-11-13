@@ -1,12 +1,17 @@
 /**
  * Every tunable number of the game. Logic reads from here; nothing else
  * should hardcode balance values. See docs/PLAN.md → Balance.
+ *
+ * Every number is also reachable through `TUNING` (end of this file), so the
+ * simulator can override it with `applyTuning` and undo it with
+ * `resetTuning` (docs/design/simulator.md → 2.3). The game itself never
+ * changes them. Plain-number exports are `let` so importers see an override.
  */
 import type { AttackDef } from './attacks';
 
 export const STAGES_PER_WORLD = 6;
 export const BOSS_STAGE = 6;
-export const HERO_MAX_HP = 100;
+export let HERO_MAX_HP = 100;
 
 /**
  * Duel timeline in seconds (duel time starts at 0 when the mob appears).
@@ -60,9 +65,9 @@ export const WEAPONS: readonly WeaponStats[] = [
  * Shop → Weapons shows a weapon once coins reach this share of its price
  * (game/reveal.ts). Once shown it stays shown.
  */
-export const WEAPON_REVEAL_FRACTION = 0.9;
+export let WEAPON_REVEAL_FRACTION = 0.9;
 
-export const UPGRADE_GROWTH = 1.15;
+export let UPGRADE_GROWTH = 1.15;
 
 const MOB_HP = { base: 10, growth: 1.28, boss: 5 };
 const MOB_DMG = { base: 5, growth: 1.07, boss: 2 };
@@ -71,8 +76,7 @@ const MOB_COINS = { base: 4, growth: 1.3, boss: 5 };
  * World 1 is a tutorial: mob HP and damage × these. HP is cut hard so a fresh
  * stick (1 dmg) kills a normal mob in 2–3 hits (1.1–1.5: 2, 2, 2, 3, 3 HP).
  */
-const WORLD_1_HP_MULT = 0.11;
-const WORLD_1_DMG_MULT = 0.8;
+const WORLD_1 = { hpMult: 0.11, dmgMult: 0.8 };
 
 /**
  * Integer guard for HP, damage and coins: NaN → 0, ±Infinity and anything
@@ -109,28 +113,28 @@ function scaled(
   return Math.max(1, safeInt(Math.ceil(v)));
 }
 
-export const mobHp = (world: number, stage: number) =>
-  scaled(MOB_HP, world, stage, WORLD_1_HP_MULT);
+export const mobHp = (world: number, stage: number) => scaled(MOB_HP, world, stage, WORLD_1.hpMult);
 export const mobDamage = (world: number, stage: number) =>
-  scaled(MOB_DMG, world, stage, WORLD_1_DMG_MULT);
+  scaled(MOB_DMG, world, stage, WORLD_1.dmgMult);
 export const mobCoins = (world: number, stage: number) => scaled(MOB_COINS, world, stage, 1);
 
 // ── Ascend (prestige) ──────────────────────────────────────────────────────
 
 /** Ascend unlocks once the highest stage reached is this one (6.1 = `world.stage`) or higher. */
 export const ASCEND_GATE = { world: 6, stage: 1 };
-/** The gate as a stage level, comparable with `GameState.best`. */
-export const ASCEND_GATE_LEVEL = stageLevel(ASCEND_GATE.world, ASCEND_GATE.stage);
+/** The gate as a stage level, comparable with `GameState.best` (also `ASCEND_GATE_LEVEL`). */
+export const ascendGateLevel = (): number => stageLevel(ASCEND_GATE.world, ASCEND_GATE.stage);
 /** The price is this many kills' worth of coins at the gate stage. */
-export const ASCEND_COST_KILLS = 100;
-/** Ascend price in coins: `ASCEND_COST_KILLS × mobCoins(gate stage)`. */
-export const ASCEND_COST = ASCEND_COST_KILLS * mobCoins(ASCEND_GATE.world, ASCEND_GATE.stage);
+export let ASCEND_COST_KILLS = 100;
+/** Ascend price in coins: `ASCEND_COST_KILLS × mobCoins(gate stage)` (also `ASCEND_COST`). */
+export const ascendCost = (): number =>
+  TUNING.ascend.costKills * mobCoins(ASCEND_GATE.world, ASCEND_GATE.stage);
 /**
  * Attack speed each ascend adds (0.10 = +10 %). Placeholder, to be balanced
  * with the simulator. It adds on top of the gear speed and is NOT part of the
  * item cap (`ITEMS.caps.speed`).
  */
-export const ASCEND_SPEED_PER = 0.1;
+export let ASCEND_SPEED_PER = 0.1;
 
 /** `damage = baseDmg × level` (level 0 = not owned = no damage). */
 export function weaponDamage(tier: number, level: number): number {
@@ -142,7 +146,7 @@ export function weaponDamage(tier: number, level: number): number {
 export function upgradeCost(tier: number, level: number): number {
   const w = WEAPONS[tier];
   if (!w || level < 1) return Number.MAX_SAFE_INTEGER;
-  return safeInt(Math.ceil(w.upgradeBase * UPGRADE_GROWTH ** (level - 1)));
+  return safeInt(Math.ceil(w.upgradeBase * TUNING.upgrade.growth ** (level - 1)));
 }
 
 // ── Items: ring, pendant, earring and belt (docs/design/active-play.md → 2. Items) ──
@@ -268,14 +272,14 @@ export type CompanionId = (typeof COMPANION_IDS)[number];
  * (2 = 2 % of the hero's hit). Keep the per-level steps to multiples of 0.25
  * so the sums stay exact in floating point.
  */
-export const CROW_PRICE = 25;
-export const CROW_BASE_PERCENT = 2;
-export const CROW_PERCENT_PER_LEVEL = 0.5;
+export let CROW_PRICE = 25;
+export let CROW_BASE_PERCENT = 2;
+export let CROW_PERCENT_PER_LEVEL = 0.5;
 export const CROW_UPGRADE = { base: 10, growth: 1.15 };
 
-export const WOLF_PRICE = 500;
-export const WOLF_BASE_PERCENT = 5;
-export const WOLF_PERCENT_PER_LEVEL = 1.25;
+export let WOLF_PRICE = 500;
+export let WOLF_BASE_PERCENT = 5;
+export let WOLF_PERCENT_PER_LEVEL = 1.25;
 export const WOLF_UPGRADE = { base: 100, growth: 1.15 };
 
 /** Where a companion stands: on the hero's hat (flies out) or behind the hero (lunges). */
@@ -413,7 +417,7 @@ export const CHARACTER: Record<
  * The most crit chance (in %) the Shop upgrade can give. Raise it later; items
  * add on top of it, up to `CRIT.maxChance` in total.
  */
-export const CRIT_BUY_MAX_PERCENT = 40;
+export let CRIT_BUY_MAX_PERCENT = 40;
 
 export const CRIT = {
   /** The total crit chance (items + upgrade) never goes above this. */
@@ -422,17 +426,19 @@ export const CRIT = {
   damageMult: 2,
 };
 
-/** Highest crit upgrade level that can be bought (the one that reaches `CRIT_BUY_MAX_PERCENT`). */
-export const CRIT_MAX_LEVEL = Math.floor(
-  (CRIT_BUY_MAX_PERCENT / 100 / CHARACTER.crit.perLevel) * (1 + 1e-9),
-);
+/**
+ * Highest crit upgrade level that can be bought (the one that reaches
+ * `CRIT_BUY_MAX_PERCENT`; also `CRIT_MAX_LEVEL`).
+ */
+export const critMaxLevel = (): number =>
+  Math.floor((TUNING.shop.critMaxPercent / 100 / CHARACTER.crit.perLevel) * (1 + 1e-9));
 
 /**
  * Crit chance from the coin upgrade at `level`, kept to 0.01 % steps. Levels
- * past `CRIT_MAX_LEVEL` (old or debug saves) count as the cap, not more.
+ * past `critMaxLevel()` (old or debug saves) count as the cap, not more.
  */
 export const critFromLevel = (level: number): number =>
-  Math.round(CHARACTER.crit.perLevel * Math.min(CRIT_MAX_LEVEL, Math.max(0, level)) * 10_000) /
+  Math.round(CHARACTER.crit.perLevel * Math.min(critMaxLevel(), Math.max(0, level)) * 10_000) /
   10_000;
 
 /** Total crit chance (0–`CRIT.maxChance`) from the raw sum of upgrade and item chances. */
@@ -447,7 +453,7 @@ export function characterCost(id: CharacterUpgradeId, level: number): number {
   const p = CHARACTER[id];
   if (!(level >= 0)) return Number.MAX_SAFE_INTEGER;
   // Crit is capped: MAX_SAFE_INTEGER means "can't buy" (bulk buys stop there).
-  if (id === 'crit' && level >= CRIT_MAX_LEVEL) return Number.MAX_SAFE_INTEGER;
+  if (id === 'crit' && level >= critMaxLevel()) return Number.MAX_SAFE_INTEGER;
   return safeInt(Math.ceil(p.base * p.growth ** level));
 }
 
@@ -508,4 +514,116 @@ export function bulkQuote(
     levels++;
   }
   return { levels, cost };
+}
+
+// ── Tuning (docs/design/simulator.md → 2.3) ────────────────────────────────
+
+/**
+ * Every tunable number above, in one tree. Objects are the SAME objects as
+ * the exports (`TUNING.items === ITEMS`), so an override is seen everywhere.
+ * Keys are dotted paths to a number: `mob.hp.growth`, `weapons[1].price`.
+ *
+ * The game never changes these. Only the simulator does, through
+ * `applyTuning` / `resetTuning` (never assign to `TUNING` directly: the
+ * `let` exports above would not follow).
+ *
+ * A new tunable value: if it lives in one of the objects below, it is already
+ * a key. A new top-level number: add it here, and if it is also exported as a
+ * `let` (or derived from other values), add one line to `syncExports`.
+ */
+export const TUNING = {
+  hero: { maxHp: HERO_MAX_HP },
+  duel: DUEL,
+  mobKinds: MOB_KINDS,
+  mob: { hp: MOB_HP, dmg: MOB_DMG, coins: MOB_COINS },
+  world1: WORLD_1,
+  weapons: WEAPONS,
+  upgrade: { growth: UPGRADE_GROWTH },
+  shop: { weaponRevealFraction: WEAPON_REVEAL_FRACTION, critMaxPercent: CRIT_BUY_MAX_PERCENT },
+  ascend: { gate: ASCEND_GATE, costKills: ASCEND_COST_KILLS, speedPerAscend: ASCEND_SPEED_PER },
+  items: ITEMS,
+  companions: COMPANIONS,
+  character: CHARACTER,
+  crit: CRIT,
+};
+
+/** The gate as a stage level, comparable with `GameState.best`. Same as `ascendGateLevel()`. */
+export let ASCEND_GATE_LEVEL = ascendGateLevel();
+/** Ascend price in coins. Same as `ascendCost()`. */
+export let ASCEND_COST = ascendCost();
+/** Highest crit upgrade level that can be bought. Same as `critMaxLevel()`. */
+export let CRIT_MAX_LEVEL = critMaxLevel();
+
+/** Copies `TUNING` into the `let` exports and recomputes the derived ones. */
+function syncExports(): void {
+  HERO_MAX_HP = TUNING.hero.maxHp;
+  UPGRADE_GROWTH = TUNING.upgrade.growth;
+  WEAPON_REVEAL_FRACTION = TUNING.shop.weaponRevealFraction;
+  CRIT_BUY_MAX_PERCENT = TUNING.shop.critMaxPercent;
+  ASCEND_COST_KILLS = TUNING.ascend.costKills;
+  ASCEND_SPEED_PER = TUNING.ascend.speedPerAscend;
+  CROW_PRICE = COMPANIONS.crow.price;
+  CROW_BASE_PERCENT = COMPANIONS.crow.basePercent;
+  CROW_PERCENT_PER_LEVEL = COMPANIONS.crow.percentPerLevel;
+  WOLF_PRICE = COMPANIONS.wolf.price;
+  WOLF_BASE_PERCENT = COMPANIONS.wolf.basePercent;
+  WOLF_PERCENT_PER_LEVEL = COMPANIONS.wolf.percentPerLevel;
+  ASCEND_GATE_LEVEL = ascendGateLevel();
+  ASCEND_COST = ascendCost();
+  CRIT_MAX_LEVEL = critMaxLevel();
+}
+
+type Tree = Record<string, unknown>;
+const isTree = (v: unknown): v is Tree => typeof v === 'object' && v !== null;
+const hasOwn = (o: Tree, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+
+/** Every number in `t` with its path, depth first in declaration order. */
+function numberLeaves(t: Tree, path: string[] = [], out: [string[], number][] = []) {
+  for (const k of Object.keys(t)) {
+    const v = t[k];
+    if (typeof v === 'number') out.push([[...path, k], v]);
+    else if (isTree(v)) numberLeaves(v, [...path, k], out);
+  }
+  return out;
+}
+
+/** Every tunable number as `[path, value]`, e.g. `[['weapons', '1', 'price'], 100]`. */
+export const tuningLeaves = (): [string[], number][] => numberLeaves(TUNING);
+
+const DEFAULTS = tuningLeaves();
+
+/** The object holding the number at `path` (`weapons[1].price` or `weapons.1.price`), or throws. */
+function parentOf(key: string): [Tree, string] {
+  const keys = key.replace(/\[(\d+)\]/g, '.$1').split('.');
+  const last = keys.pop() as string;
+  let node: unknown = TUNING;
+  for (const k of keys) node = isTree(node) && hasOwn(node, k) ? node[k] : undefined;
+  if (!isTree(node) || !hasOwn(node, last) || typeof node[last] !== 'number') {
+    throw new Error(`Unknown tuning key "${key}"`);
+  }
+  return [node, last];
+}
+
+/**
+ * Overrides one tunable number (simulator only). Throws on a key that is not
+ * a number in `TUNING` (typos must not silently run the default) and on a
+ * value that is not a finite number.
+ */
+export function applyTuning(key: string, value: number): void {
+  const [node, last] = parentOf(key);
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`Tuning "${key}" must be a finite number, got ${String(value)}`);
+  }
+  node[last] = value;
+  syncExports();
+}
+
+/** Puts every tunable number back to the game's default. */
+export function resetTuning(): void {
+  for (const [path, value] of DEFAULTS) {
+    let node = TUNING as unknown as Tree;
+    for (const k of path.slice(0, -1)) node = node[k] as Tree;
+    node[path[path.length - 1]] = value;
+  }
+  syncExports();
 }
