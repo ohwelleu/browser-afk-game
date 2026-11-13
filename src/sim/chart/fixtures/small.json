@@ -1,0 +1,268 @@
+{
+  "scenario": {
+    "name": "small <hand-made> & tiny",
+    "gameVersion": "0.0.0-test",
+    "seed": 7,
+    "runs": 2,
+    "duration": "1h",
+    "tuning": { "mob.hp.growth": 1.28 },
+    "report": { "xAxis": "log", "targets": [{ "level": 7, "label": "World 2", "at": "5m" }] }
+  },
+  "variants": [
+    {
+      "id": "idle",
+      "label": "idle",
+      "bot": "idle",
+      "runs": [
+        {
+          "seed": 7,
+          "samples": [
+            {
+              "t": 60,
+              "level": 2,
+              "best": 2,
+              "coins": 10,
+              "incomePerMin": 10,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 10,
+              "ttk": 5,
+              "ttd": 20,
+              "kills": 6,
+              "deaths": 0,
+              "ascends": 0,
+              "drops": { "C": 0 }
+            },
+            {
+              "t": 600,
+              "level": 4,
+              "best": 4,
+              "coins": 90,
+              "incomePerMin": 12,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 17,
+              "ttk": 8,
+              "ttd": 15,
+              "kills": 60,
+              "deaths": 0,
+              "ascends": 0,
+              "drops": { "C": 1 }
+            },
+            {
+              "t": 1800,
+              "level": 4,
+              "best": 5,
+              "coins": 300,
+              "incomePerMin": 14,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 17,
+              "ttk": 8,
+              "ttd": 15,
+              "kills": 200,
+              "deaths": 1,
+              "ascends": 0,
+              "drops": { "C": 2, "B": 1 }
+            },
+            {
+              "t": 3600,
+              "level": 4,
+              "best": 5,
+              "coins": 700,
+              "incomePerMin": 14,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 17,
+              "ttk": 8,
+              "ttd": 15,
+              "kills": 420,
+              "deaths": 1,
+              "ascends": 0,
+              "drops": { "C": 3, "B": 1 }
+            }
+          ],
+          "milestones": [
+            { "level": 1, "t": 0 },
+            { "level": 2, "t": 40 },
+            { "level": 3, "t": 200 },
+            { "level": 4, "t": 500 },
+            { "level": 5, "t": 1200 }
+          ],
+          "purchases": [],
+          "ascends": []
+        },
+        {
+          "seed": 8,
+          "samples": [
+            {
+              "t": 60,
+              "level": 2,
+              "best": 2,
+              "coins": 12,
+              "incomePerMin": 11,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 10,
+              "ttk": 5,
+              "ttd": 20,
+              "kills": 7,
+              "deaths": 0,
+              "ascends": 0
+            },
+            {
+              "t": 600,
+              "level": 3,
+              "best": 3,
+              "coins": 80,
+              "incomePerMin": 11,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 13,
+              "ttk": 6,
+              "ttd": 17,
+              "kills": 58,
+              "deaths": 0,
+              "ascends": 0
+            },
+            {
+              "t": 1800,
+              "level": 4,
+              "best": 4,
+              "coins": 280,
+              "incomePerMin": 13,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 17,
+              "ttk": 8,
+              "ttd": 15,
+              "kills": 190,
+              "deaths": 0,
+              "ascends": 0
+            },
+            {
+              "t": 3600,
+              "level": 4,
+              "best": 4,
+              "coins": 650,
+              "incomePerMin": 13,
+              "spentTotal": 0,
+              "dpsEff": 2,
+              "mobHp": 17,
+              "ttk": 8,
+              "ttd": 15,
+              "kills": 400,
+              "deaths": 2,
+              "ascends": 0
+            }
+          ],
+          "milestones": [
+            { "level": 1, "t": 0 },
+            { "level": 2, "t": 45 },
+            { "level": 3, "t": 300 },
+            { "level": 4, "t": 900 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "greedy",
+      "label": "greedy <b>buyer</b>",
+      "bot": "idle-greedy",
+      "runs": [
+        {
+          "seed": 7,
+          "samples": [
+            {
+              "t": 60,
+              "tWall": 60,
+              "level": 3,
+              "best": 3,
+              "coins": 2,
+              "incomePerMin": 12,
+              "spentTotal": 10,
+              "spent": { "weaponUpgrade": 10 },
+              "dpsEff": 3,
+              "mobHp": 13,
+              "ttk": 4,
+              "ttd": 20,
+              "kills": 8,
+              "deaths": 0,
+              "ascends": 0,
+              "drops": { "C": 1 }
+            },
+            {
+              "t": 600,
+              "tWall": 600,
+              "level": 7,
+              "best": 7,
+              "coins": 20,
+              "incomePerMin": 60,
+              "spentTotal": 400,
+              "spent": { "weaponUpgrade": 300, "character": 100 },
+              "dpsEff": 12,
+              "mobHp": 48,
+              "ttk": 4,
+              "ttd": 12,
+              "kills": 90,
+              "deaths": 0,
+              "ascends": 0,
+              "drops": { "C": 2, "A": 1 }
+            },
+            {
+              "t": 1800,
+              "tWall": 3600,
+              "level": 10,
+              "best": 11,
+              "coins": 50,
+              "incomePerMin": 300,
+              "spentTotal": 5000,
+              "spent": { "weaponUpgrade": 3000, "weaponBuy": 1200, "character": 800 },
+              "dpsEff": 80,
+              "mobHp": 400,
+              "ttk": 5,
+              "ttd": 9,
+              "kills": 300,
+              "deaths": 1,
+              "ascends": 0,
+              "drops": { "C": 4, "A": 1, "S": 1 }
+            },
+            {
+              "t": 3600,
+              "tWall": 5400,
+              "level": 13,
+              "best": 13,
+              "coins": 400,
+              "incomePerMin": 900,
+              "spentTotal": 30000,
+              "spent": { "weaponUpgrade": 20000, "weaponBuy": 6000, "character": 4000 },
+              "dpsEff": 400,
+              "mobHp": 1600,
+              "ttk": 4,
+              "ttd": 8,
+              "kills": 700,
+              "deaths": 1,
+              "ascends": 1,
+              "drops": { "C": 6, "B": 2, "A": 1, "S": 1, "SS": 1 }
+            }
+          ],
+          "milestones": [
+            { "level": 1, "t": 0 },
+            { "level": 3, "t": 50 },
+            { "level": 7, "t": 290 },
+            { "level": 11, "t": 1500 },
+            { "level": 13, "t": 3000 }
+          ],
+          "purchases": [
+            { "t": 30, "kind": "weaponUpgrade", "levelFrom": 0, "levelTo": 1, "cost": 10 },
+            { "t": 300, "kind": "character", "levelFrom": 0, "levelTo": 3, "cost": 100 },
+            { "t": 900, "kind": "weaponBuy", "target": "sword", "cost": 1200 },
+            { "t": 2000, "kind": "companion", "target": "crow", "cost": 5000 },
+            { "t": 3500, "kind": "ascend", "cost": 0 }
+          ],
+          "ascends": [{ "t": 3500, "level": 13 }]
+        }
+      ]
+    }
+  ]
+}
