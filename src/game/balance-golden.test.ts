@@ -59,6 +59,9 @@ import {
   mobCoins,
   mobDamage,
   mobHp,
+  applyTuning,
+  resetTuning,
+  tuningLeaves,
   upgradeCost,
   weaponDamage,
 } from './balance';
@@ -168,6 +171,15 @@ function goldenTable(): string {
 
 describe('balance golden table', () => {
   it('every balance value for stage levels 1–60 equals the committed table', async () => {
+    await expect(goldenTable()).toMatchFileSnapshot('./fixtures/balance-golden.txt');
+  });
+
+  it('is the same again after overriding every tuning key and resetting', async () => {
+    const before = goldenTable();
+    for (const [path, value] of tuningLeaves()) applyTuning(path.join('.'), value * 2 + 1);
+    expect(goldenTable()).not.toBe(before);
+    resetTuning();
+    expect(goldenTable()).toBe(before);
     await expect(goldenTable()).toMatchFileSnapshot('./fixtures/balance-golden.txt');
   });
 });
