@@ -17,3 +17,6 @@ demo/.vite/
 
 # Third-party reference images, kept local only
 references/**/_private/
+
+# Simulator output (npm run sim)
+sim-out/
