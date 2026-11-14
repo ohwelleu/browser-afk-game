@@ -144,7 +144,8 @@ describe('writeSave / loadSave', () => {
       bestItem: null,
       items: st.items,
       companions: { crow: 0, wolf: 0 },
-      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 0 },
+      mana: 100,
       passives: [],
       pick: null,
     });
@@ -446,6 +447,7 @@ describe('save migration v7 → v8 (companion slot becomes companion levels)', (
       ascends: 0,
       bestStage: 1,
       bestItem: null,
+      mana: 100,
       passives: [],
       pick: null,
     });
@@ -476,13 +478,14 @@ describe('save migration', () => {
       version: SAVE_VERSION,
       coins: 5,
       companions: { crow: 0, wolf: 0 },
-      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 0 },
       revealedWeapons: [true, false, false, false, false],
       passives: [],
       pick: null,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
+      mana: 100,
     };
     expect(migrateSave({ version: 1, coins: 5 })).toEqual(want);
     expect(migrateSave({ version: 2, coins: 5 })).toEqual(want);
@@ -533,17 +536,18 @@ describe('character upgrades in the save (v4)', () => {
   it('keeps the defence level across a save round trip', () => {
     const st = createState({
       ...newProgress(),
-      character: { defenceLevel: 7, critLevel: 3, hpLevel: 4 },
+      character: { defenceLevel: 7, critLevel: 3, hpLevel: 4, manaLevel: 0 },
     });
     const data = toSaveData(st, audio, '0.4.0');
     expect(data.version).toBe(SAVE_VERSION);
-    expect(data.character).toEqual({ defenceLevel: 7, critLevel: 3, hpLevel: 4 });
+    expect(data.character).toEqual({ defenceLevel: 7, critLevel: 3, hpLevel: 4, manaLevel: 0 });
     const s = memory();
     writeSave(s, 'k', data);
     expect(loadSave(s, 'k').saved!.progress.character).toEqual({
       defenceLevel: 7,
       critLevel: 3,
       hpLevel: 4,
+      manaLevel: 0,
     });
   });
 
@@ -552,7 +556,7 @@ describe('character upgrades in the save (v4)', () => {
     expect(migrateSave(v3)).toMatchObject({
       coins: 5,
       version: SAVE_VERSION,
-      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 0 },
     });
   });
 
@@ -560,16 +564,37 @@ describe('character upgrades in the save (v4)', () => {
     const char = (character: unknown) =>
       loadSave(memory({ k: JSON.stringify({ version: 3, character }) }), 'k').saved!.progress
         .character;
-    expect(char(undefined)).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
-    expect(char({ defenceLevel: -2 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
-    expect(char({ defenceLevel: 3 })).toEqual({ defenceLevel: 3, critLevel: 0, hpLevel: 0 });
-    expect(char({ defenceLevel: 3, critLevel: 5, hpLevel: 2 })).toEqual({
+    expect(char(undefined)).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 0 });
+    expect(char({ defenceLevel: -2 })).toEqual({
+      defenceLevel: 0,
+      critLevel: 0,
+      hpLevel: 0,
+      manaLevel: 0,
+    });
+    expect(char({ defenceLevel: 3 })).toEqual({
+      defenceLevel: 3,
+      critLevel: 0,
+      hpLevel: 0,
+      manaLevel: 0,
+    });
+    expect(char({ defenceLevel: 3, critLevel: 5, hpLevel: 2, manaLevel: 0 })).toEqual({
       defenceLevel: 3,
       critLevel: 5,
       hpLevel: 2,
+      manaLevel: 0,
     });
-    expect(char({ critLevel: 1.5 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
-    expect(char({ hpLevel: 1.5 })).toEqual({ defenceLevel: 0, critLevel: 0, hpLevel: 0 });
+    expect(char({ critLevel: 1.5 })).toEqual({
+      defenceLevel: 0,
+      critLevel: 0,
+      hpLevel: 0,
+      manaLevel: 0,
+    });
+    expect(char({ hpLevel: 1.5, manaLevel: 0 })).toEqual({
+      defenceLevel: 0,
+      critLevel: 0,
+      hpLevel: 0,
+      manaLevel: 0,
+    });
   });
 });
 
@@ -587,7 +612,7 @@ describe('revealed weapons in the save (v5)', () => {
     expect(migrateSave(v4(0))).toEqual({
       ...rest,
       companions: { crow: 0, wolf: 0 },
-      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 0 },
       version: SAVE_VERSION,
       revealedWeapons: [true, true, false, false, false],
       passives: [],
@@ -595,6 +620,7 @@ describe('revealed weapons in the save (v5)', () => {
       ascends: 0,
       bestStage: 1,
       bestItem: null,
+      mana: 100,
     });
     // 2,700 is 90% of the stone sword (3,000); not yet the iron sword.
     expect(migrateSave(v4(2_700)).revealedWeapons).toEqual([true, true, true, false, false]);
@@ -654,12 +680,13 @@ describe('max HP upgrade in the save (v7)', () => {
       ...v6,
       version: SAVE_VERSION,
       companions: { crow: 0, wolf: 0 },
-      character: { defenceLevel: 3, critLevel: 2, hpLevel: 0 },
+      character: { defenceLevel: 3, critLevel: 2, hpLevel: 0, manaLevel: 0 },
       passives: [],
       pick: null,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
+      mana: 100,
     });
   });
 });
@@ -682,6 +709,7 @@ describe('ascend records in the save (v9)', () => {
       ascends: 0,
       bestStage: 15,
       bestItem: null,
+      mana: 100,
       passives: [],
       pick: null,
     });
@@ -721,6 +749,7 @@ describe('ascend records in the save (v9)', () => {
       ascends: 0,
       bestStage: 1,
       bestItem: null,
+      mana: 100,
     });
   });
 });
@@ -759,5 +788,47 @@ describe('Animations setting in the save', () => {
     expect(v1({ motion: 'reduced' })).toEqual({ motion: 'reduced' });
     expect(v1({ motion: 'nope' })).toEqual({});
     expect(v1(undefined)).toEqual({});
+  });
+});
+
+describe('mana in the save (v11)', () => {
+  it('v10 → v11 adds manaLevel 0 and full mana, keeping the other levels', () => {
+    const v10 = {
+      version: 10,
+      coins: 9,
+      character: { defenceLevel: 3, critLevel: 2, hpLevel: 1, manaLevel: 0 },
+    };
+    expect(migrateSave(v10)).toMatchObject({
+      version: SAVE_VERSION,
+      character: { defenceLevel: 3, critLevel: 2, hpLevel: 1, manaLevel: 0 },
+      mana: 100,
+    });
+  });
+
+  it('round-trips mana and the max mana level', () => {
+    const st = createState({
+      ...newProgress(),
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 4 },
+      mana: 61,
+    });
+    const s = memory();
+    writeSave(s, 'k', toSaveData(st, audio, '0.6.0'));
+    const { saved, status } = loadSave(s, 'k');
+    expect(status).toBe('ok');
+    expect(saved!.progress).toMatchObject({ mana: 61 });
+    expect(saved!.progress.character.manaLevel).toBe(4);
+    expect(createState(saved!.progress).mana).toBe(61);
+  });
+
+  it('an old save without mana loads with full mana at level 0', () => {
+    const old = JSON.parse(JSON.stringify(toSaveData(createState(), audio, '0.5.0')));
+    old.version = 9;
+    delete old.mana;
+    delete old.character.manaLevel;
+    const r = validateSaveData(old);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.progress.character.manaLevel).toBe(0);
+    expect(createState(r.progress).mana).toBe(100);
   });
 });
