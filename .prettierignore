@@ -6,3 +6,7 @@ package-lock.json
 # Audio module (music thread) predates the Prettier config; remove once it has run `npm run format`.
 src/audio/
 demo/audio.*
+# Generated sim report fixtures (one-line JSON, made by src/sim/chart/fixtures/generate.ts).
+src/sim/chart/fixtures/bots.json
+src/sim/chart/fixtures/ascend-sweep.json
+src/sim/chart/fixtures/grid-sweep.json

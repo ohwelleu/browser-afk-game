@@ -108,6 +108,8 @@ export const FIELDS: Field[] = [
   { key: 'character.defenceLevel', label: 'Defence upgrade level', kind: 'int' },
   { key: 'character.critLevel', label: 'Crit chance upgrade level', kind: 'int' },
   { key: 'character.hpLevel', label: 'Max HP upgrade level', kind: 'int' },
+  { key: 'character.manaLevel', label: 'Max mana upgrade level', kind: 'int' },
+  { key: 'mana', label: 'Mana now', kind: 'int' },
   ...COMPANION_IDS.map((id) => ({
     key: `companions.${id}`,
     label: `${COMPANIONS[id].name} level (0 = not bought)`,

@@ -8,7 +8,7 @@ import { dialogHtml } from './modal';
 export const ASCEND_RESETS: readonly string[] = [
   'Stage (back to 1.1) and coins',
   'Weapons and weapon levels',
-  'Defence, HP and crit upgrades',
+  'Defence, HP, mana and crit upgrades',
   'Companions and their levels',
   'Auto-advance (on, as in a new game)',
 ];

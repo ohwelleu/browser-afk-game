@@ -5,6 +5,7 @@ import {
   ASCEND_COST_KILLS,
   ASCEND_GATE,
   ASCEND_GATE_LEVEL,
+  HERO_MAX_MANA,
   mobCoins,
   stageLevel,
 } from './balance';
@@ -46,7 +47,8 @@ function played(over: Partial<Progress> = {}): GameState {
     bestStage: 50,
     items: { ...newGear(77), ring, bag: [pendant], nextId: 3 },
     companions: { crow: 4, wolf: 2 },
-    character: { defenceLevel: 5, critLevel: 6, hpLevel: 7 },
+    character: { defenceLevel: 5, critLevel: 6, hpLevel: 7, manaLevel: 8 },
+    mana: 5,
     ...over,
   });
 }
@@ -101,7 +103,8 @@ describe('ascend', () => {
       equipped: 0,
       autoAdvance: true,
       companions: { crow: 0, wolf: 0 },
-      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 0, manaLevel: 0 },
+      mana: HERO_MAX_MANA,
     });
     expect(next.duel.phase).toBe('intro');
     expect(next.duel.mob.hp).toBeGreaterThan(0);

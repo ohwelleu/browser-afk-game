@@ -75,21 +75,36 @@ describe('validateSaveData', () => {
     }
   });
 
+  it('checks mana: a whole number from 0', () => {
+    const ok = validateSaveData({ ...valid(), mana: 42 }, TRACKS);
+    expect(ok.ok && ok.progress.mana).toBe(42);
+    for (const mana of [-1, 1.5, 'x', null, undefined]) {
+      const r = validateSaveData({ ...valid(), mana }, TRACKS);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join(' ')).toContain('mana');
+    }
+  });
+
   it('checks character levels strictly', () => {
     const ok = validateSaveData(
-      { ...valid(), character: { defenceLevel: 4, critLevel: 2, hpLevel: 3 } },
+      { ...valid(), character: { defenceLevel: 4, critLevel: 2, hpLevel: 3, manaLevel: 0 } },
       TRACKS,
     );
-    expect(ok.ok && ok.progress.character).toEqual({ defenceLevel: 4, critLevel: 2, hpLevel: 3 });
+    expect(ok.ok && ok.progress.character).toEqual({
+      defenceLevel: 4,
+      critLevel: 2,
+      hpLevel: 3,
+      manaLevel: 0,
+    });
     for (const character of [
       null,
       [],
-      { defenceLevel: -1, critLevel: 0, hpLevel: 0 },
-      { defenceLevel: 1.5, critLevel: 0, hpLevel: 0 },
-      { defenceLevel: 0, critLevel: -1, hpLevel: 0 },
-      { defenceLevel: 0, critLevel: 2.5, hpLevel: 0 },
-      { defenceLevel: 0, critLevel: 0, hpLevel: -1 },
-      { defenceLevel: 0, critLevel: 0, hpLevel: 2.5 },
+      { defenceLevel: -1, critLevel: 0, hpLevel: 0, manaLevel: 0 },
+      { defenceLevel: 1.5, critLevel: 0, hpLevel: 0, manaLevel: 0 },
+      { defenceLevel: 0, critLevel: -1, hpLevel: 0, manaLevel: 0 },
+      { defenceLevel: 0, critLevel: 2.5, hpLevel: 0, manaLevel: 0 },
+      { defenceLevel: 0, critLevel: 0, hpLevel: -1, manaLevel: 0 },
+      { defenceLevel: 0, critLevel: 0, hpLevel: 2.5, manaLevel: 0 },
       { defenceLevel: 0, critLevel: 0 },
       { defenceLevel: 0 },
       {},
