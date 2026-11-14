@@ -15,8 +15,8 @@ describe('passive texts', () => {
     expect(passiveLine({ id: 'speed', tier: 'B', level: 4 })).toEqual({
       name: 'Swift strikes',
       tier: 'B',
-      total: '+6% attack speed',
-      short: '+6%',
+      total: '+12% attack speed',
+      short: '+12%',
     });
     expect(passiveLine({ id: 'ghost', tier: 'C', level: 1 })).toBeNull();
     expect(passiveLine({ id: 'speed', tier: 'SS', level: 1 })?.tier).toBe('S+');
@@ -25,8 +25,8 @@ describe('passive texts', () => {
   it('shows the total before → after and how a pick stacks', () => {
     const owned = [{ id: 'speed', tier: 'C' as const, level: 2 }];
     expect(optionLine({ id: 'speed', tier: 'C' }, owned)).toMatchObject({
-      value: '+1% attack speed',
-      total: 'Total 2% → 3%',
+      value: '+2% attack speed',
+      total: 'Total 4% → 6%',
       owned: 'You have Lv 2 at this tier: it becomes Lv 3.',
     });
     expect(optionLine({ id: 'speed', tier: 'S' }, owned)?.owned).toMatch(/separate entry/);
@@ -41,7 +41,7 @@ describe('passive texts', () => {
         { id: 'speed', tier: 'C', level: 3 },
         { id: 'defence', tier: 'C', level: 2 },
       ]),
-    ).toBe('Attack speed +3%, Defence +4');
+    ).toBe('Attack speed +6%, Defence +8');
   });
 
   it('S+ badges get the rainbow frame, others a plain tier frame', () => {

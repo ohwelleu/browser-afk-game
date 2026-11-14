@@ -5,11 +5,13 @@ import {
   ascendsOf,
   ASCEND_SHIFT,
   PASSIVE_CAPS,
+  PASSIVE_TIER_MULT,
   PASSIVES,
   passiveTotals,
   pickCount,
   PICK_OPTIONS,
   PICK_TIER_WEIGHTS,
+  PICK_VALUE_SCALE,
   rollPickOptions,
   tierChances,
   tierWeights,
@@ -76,6 +78,16 @@ describe('the passives table', () => {
       const v = ITEM_TIERS.map((t) => p.values[t]);
       for (let i = 1; i < v.length; i++) expect(v[i]).toBeGreaterThan(v[i - 1]);
     }
+  });
+
+  it('scales every tier up from the old values (one pick per world now)', () => {
+    for (const t of ITEM_TIERS) expect(PICK_VALUE_SCALE[t]).toBeGreaterThanOrEqual(1.5);
+    expect(PICK_VALUE_SCALE.C).toBe(2);
+    expect(PICK_VALUE_SCALE.B).toBe(2);
+    const speed = PASSIVES.find((p) => p.id === 'speed')!;
+    expect(speed.values).toEqual({ C: 0.02, B: 0.03, A: 0.04, S: 0.06, SS: 0.12 });
+    const defence = PASSIVES.find((p) => p.id === 'defence')!;
+    expect(defence.values).toEqual({ C: 4, B: 6, A: 8, S: 12, SS: 24 });
   });
 
   it('S+ is twice S', () => {
@@ -194,8 +206,8 @@ describe('passiveTotals', () => {
       { id: 'speed', tier: 'S', level: 1 },
       { id: 'defence', tier: 'B', level: 2 },
     ]);
-    expect(t.speed).toBeCloseTo(0.03 + 0.04, 9);
-    expect(t.defence).toBe(6);
+    expect(t.speed).toBeCloseTo(3 * 0.02 + 0.06, 9);
+    expect(t.defence).toBe(12);
   });
 
   it('applies the caps and ignores unknown ids', () => {
@@ -209,20 +221,20 @@ describe('passiveTotals', () => {
   });
 });
 
-/** Expected C-equivalent value of one pick, at the base weights. */
+/** Expected value of one pick in units of the unscaled C value, at the base weights. */
 const evPerPick = (ascends: number) => {
   const c = tierChances(ascends);
-  return ITEM_TIERS.reduce((sum, t) => sum + c[t] * [1, 1.5, 2.5, 4, 8][ITEM_TIERS.indexOf(t)], 0);
+  return ITEM_TIERS.reduce((sum, t) => sum + c[t] * PASSIVE_TIER_MULT[t] * PICK_VALUE_SCALE[t], 0);
 };
 
 describe('totals after many picks (the numbers quoted in the PR)', () => {
   it('stay modest: 10 and 50 picks spread over the five passives, at 0 ascends', () => {
     const per = (picks: number) => (picks / PASSIVES.length) * evPerPick(0);
-    // ≈1.47 C-equivalents per pick; one passive gets a fifth of the picks.
-    expect(evPerPick(0)).toBeCloseTo(1.465, 3);
-    expect(per(10) * 0.01).toBeLessThan(0.04); // attack speed after 10 picks
-    expect(per(50) * 0.01).toBeLessThan(0.16); // after 50 picks
-    expect(per(50) * 0.005).toBeLessThan(0.08); // crit chance after 50 picks
+    // ≈2.71 unscaled-C units per pick; one passive gets a fifth of the picks.
+    expect(evPerPick(0)).toBeCloseTo(2.71, 3);
+    expect(per(10) * 0.01).toBeLessThan(0.06); // attack speed after 10 picks
+    expect(per(50) * 0.01).toBeLessThan(0.3); // after 50 picks (cap 50 %)
+    expect(per(50) * 0.005).toBeLessThan(0.14); // crit chance after 50 picks
   });
 
   it('even 50 picks all on one passive stay under its cap or small', () => {

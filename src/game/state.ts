@@ -165,10 +165,10 @@ export type GameState = {
   character: Character;
   /** Mana now, 0 to `heroMaxMana`. The crow gives it back on clicks; saved, not reset per duel. */
   mana: number;
-  /** Passive skills picked after stage clears (game/passives.ts). */
+  /** Passive skills picked after boss kills (game/passives.ts). */
   passives: Passive[];
   /**
-   * The offer waiting for the player after a stage clear, or null. While it is
+   * The offer waiting for the player after a boss kill, or null. While it is
    * set the duel is frozen: the fight waits for the pick (no timer picks for you).
    */
   pick: PickOption[] | null;
@@ -462,10 +462,12 @@ function step(s: GameState): void {
         setPhase(d, 'transition');
         if (s.autoAdvance) {
           const cleared = stageLevel(s.world, s.stage);
+          const boss = isBoss(s.stage);
           advanceStage(s);
           s.events.push({ type: 'sfx', name: 'stageClear' });
-          // Only the first clear of a stage offers a pick, so replaying can't farm them.
-          if (cleared >= s.best) offerPick(s);
+          // Only a boss kill offers a pick, and only the first time per run
+          // (`best` is the frontier), so replaying a boss can't farm them.
+          if (boss && cleared >= s.best) offerPick(s);
         }
         s.events.push({ type: 'save' });
       }
@@ -901,7 +903,7 @@ export function setAutoAdvance(s: GameState, on: boolean): GameState {
   return next;
 }
 
-// ── Stage picks ────────────────────────────────────────────────────────────
+// ── Boss picks ─────────────────────────────────────────────────────────────
 
 /** Rolls an offer into `s.pick` (mutates a draft). Does nothing if picks are off or one is pending. */
 function offerPick(s: GameState): void {
