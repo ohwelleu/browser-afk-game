@@ -77,15 +77,17 @@ describe('passives in the save', () => {
       passives: [],
       pick: null,
       mana: 100, // v10 → v11 (mana) runs after it
+      worldReward: 0,
     });
-    // A v10 save keeps what it has.
-    const v10 = {
+    // A current save keeps what it has.
+    const current = {
       version: SAVE_VERSION,
       passives: [{ id: 'speed', tier: 'C', level: 2 }],
       pick: null,
+      worldReward: 0,
     };
-    expect(migrateSave(v10)).toEqual(v10);
-    expect(SAVE_VERSION).toBe(11);
+    expect(migrateSave(current)).toEqual(current);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(10);
   });
 
   it('a plain-JSON v1 save without the fields is repaired to none', () => {

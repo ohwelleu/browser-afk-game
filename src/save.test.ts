@@ -148,6 +148,7 @@ describe('writeSave / loadSave', () => {
       mana: 100,
       passives: [],
       pick: null,
+      worldReward: 0,
     });
     expect(saved!.audio).toEqual(audio);
   });
@@ -450,6 +451,7 @@ describe('save migration v7 → v8 (companion slot becomes companion levels)', (
       mana: 100,
       passives: [],
       pick: null,
+      worldReward: 0,
     });
   });
 
@@ -482,6 +484,7 @@ describe('save migration', () => {
       revealedWeapons: [true, false, false, false, false],
       passives: [],
       pick: null,
+      worldReward: 0,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
@@ -617,6 +620,7 @@ describe('revealed weapons in the save (v5)', () => {
       revealedWeapons: [true, true, false, false, false],
       passives: [],
       pick: null,
+      worldReward: 0,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
@@ -683,6 +687,7 @@ describe('max HP upgrade in the save (v7)', () => {
       character: { defenceLevel: 3, critLevel: 2, hpLevel: 0, manaLevel: 0 },
       passives: [],
       pick: null,
+      worldReward: 0,
       ascends: 0,
       bestStage: 1,
       bestItem: null,
@@ -712,6 +717,7 @@ describe('ascend records in the save (v9)', () => {
       mana: 100,
       passives: [],
       pick: null,
+      worldReward: 0,
     });
   });
 

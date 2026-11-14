@@ -4,6 +4,7 @@ import {
   STAGES_PER_WORLD,
   stageLevel,
   WEAPONS,
+  worldRewardFor,
 } from './game/balance';
 import type { Item } from './game/items';
 import {
@@ -50,8 +51,11 @@ export const DEFAULT_SAVE_KEY = 'afk-game';
  *    the player, or null); old saves start with none
  * 11. + `mana` (current mana) and `character.manaLevel` (max mana upgrade); old
  *    saves start with full mana at level 0
+ * 12. + `worldReward` (highest world whose boss reward was given this run);
+ *    old saves get the rewarded world when the run is already past it (no
+ *    surprise item), else 0
  */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 export const SAVE_PREFIX = 'AFK1';
 export const backupKey = (key: string) => `${key}.bak`;
 
@@ -97,6 +101,9 @@ const MIGRATIONS: Record<number, (d: Record<string, unknown>) => void> = {
     const ch = d.character;
     d.character = ch && typeof ch === 'object' && !Array.isArray(ch) ? { ...ch, manaLevel: 0 } : ch;
     d.mana = HERO_MAX_MANA;
+  },
+  11: (d) => {
+    d.worldReward = worldRewardFor(isInt(d.best, 1) ? d.best : 1);
   },
 };
 
@@ -232,6 +239,9 @@ function repairV1(data: Record<string, unknown>): Loaded {
         stageLevel(world, stage),
       ),
       bestItem: loadItem(data.bestItem),
+      worldReward: isInt(data.worldReward, 0)
+        ? data.worldReward
+        : worldRewardFor(isInt(data.best, 1) ? data.best : 1),
       // Migration v1 → v2: no `items` yet, so loadGear starts empty with a new seed.
       items: loadGear(data.items),
       companions: loadCompanions(data.companions),
@@ -309,6 +319,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
   int('deaths', d.deaths, 0);
   int('maxDps', d.maxDps, 0);
   int('ascends', d.ascends, 0);
+  int('worldReward', d.worldReward, 0);
   int('bestStage', d.bestStage, 1); // createState raises it to `best` if it is lower
   const bestItem = validateItem(d.bestItem, 'bestItem', errors);
   bool('autoAdvance', d.autoAdvance);
@@ -413,6 +424,7 @@ export function validateSaveData(data: unknown, tracks?: readonly string[]): Val
       ascends: d.ascends as number,
       bestStage: d.bestStage as number,
       bestItem,
+      worldReward: d.worldReward as number,
       items: items!,
       companions: pickCompanions(c as CompanionLevels),
       character: pickCharacter(ch as Character),
@@ -464,6 +476,7 @@ export function toSaveData(
     ascends: s.ascends,
     bestStage: s.bestStage,
     bestItem: s.bestItem && saveBestItem(s.bestItem),
+    worldReward: s.worldReward,
     items: saveGear(s.items),
     companions: pickCompanions(s.companions),
     character: pickCharacter(s.character),

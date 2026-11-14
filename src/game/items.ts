@@ -12,9 +12,12 @@ import {
   itemRarityWeights,
   itemSellPrice,
   itemStatValue,
+  WORLD_REWARD,
   ITEM_TIERS,
+  isBoss,
   stageLevel,
   safeInt,
+  BOSS_STAGE,
   type ItemSlot,
   type ItemStat,
   type ItemTier,
@@ -128,11 +131,27 @@ export function rollDrop(g: Gear, world: number, stage: number, force = false): 
   if (nextFloat(rng) >= chance && !force)
     return { gear: { ...g, rng: rng.state }, item: null, soldFor: 0 };
   const item = rollItem(rng, g.nextId, world, stage, gearTotals(g).itemFind);
+  return stash(g, rng, item);
+}
+
+/** Puts a rolled item in the bag; a full bag sells it at once. */
+function stash(g: Gear, rng: Rng, item: Item): DropResult {
   const base = { ...g, rng: rng.state, nextId: g.nextId + 1 };
   if (g.bag.length >= ITEMS.inventorySize) {
     return { gear: base, item, soldFor: itemSellPrice(item.world, item.stage, item.tier) };
   }
   return { gear: { ...base, bag: [...g.bag, item] }, item, soldFor: 0 };
+}
+
+/**
+ * The boss reward: one item of `WORLD_REWARD.tier` in a random slot, rolled
+ * for `world.stage` from the same drop RNG. A full bag sells it at once, like
+ * a normal drop (`soldFor` > 0).
+ */
+export function rollWorldReward(g: Gear, world: number, stage: number): DropResult {
+  const rng: Rng = { state: g.rng };
+  const item = rollItem(rng, g.nextId, world, stage, 0, { tier: WORLD_REWARD.tier });
+  return stash(g, rng, item);
 }
 
 export const sellPrice = (item: Item): number => itemSellPrice(item.world, item.stage, item.tier);
@@ -184,12 +203,37 @@ export function forceNextDrop(on = true): void {
 export function onKill(s: GameState, world: number, stage: number): void {
   const r = rollDrop(s.items, world, stage, forcedDrop);
   forcedDrop = false;
+  announceDrop(s, r);
+  // The reward comes after the normal drop, so its toast is the one left on screen.
+  if (world === WORLD_REWARD.world && isBoss(stage) && s.worldReward < world) giveWorldReward(s);
+}
+
+/**
+ * Gives the world boss reward (once per run: `worldReward` remembers it) as a
+ * drop event. Also used by the debugger, which gives it again.
+ */
+export function giveWorldReward(s: GameState): void {
+  announceDrop(s, rollWorldReward(s.items, WORLD_REWARD.world, BOSS_STAGE), WORLD_REWARD.world);
+  s.worldReward = Math.max(s.worldReward, WORLD_REWARD.world);
+}
+
+/** Debugger action: gives the world reward again (a new state; the once-per-run flag is not checked). */
+export function grantWorldReward(s: GameState): GameState {
+  const next = { ...s, events: [] as GameState['events'] };
+  giveWorldReward(next);
+  return next;
+}
+
+/** Applies a drop result to the state and reports it as events (nothing when no item). */
+function announceDrop(s: GameState, r: DropResult, reward?: number): void {
   s.items = r.gear;
   if (!r.item) return;
   s.bestItem = betterItem(s.bestItem, r.item); // also counts a drop that was sold at once
   if (r.soldFor) s.coins = safeInt(s.coins + r.soldFor);
   s.events.push(
-    { type: 'item', item: r.item, soldFor: r.soldFor },
+    reward
+      ? { type: 'item', item: r.item, soldFor: r.soldFor, reward }
+      : { type: 'item', item: r.item, soldFor: r.soldFor },
     { type: 'sfx', name: r.item.tier === 'S' || r.item.tier === 'SS' ? 'itemDropS' : 'itemDrop' },
     { type: 'save' },
   );
