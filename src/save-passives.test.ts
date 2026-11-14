@@ -76,6 +76,7 @@ describe('passives in the save', () => {
       coins: 7,
       passives: [],
       pick: null,
+      mana: 100, // v10 → v11 (mana) runs after it
       worldReward: 0,
     });
     // A current save keeps what it has.

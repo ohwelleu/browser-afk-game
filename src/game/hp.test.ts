@@ -17,9 +17,9 @@ describe('max HP upgrade balance', () => {
     expect(hpFromLevel(0)).toBe(0);
     expect(hpFromLevel(3)).toBe(3 * CHARACTER.hp.perLevel);
     expect(hpFromLevel(-4)).toBe(0);
-    expect(heroMaxHp({ character: { defenceLevel: 0, critLevel: 0, hpLevel: 5 } })).toBe(
-      HERO_MAX_HP + hpFromLevel(5),
-    );
+    expect(
+      heroMaxHp({ character: { defenceLevel: 0, critLevel: 0, hpLevel: 5, manaLevel: 0 } }),
+    ).toBe(HERO_MAX_HP + hpFromLevel(5));
     expect(heroMaxHp({})).toBe(HERO_MAX_HP);
   });
 });
@@ -65,7 +65,7 @@ describe('buyHp', () => {
   it('a new duel starts at the full max HP, also on a loaded game', () => {
     const s = createState({
       ...newProgress(),
-      character: { defenceLevel: 0, critLevel: 0, hpLevel: 7 },
+      character: { defenceLevel: 0, critLevel: 0, hpLevel: 7, manaLevel: 0 },
     });
     expect(s.duel.heroHp).toBe(HERO_MAX_HP + hpFromLevel(7));
   });
@@ -77,7 +77,7 @@ describe('buyHp', () => {
         world: 5,
         stage: 1,
         best: 25,
-        character: { defenceLevel: 0, critLevel: 0, hpLevel },
+        character: { defenceLevel: 0, critLevel: 0, hpLevel, manaLevel: 0 },
       });
       let hits = 0;
       for (let i = 0; i < 100_000 && s.duel.phase !== 'heroDying'; i++) {
