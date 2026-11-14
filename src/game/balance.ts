@@ -12,6 +12,10 @@ import type { AttackDef } from './attacks';
 export const STAGES_PER_WORLD = 6;
 export const BOSS_STAGE = 6;
 export let HERO_MAX_HP = 100;
+/** Max mana before upgrades. */
+export let HERO_MAX_MANA = 100;
+/** Mana the crow returns for each click that makes it peck. There is no passive regeneration. */
+export let MANA_PER_CLICK = 1;
 
 /**
  * Duel timeline in seconds (duel time starts at 0 when the mob appears).
@@ -392,7 +396,7 @@ export function companionUpgradeCostAt(def: CompanionDef, level: number): number
 
 // ── Character upgrades (bought with coins in Shop → Character) ─────────────
 
-export type CharacterUpgradeId = 'defence' | 'crit' | 'hp';
+export type CharacterUpgradeId = 'defence' | 'crit' | 'hp' | 'mana';
 
 /**
  * Each upgrade: cost of buying level `n` is `base × growth^(n−1)` (level 0 =
@@ -409,6 +413,8 @@ export const CHARACTER: Record<
   crit: { base: 100, growth: 1.3, perLevel: 0.01 },
   // Flat max HP on top of `HERO_MAX_HP`: +10 per level (10 % of the starting 100).
   hp: { base: 30, growth: 1.3, perLevel: 10 },
+  // Flat max mana on top of `HERO_MAX_MANA` (placeholder numbers until the skills exist).
+  mana: { base: 40, growth: 1.3, perLevel: 10 },
 };
 
 // ── Critical hits (hero hits only for now) ─────────────────────────────────
@@ -460,6 +466,10 @@ export function characterCost(id: CharacterUpgradeId, level: number): number {
 /** Extra max HP from the coin upgrade at `level`. */
 export const hpFromLevel = (level: number): number =>
   safeInt(CHARACTER.hp.perLevel * Math.max(0, level));
+
+/** Extra max mana from the coin upgrade at `level`. */
+export const manaFromLevel = (level: number): number =>
+  safeInt(CHARACTER.mana.perLevel * Math.max(0, level));
 
 /** Defence points from the coin upgrade at `level`. */
 export const defenceFromLevel = (level: number): number =>
@@ -533,6 +543,7 @@ export function bulkQuote(
  */
 export const TUNING = {
   hero: { maxHp: HERO_MAX_HP },
+  mana: { max: HERO_MAX_MANA, perClick: MANA_PER_CLICK },
   duel: DUEL,
   mobKinds: MOB_KINDS,
   mob: { hp: MOB_HP, dmg: MOB_DMG, coins: MOB_COINS },
@@ -557,6 +568,8 @@ export let CRIT_MAX_LEVEL = critMaxLevel();
 /** Copies `TUNING` into the `let` exports and recomputes the derived ones. */
 function syncExports(): void {
   HERO_MAX_HP = TUNING.hero.maxHp;
+  HERO_MAX_MANA = TUNING.mana.max;
+  MANA_PER_CLICK = TUNING.mana.perClick;
   UPGRADE_GROWTH = TUNING.upgrade.growth;
   WEAPON_REVEAL_FRACTION = TUNING.shop.weaponRevealFraction;
   CRIT_BUY_MAX_PERCENT = TUNING.shop.critMaxPercent;

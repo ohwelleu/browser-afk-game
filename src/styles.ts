@@ -90,6 +90,12 @@ img { image-rendering: pixelated; display: block; }
 .bar { display: block; width: 132px; height: 16px; border: 3px solid var(--_fg); padding: 2px; }
 .bar-fill { display: block; height: 100%; background: var(--_green); }
 .bar-fill.low { background: var(--_red); }
+/* The mana bar sits under the HP bar: same bar, blue fill, a small gem where the hero icon is.
+   Not a button (nothing to open), so it adds no touch target on compact boxes. */
+.mana { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.mana .bar-fill { background: var(--_blue); }
+.mana-icon { flex: none; width: 24px; height: 24px; display: grid; place-items: center; }
+.mana-icon::before { content: ''; width: 11px; height: 11px; background: var(--_blue); transform: rotate(45deg); }
 .hud-center { display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: bold; white-space: nowrap; }
 .stage-btn { width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 1em; }
 .boss { color: var(--_purple); }

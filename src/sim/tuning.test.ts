@@ -4,6 +4,7 @@ import {
   ASCEND_GATE_LEVEL,
   CRIT_MAX_LEVEL,
   HERO_MAX_HP,
+  HERO_MAX_MANA,
   ITEMS,
   TUNING,
   UPGRADE_GROWTH,
@@ -46,6 +47,9 @@ describe('tuning keys', () => {
     expect(getTuning('ascend.gate.world')).toBe(6);
     expect(getTuning('ascend.costKills')).toBe(100);
     expect(getTuning('companions.crow.price')).toBe(25);
+    expect(getTuning('mana.max')).toBe(100);
+    expect(getTuning('mana.perClick')).toBe(1);
+    expect(getTuning('character.mana.base')).toBe(40);
     expect(tuningKeys()).toContain('character.defence.perLevel');
   });
 
@@ -115,6 +119,9 @@ describe('applyTuning', () => {
     expect(canAscend({ best: 13, coins: mobCoins(3, 1) })).toBe(false);
     applyTuning('ascend.gate.world', 3);
     expect(canAscend({ best: 13, coins: mobCoins(3, 1) })).toBe(true);
+
+    applyTuning('mana.max', 70);
+    expect(HERO_MAX_MANA).toBe(70);
 
     applyTuning('hero.maxHp', 250);
     expect(HERO_MAX_HP).toBe(250);
